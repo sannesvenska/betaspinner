@@ -62,13 +62,16 @@ Order note: win flow (AP6) comes **before** actions (AP7) so a complete session 
 
 **Verified:** 33 unit tests; e2e in the running app (videos play and seek via Range, unknown hashes 404, corrupt file skipped, missing folder flagged); rescan of 6,000 cached files < 3 s.
 
-## AP3 – Session generator (pure) · L · ⬜
+## AP3 – Session generator (pure) · L · ✅
 
-1. Seeded PRNG (mulberry32) with serializable state.
-2. `generateSession` pipeline §6.1–6.6 incl. initial task range, start jitter, category selection with cooldown/freshness, card composition, action slots (gates, min/max, requires), stratified placement, image assignment (shuffle bags, recency).
-3. Unit tests per step + distribution tests over 1,000 seeds.
+| #   | Task                                                                                                                                                                                                                                                                                                            | Status |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 3.1 | Seeded PRNG (mulberry32) with serializable state + helpers (randInt, shuffle, weighted pick), track geometry                                                                                                                                                                                                    | ✅     |
+| 3.2 | Types + defaults: `ActionConfig` catalog (20 actions), `SessionRules`, `Progression`, `Card`, `SessionState`                                                                                                                                                                                                    | ✅     |
+| 3.3 | Pipeline §6.1–6.6: start wheel + penalty check, start placement, category selection (cooldown/freshness/relaxation), composition, action slots (gates, blocks, min/max, requires), stratified placement with gap, image bags (no repeats, recency, `allowedActions`, `shareWeight` split), neutral action cards | ✅     |
+| 3.4 | Tests per step + 1,000-seed distribution tests (placement spread/gap/protection, Mistress Says No ≈ 5 %, requires never violated, goodChance ratio, no image repeats, determinism)                                                                                                                              | ✅     |
 
-**Result:** deterministic generator, fully tested.
+**Result:** `generateSession()` in `src/shared/session/` – 30 tests. Config storage for rules/actions joins with the admin (AP9); until then the defaults are used.
 
 ## AP4 – Game engine (pure) · L · ⬜
 

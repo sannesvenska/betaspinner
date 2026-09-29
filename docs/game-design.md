@@ -114,6 +114,14 @@ On startup and on demand ("Rescan"), the main process scans all folders and buil
 
 **[RULE]** Session generation is a **pure, deterministic function**: `generateSession(config, progression, imageIndex, history, seed) → SessionState`. It uses a seeded PRNG (e.g. mulberry32). The seed is stored in the session so any session can be reproduced for debugging. This function must be covered by unit tests.
 
+**Implementation:** `src/shared/session/` (`generateSession`, one module per step, tests incl. 1,000-seed distribution checks). Clarifications made during implementation:
+
+- The session index is `progression.sessionCounter + 1`; `sessionsSinceLastUse = sessionIndex − lastUsedSessionIndex`. A category is on cooldown while `sessionsSinceLastUse ≤ cooldownSessions`.
+- The generator is pure: it returns the session **and** the updated `categoryUsage`; progression is persisted when the session actually starts.
+- Action slots that cannot be filled (all actions of a group disabled, blocked or at `maxPerSession`) become normal cards.
+- Action images come from all enabled action folders of the group (no `minImages` threshold); `allowedActions` filters per card.
+- Placement segments start at a random offset on the ring so segment borders are not predictable.
+
 Pipeline order:
 
 1. Goal Field and start position (§6.1)
@@ -627,6 +635,8 @@ History screen: table of past sessions (sortable), plus summary (sessions, win r
 ---
 
 ## 20. Data Model (TypeScript)
+
+> Source of truth in code: `src/shared/session/types.ts` and `src/shared/content.ts`. Differences to the sketch below: `ActionConfig` has no `group` (derived from the id) and `maxPerSession: number | null`; `SessionState` additionally stores `sessionIndex`, `startField` and `initialTaskCount`.
 
 ```ts
 type Group = 'good' | 'bad';
