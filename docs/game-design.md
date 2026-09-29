@@ -447,6 +447,21 @@ When a player removes "one negative effect", a picker lists all active negative 
 
 ---
 
+### 11.1 Engine Implementation Notes
+
+Implemented as a pure reducer in `src/shared/session/engine/` (`reduce(state, event, context)`), covered by unit tests and a random-play fuzz test. Clarifications:
+
+- **Rounds:** the round counter increases on every roll/choice. Effects created while resolving a round's card start ticking at the end of the _next_ round, so "N rounds" means the next N moves. The start card (round 0) never ticks.
+- **Resolution queue:** each card produces steps (task, hold, timed task, pick effect, notice, guess, reward choice, Switcheroo pool/folder). The head step is what the task bar shows; the round ends when the queue is empty.
+- **Task multiplier** (Double Trouble) applies to card tasks, Squeeze, and the tasks of Goal Teleport / Moving Day. It does not apply to the initial task or to the Guessing Game penalty (d1 × d2).
+- **U Turn** blocks the direction of the move that landed on it.
+- **Shield** blocking a bad action counts as a trigger (the card is consumed with `actionRetrigger: once`).
+- **Consumed conversion** happens at trigger time; the UI shows the action via the `reveal` snapshot.
+- **Hail Mary** rolls on the step grid (1.5 / 2.0 / 2.5 / 3.0). **Bad Luck** without an active multiplier shows "nothing to remove".
+- **Switcheroo action pools** are only offered when the swap can change something (with "all action folders active" at least two folders are needed).
+- **Moving Day** never lands on the Goal Field (targets are undiscovered non-goal fields) and resolves the landed card in the same round.
+- **Guessing Game** rewards: "remove 2 penalty fields" is collected in `penaltyFieldsRemoved` and applied to progression at session end (§13).
+
 ## 12. Visual Effects and Region Masks
 
 ### 12.1 Concept

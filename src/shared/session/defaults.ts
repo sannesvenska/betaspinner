@@ -23,6 +23,9 @@ export const DEFAULT_SESSION_RULES: SessionRules = {
   actionHint: 'split_by_side',
 };
 
+/** game-design §12.4: blockSizes has 6 entries → levels 0..5. Configurable with visual effects (AP8/AP9). */
+export const DEFAULT_PIXELATE_MAX_LEVEL = 5;
+
 /** game-design §13, §15 defaults. */
 export const GOOD_CHANCE_BOUNDS = [0.2, 0.7] as const;
 

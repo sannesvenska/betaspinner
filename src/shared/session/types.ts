@@ -101,18 +101,70 @@ export type EffectType =
   | 'shield';
 
 export interface ActiveEffect {
-  id: string;
+  /** One instance per type, so the type doubles as id. */
+  id: EffectType;
   type: EffectType;
   remainingRounds?: number;
-  /** multiplier, pixel level, blocked direction (-1 / 1) */
+  /** multiplier, pixel level or blocked direction (-1 left / 1 right) */
   value?: number;
+  /** Round in which the effect was created or refreshed – it starts ticking after this round (§8.2). */
+  createdRound: number;
 }
 
-/** Session state as created by the generator; the engine (AP4) evolves it. */
+/** left = counter-clockwise (-1), right = clockwise (+1) */
+export type Direction = 'left' | 'right';
+export type Pace = 'slow' | 'fast';
+export type SwitcherooPool = 'good_content' | 'bad_content' | 'good_action' | 'bad_action';
+
+/** Acknowledge-only messages shown in the task bar. */
+export type Notice =
+  | { type: 'effect_applied'; effect: EffectType; value?: number; rounds?: number }
+  | { type: 'effects_cleared'; effects: EffectType[] }
+  | { type: 'effect_removed'; effect: EffectType }
+  | { type: 'nothing_to_remove' }
+  | { type: 'shield_blocked'; action: ActionId }
+  | { type: 'decision_maker' }
+  | { type: 'guess_result'; numbers: readonly [number, number]; roll: number; match: boolean }
+  | { type: 'goal_moved'; from: number; to: number }
+  | { type: 'player_moved'; from: number; to: number }
+  | { type: 'relocation_skipped' }
+  | { type: 'switcheroo_done'; pool: SwitcherooPool; folderId: string; changed: number; total: number }
+  | { type: 'switcheroo_unavailable' }
+  | { type: 'penalty_fields_removed'; count: number };
+
+/** Follow-up executed automatically when a task step is confirmed. */
+export type TaskFollowUp = 'teleport_goal' | 'move_player';
+
+/** One unit of card resolution; the head of `pending` is what the player sees now. */
+export type ResolutionStep =
+  | { kind: 'task'; count: number; pace: Pace | null; followUp?: TaskFollowUp }
+  | { kind: 'hold'; seconds: number; thenPickEffect: boolean }
+  | { kind: 'timed_task'; seconds: number; pace: Pace | null }
+  | { kind: 'pick_effect'; options: EffectType[] }
+  | { kind: 'notice'; notice: Notice }
+  | { kind: 'guess' }
+  | { kind: 'choose_reward'; canRemoveEffect: boolean }
+  | { kind: 'switcheroo_pool'; pools: SwitcherooPool[] }
+  | { kind: 'switcheroo_folder'; pool: SwitcherooPool; folderIds: string[] };
+
+export type EndReason = 'ended_early' | 'mistress_says_no';
+
+export interface SessionStats {
+  rolls: number;
+  /** Sum of confirmed task counts (incl. initial task) */
+  tasksPerformed: number;
+  holdTasks: number;
+  holdSeconds: number;
+  actionsTriggered: Partial<Record<ActionId, number>>;
+  maxPixelLevel: number;
+  switches: { pool: SwitcherooPool; from: string | null; to: string }[];
+}
+
+/** Session state as created by the generator and evolved by the engine (`reduce`). */
 export interface SessionState {
   id: string;
   seed: number;
-  /** RNG state after generation – the engine continues from here. */
+  /** RNG state – every engine step continues from here (deterministic reloads). */
   rngState: number;
   sessionIndex: number;
   startedAt: string;
@@ -128,4 +180,16 @@ export interface SessionState {
   effects: ActiveEffect[];
   round: number;
   phase: SessionPhase;
+  /** Resolution queue of the current card; head = current step. */
+  pending: ResolutionStep[];
+  /** Snapshot of the card being resolved (before a consumed action card is converted). */
+  reveal: Card | null;
+  lastRoll: number | null;
+  /** Decision Maker: the next move uses a chosen value instead of a roll. */
+  chooseNextRoll: boolean;
+  lastMove: { from: number; to: number; direction: Direction; steps: number } | null;
+  endReason: EndReason | null;
+  /** Progression changes earned during the session, applied at session end (AP6). */
+  penaltyFieldsRemoved: number;
+  stats: SessionStats;
 }

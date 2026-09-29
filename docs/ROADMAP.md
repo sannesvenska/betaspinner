@@ -73,16 +73,18 @@ Order note: win flow (AP6) comes **before** actions (AP7) so a complete session 
 
 **Result:** `generateSession()` in `src/shared/session/` – 30 tests. Config storage for rules/actions joins with the admin (AP9); until then the defaults are used.
 
-## AP4 – Game engine (pure) · L · ⬜
+## AP4 – Game engine (pure) · L · ✅
 
-1. Session state machine: `reduce(state, event) → state` for all phases (§8, §20).
-2. Movement rules: exact goal landing, discovered only on landing, revisit re-roll.
-3. Effects engine §11: apply/remove/tick, multipliers, pace, direction block, shield (not vs. `mistress_says_no`).
-4. Action resolvers for all 20 actions incl. safety zones, Switcheroo, consumed-card conversion.
-5. Action hint calculation (`split_by_side` arcs).
-6. Unit tests for every rule and action.
+| #   | Task                                                                                                                                                         | Status |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| 4.1 | `reduce(state, event, context)` phase machine with resolution queue; invalid events return an error and the unchanged state                                  | ✅     |
+| 4.2 | Movement: exact goal landing, discovered only on landing, revisit re-roll, U Turn blocking, Decision Maker roll choice, End Early                            | ✅     |
+| 4.3 | Effects engine (§11): apply/remove/tick, multiplier, pace, direction block, pixel level, splatter, success multiplier, shield                                | ✅     |
+| 4.4 | All 20 action resolvers incl. safety zones (Goal Teleport, Moving Day), Switcheroo (content + action pools, X of Y), consumed-card conversion, Guessing Game | ✅     |
+| 4.5 | Action hint (`split_by_side` arcs)                                                                                                                           | ✅     |
+| 4.6 | Tests: effects, flow, every action, determinism, fuzz test (100 random games: no rejected valid event, invariants hold after every event)                    | ✅     |
 
-**Result:** complete game logic without UI.
+**Result:** 95 tests total. Rule clarifications in game-design §11.1.
 
 ## AP5 – Core game UI · L · ⬜
 
