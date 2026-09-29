@@ -6,46 +6,48 @@
 
 ## Milestones
 
-| Milestone | Reached after | Meaning |
-|---|---|---|
-| **M0 – Ready to build** | AP0 | Concept + design system final, open questions closed |
-| **M1 – Playable** | AP5 | Start wheel → session → rounds with normal cards → goal; autosave, pause |
-| **M2 – Full session cycle** | AP6 | Win check, final wheel, outcomes, penalties, progression |
-| **M3 – Feature-complete game** | AP8 | All actions, effects, visual effects |
-| **M4 – Configurable** | AP9 | Admin covers every `default` value |
-| **M5 – Masks** | AP10 | Media Library + Mask Editor |
-| **v1.0** | AP11 | Stats, backup, audit, installer |
+| Milestone                      | Reached after | Meaning                                                                  |
+| ------------------------------ | ------------- | ------------------------------------------------------------------------ |
+| **M0 – Ready to build**        | AP0           | Concept + design system final, open questions closed                     |
+| **M1 – Playable**              | AP5           | Start wheel → session → rounds with normal cards → goal; autosave, pause |
+| **M2 – Full session cycle**    | AP6           | Win check, final wheel, outcomes, penalties, progression                 |
+| **M3 – Feature-complete game** | AP8           | All actions, effects, visual effects                                     |
+| **M4 – Configurable**          | AP9           | Admin covers every `default` value                                       |
+| **M5 – Masks**                 | AP10          | Media Library + Mask Editor                                              |
+| **v1.0**                       | AP11          | Stats, backup, audit, installer                                          |
 
 Order note: win flow (AP6) comes **before** actions (AP7) so a complete session loop is testable early. The pause hotkey ships in AP5 (privacy).
 
 ---
 
-## AP0 – Design finalization · M · 🟨
+## AP0 – Design finalization · M · ✅
 
-| # | Task | Status |
-|---|---|---|
-| 0.1 | Q&A with product owner, decisions recorded (game-design §24) | ✅ |
-| 0.2 | Concept moved to `docs/game-design.md` and updated (ring, keyboard, sound, media formats, rules) | ✅ |
-| 0.3 | Design system v0.3 (`docs/design-system.md`): tokens, accessibility fixes, layout grid, ring spec, components, motion, sound, screen inventory | ✅ |
-| 0.4 | Update core mockup: main screen with console chips, neutral direction buttons, hatched bad segments, action marker shapes, goal icon, ring-center preview (`Chance Runner Game Screen v0.3.html`, local) | ✅ |
-| 0.5 | Remaining screens (design-system §9) are designed **in code** in a dev showcase route (AP1.9) instead of static mockups | ⬜ |
+| #   | Task                                                                                                                                                                                                     | Status |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 0.1 | Q&A with product owner, decisions recorded (game-design §24)                                                                                                                                             | ✅     |
+| 0.2 | Concept moved to `docs/game-design.md` and updated (ring, keyboard, sound, media formats, rules)                                                                                                         | ✅     |
+| 0.3 | Design system v0.3 (`docs/design-system.md`): tokens, accessibility fixes, layout grid, ring spec, components, motion, sound, screen inventory                                                           | ✅     |
+| 0.4 | Update core mockup: main screen with console chips, neutral direction buttons, hatched bad segments, action marker shapes, goal icon, ring-center preview (`Chance Runner Game Screen v0.3.html`, local) | ✅     |
+| 0.5 | Decided: remaining screens (design-system §9) are designed **in code** in the dev showcase route (AP1.9) instead of static mockups                                                                       | ✅     |
 
 **Result:** M0.
 
-## AP1 – Foundation · M · ⬜
+## AP1 – Foundation · M · ✅
 
-1. Scaffold: electron-vite + React 19 + TypeScript strict, pnpm.
-2. Tooling: ESLint (flat config, no `any`, named exports only), Prettier, Vitest, `pnpm check` script (lint + typecheck + test).
-3. Electron security: `contextIsolation`, `sandbox`, no `nodeIntegration`, CSP, single-instance lock.
-4. Typed IPC contract (`shared/ipc.ts`) + preload `window.api`.
-5. Storage service in main: atomic writes (temp + rename), `schemaVersion`, migrations, error handling.
-6. i18n: i18next, `locales/en-nsfw.json`, missing/unused key check script.
-7. Design tokens → CSS variables + Tailwind v4 `@theme`; local fonts via `@fontsource`.
-8. Base components: Button (primary/outline/text), KeyHint, Chip, Stat, Dialog, Drawer, Countdown, HoldToConfirm, Tooltip.
-9. Dev showcase route (`/dev/showcase`, dev builds only) rendering every component and screen state with fixture data.
-10. Window: min size, fullscreen default, F11, neutral title.
+| #    | Task                                                                                                                                                        | Status |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1.1  | Scaffold: electron-vite 5 + Vite 7 + React 19 + TypeScript 6 strict, pnpm                                                                                   | ✅     |
+| 1.2  | Tooling: ESLint flat config (strict type-checked, no `any`, named exports only), Prettier, Vitest, `pnpm check`                                             | ✅     |
+| 1.3  | Electron security: `contextIsolation`, `sandbox`, no `nodeIntegration`, CSP, navigation/popup blocking, single-instance lock                                | ✅     |
+| 1.4  | Typed IPC contract (`src/shared/ipc.ts`), `Result` wrapper, preload `window.api.invoke` with channel whitelist                                              | ✅     |
+| 1.5  | Storage: `createJsonStore` – atomic writes, `schemaVersion`, migrations, corrupt-file quarantine, newer-version guard (tested)                              | ✅     |
+| 1.6  | i18n: i18next with typed keys, `en-nsfw` pack, `pnpm check:i18n` (missing/unused keys)                                                                      | ✅     |
+| 1.7  | Design tokens → Tailwind v4 `@theme` (default palette removed), local fonts via `@fontsource`                                                               | ✅     |
+| 1.8  | Base components: Button, KeyHint, Chip, Stat, GroupCount, Tooltip, Dialog, Drawer, Countdown (+ `useCountdown`), HoldToConfirm, Icon (20 action + UI icons) | ✅     |
+| 1.9  | Dev showcase (`import.meta.env.DEV` only)                                                                                                                   | ✅     |
+| 1.10 | Window: min 1280×720, fullscreen default (off in dev), F11, neutral fixed title, F12 devtools in dev                                                        | ✅     |
 
-**Result:** app starts, components visible in showcase, `pnpm check` green.
+**Notes:** electron-vite 5 caps Vite at 7 and typescript-eslint caps TypeScript below 6.1 – upgrade together later. `config.json` currently holds `AppSettings` only; game rules config joins in AP3/AP9.
 
 ## AP2 – Content pipeline · M · ⬜
 

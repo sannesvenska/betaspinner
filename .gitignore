@@ -1,2 +1,8 @@
 # Design mockups (local only)
 /ChanceRunner App-Konzept und Game Screen Design/
+
+# Dependencies & build output
+node_modules/
+out/
+dist/
+*.tsbuildinfo

@@ -1,0 +1,61 @@
+{
+  "name": "chance-runner",
+  "productName": "Chance Runner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local chance-based image board game",
+  "main": "./out/main/index.js",
+  "packageManager": "pnpm@10.16.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check:i18n": "node scripts/check-i18n.mts",
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm check:i18n && pnpm test"
+  },
+  "dependencies": {
+    "@fontsource/barlow": "5.3.0",
+    "@fontsource/barlow-condensed": "5.3.0",
+    "@fontsource/jetbrains-mono": "5.3.0",
+    "i18next": "26.4.2",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-i18next": "17.0.15",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/node": "^24.19.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "electron": "44.4.5",
+    "electron-vite": "5.0.0",
+    "eslint": "10.11.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.7",
+    "globals": "17.12.0",
+    "prettier": "3.9.9",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.0",
+    "vite": "7.3.6",
+    "vitest": "5.0.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild"
+    ]
+  }
+}

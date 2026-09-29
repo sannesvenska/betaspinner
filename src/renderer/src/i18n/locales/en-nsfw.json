@@ -1,0 +1,138 @@
+{
+  "app": {
+    "title": "Chance Runner",
+    "loading": "Loading…",
+    "loadError": "Could not load settings: {{error}}"
+  },
+  "home": {
+    "eyebrow": "Session {{number}}",
+    "comingSoon": "The start wheel arrives in the next build.",
+    "openShowcase": "Component showcase"
+  },
+  "common": {
+    "done": "Done",
+    "close": "Close",
+    "cancel": "Cancel",
+    "back": "Back",
+    "roundsShort": "{{count}} rd.",
+    "level": "Lv {{level}}",
+    "goodCount": "{{count}} good",
+    "badCount": "{{count}} bad"
+  },
+  "console": {
+    "round": "Round",
+    "discovered": "Discovered",
+    "actionsLeft": "Actions left",
+    "winMultiplier": "Win multiplier",
+    "gallery": "Gallery",
+    "pause": "Pause",
+    "pauseHint": "Pause instantly (Ctrl + Shift + Space)",
+    "endEarly": "End early",
+    "endEarlyHint": "Hold to end the session. Counts as a loss."
+  },
+  "countdown": {
+    "hold": "Hold",
+    "ofSeconds": "of {{seconds}} s"
+  },
+  "effect": {
+    "double_trouble": {
+      "name": "Double Trouble",
+      "description": "All task counts are doubled."
+    },
+    "pixelate": {
+      "name": "Pixelate",
+      "description": "Images are pixelated. Stacks with every new Pixelate card."
+    },
+    "pace_slow": {
+      "name": "Take it Slow",
+      "description": "Slow pace for every task."
+    },
+    "success_multiplier": {
+      "name": "Hail Mary",
+      "description": "Multiplies your chance on the final wheel."
+    }
+  },
+  "showcase": {
+    "title": "Component showcase",
+    "buttons": "Buttons",
+    "chips": "Effect chips",
+    "stats": "Stats",
+    "countdown": "Countdown",
+    "holdToConfirm": "Hold to confirm",
+    "confirmed": "Confirmed",
+    "icons": "Action icons",
+    "overlays": "Dialog & drawer",
+    "openDialog": "Open dialog",
+    "openDrawer": "Open drawer",
+    "dialogTitle": "Example dialog",
+    "dialogBody": "Focus is trapped inside. Press Esc to close.",
+    "drawerTitle": "Discovered cards",
+    "drawerBody": "The gallery grid lands here in AP5.",
+    "restart": "Restart",
+    "primary": "Roll",
+    "text": "Text",
+    "disabled": "Disabled"
+  },
+  "action": {
+    "clearing_edges": {
+      "name": "Clearing Edges"
+    },
+    "good_fairy": {
+      "name": "Good Fairy"
+    },
+    "decision_maker": {
+      "name": "Decision Maker"
+    },
+    "cleaning_lady": {
+      "name": "Cleaning Lady"
+    },
+    "hail_mary": {
+      "name": "Hail Mary"
+    },
+    "switcheroo": {
+      "name": "Switcheroo"
+    },
+    "pixelate": {
+      "name": "Pixelate"
+    },
+    "splatter": {
+      "name": "Splatter"
+    },
+    "squeeze_task": {
+      "name": "Squeeze"
+    },
+    "edge_and_hold": {
+      "name": "Edge & Hold"
+    },
+    "double_trouble": {
+      "name": "Double Trouble"
+    },
+    "mistress_says_no": {
+      "name": "Mistress Says No"
+    },
+    "guessing_game": {
+      "name": "Guessing Game"
+    },
+    "goal_teleport": {
+      "name": "Goal Teleport"
+    },
+    "u_turn": {
+      "name": "U Turn"
+    },
+    "moving_day": {
+      "name": "Moving Day"
+    },
+    "highperformer": {
+      "name": "Highperformer"
+    },
+    "bad_luck": {
+      "name": "Bad Luck"
+    },
+    "take_it_slow": {
+      "name": "Take it Slow"
+    },
+    "speed_it_up": {
+      "name": "Speed it Up"
+    }
+  }
+}

@@ -1,0 +1,123 @@
+@import 'tailwindcss';
+
+@import '@fontsource/barlow-condensed/500.css';
+@import '@fontsource/barlow-condensed/600.css';
+@import '@fontsource/barlow-condensed/700.css';
+@import '@fontsource/barlow/400.css';
+@import '@fontsource/barlow/500.css';
+@import '@fontsource/barlow/600.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+
+/* Darkroom v0.3 design tokens – see docs/design-system.md. Components use these names only. */
+@theme {
+  /* Drop Tailwind's default palette so only design tokens exist */
+  --color-*: initial;
+  --color-bg: #0c0b0a;
+  --color-panel: #100e0c;
+  --color-surface: #1a1714;
+  --color-stage: #171411;
+  --color-line: rgb(236 230 219 / 0.08);
+  --color-line-strong: rgb(236 230 219 / 0.25);
+  --color-ink: #ece6db;
+  --color-ink-2: #b5ac9f;
+  --color-ink-muted: #8e857a;
+  --color-good: #e3a64a;
+  --color-bad: #e0442f;
+  --color-penalty: var(--color-bad);
+  --color-danger: var(--color-bad);
+  --color-ring-empty: #3a332d;
+  --color-overlay: rgb(12 11 10 / 0.86);
+  --color-scrim: rgb(0 0 0 / 0.6);
+  --color-on-ink: #4f4840;
+  --color-transparent: transparent;
+
+  --font-display: 'Barlow Condensed', sans-serif;
+  --font-body: 'Barlow', system-ui, sans-serif;
+  --font-label: 'JetBrains Mono', monospace;
+
+  /* Fluid type: readable at 1280×720, design size at 1920×1080 */
+  --text-display-xl: clamp(96px, 15.5vh, 168px);
+  --text-display-xl--line-height: 0.85;
+  --text-display: clamp(56px, 8.9vh, 96px);
+  --text-display--line-height: 0.9;
+  --text-title: clamp(40px, 5.9vh, 64px);
+  --text-title--line-height: 0.9;
+  --text-stat: clamp(32px, 3.7vh, 40px);
+  --text-stat--line-height: 1.05;
+  --text-button-lg: 26px;
+  --text-button: 18px;
+  --text-chip: 17px;
+  --text-body: 18px;
+  --text-body--line-height: 1.5;
+  --text-body-sm: 16px;
+  --text-body-sm--line-height: 1.5;
+  --text-label: 13px;
+  --text-key: 11px;
+  --text-brand: 20px;
+
+  --tracking-button: 0.12em;
+  --tracking-chip: 0.08em;
+  --tracking-label: 0.18em;
+  --tracking-brand: 0.2em;
+
+  --radius-panel: 2px;
+
+  --shadow-dialog: 0 24px 80px rgb(0 0 0 / 0.6);
+
+  --blur-overlay: 24px;
+
+  --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    overflow: hidden;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
+/* Reduced motion: OS setting or app setting (data attribute set by the app) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+:root[data-reduced-motion='true'] *,
+:root[data-reduced-motion='true'] *::before,
+:root[data-reduced-motion='true'] *::after {
+  animation-duration: 1ms !important;
+  transition-duration: 1ms !important;
+}
