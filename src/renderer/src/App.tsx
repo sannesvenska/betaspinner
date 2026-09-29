@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Showcase } from './dev/Showcase';
+import { LibraryScreen } from './features/library/LibraryScreen';
 import { HomeScreen } from './screens/HomeScreen';
+import { useLibraryStore } from './stores/libraryStore';
 import { useUiStore } from './stores/uiStore';
 
 export function App() {
@@ -11,18 +13,27 @@ export function App() {
   const loadSettings = useUiStore((state) => state.loadSettings);
   const navigate = useUiStore((state) => state.navigate);
 
+  const loadLibrary = useLibraryStore((state) => state.load);
+  const subscribeLibrary = useLibraryStore((state) => state.subscribe);
+
   useEffect(() => {
     void loadSettings();
   }, [loadSettings]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeLibrary();
+    void loadLibrary();
+    return unsubscribe;
+  }, [loadLibrary, subscribeLibrary]);
 
   const reducedMotion = settingsState.status === 'ready' && settingsState.settings.reducedMotion;
   useEffect(() => {
     document.documentElement.dataset.reducedMotion = String(reducedMotion);
   }, [reducedMotion]);
 
-  // Esc leaves the dev showcase (open dialogs consume Esc first)
+  // Esc goes back to the start screen from sub screens (open dialogs consume Esc first)
   useEffect(() => {
-    if (screen !== 'showcase') return;
+    if (screen === 'home') return;
     const onKeyDown = (event: KeyboardEvent) => {
       const modalOpen = document.querySelector('dialog[open]') !== null;
       if (event.key === 'Escape' && !modalOpen) navigate('home');
@@ -42,5 +53,7 @@ export function App() {
     );
   }
 
-  return screen === 'showcase' && import.meta.env.DEV ? <Showcase /> : <HomeScreen />;
+  if (screen === 'showcase' && import.meta.env.DEV) return <Showcase />;
+  if (screen === 'library') return <LibraryScreen />;
+  return <HomeScreen />;
 }

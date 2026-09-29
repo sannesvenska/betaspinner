@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { AppSettings } from '@shared/settings';
 
-export type Screen = 'home' | 'showcase';
+export type Screen = 'home' | 'library' | 'showcase';
 
 type SettingsState =
   { status: 'loading' } | { status: 'ready'; settings: AppSettings } | { status: 'error'; error: string };

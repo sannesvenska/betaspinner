@@ -1,6 +1,7 @@
 import { useId, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ACTION_IDS, actionGroup } from '@shared/actions';
+import { AddFoldersDialog } from '@renderer/features/library/AddFoldersDialog';
 import { useUiStore } from '@renderer/stores/uiStore';
 import { Button } from '@renderer/ui/Button';
 import { Chip } from '@renderer/ui/Chip';
@@ -15,6 +16,7 @@ import { useCountdown } from '@renderer/ui/useCountdown';
 
 const DEMO_COUNTDOWN_SECONDS = 8;
 const SHOWCASE_ICON_SIZE = 32;
+const SAMPLE_FOLDER_PATHS = ['D:/Pictures/Lingerie', 'D:/Pictures/Actions/Bad'];
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -31,6 +33,7 @@ export function Showcase() {
   const navigate = useUiStore((state) => state.navigate);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [confirmedCount, setConfirmedCount] = useState(0);
   const [countdownRun, setCountdownRun] = useState(0);
   const countdown = useCountdown(DEMO_COUNTDOWN_SECONDS, dialogOpen || drawerOpen, countdownRun);
@@ -167,6 +170,14 @@ export function Showcase() {
           >
             {t('showcase.openDrawer')}
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setWizardOpen(true);
+            }}
+          >
+            {t('showcase.openFolderSetup')}
+          </Button>
         </Section>
 
         <Section title={t('showcase.icons')}>
@@ -220,6 +231,19 @@ export function Showcase() {
           </Button>
         </div>
       </Dialog>
+
+      {wizardOpen && (
+        <AddFoldersDialog
+          paths={SAMPLE_FOLDER_PATHS}
+          onCancel={() => {
+            setWizardOpen(false);
+          }}
+          onSubmit={() => {
+            setWizardOpen(false);
+            return Promise.resolve();
+          }}
+        />
+      )}
 
       <Drawer
         open={drawerOpen}

@@ -35,6 +35,12 @@ export const UI_ICON_PATHS = {
   soundOff: 'M4 9v6h4l5 4V5L8 9zM16 9l5 6M21 9l-5 6',
   pause: 'M8 5v14M16 5v14',
   check: 'M4 12l5 5L20 6',
+  brokenImage: 'M4 4h16v16H4zM4 15l4-4 3 3M14 11l2-2 4 4M3 3l18 18',
+  warning: 'M12 3l10 18H2zM12 10v5M12 18v.01',
+  folder: 'M3 6h6l2 2h10v11H3z',
+  plus: 'M12 5v14M5 12h14',
+  refresh: 'M20 11a8 8 0 0 0-14.9-3M4 5v3h3M4 13a8 8 0 0 0 14.9 3M20 19v-3h-3',
+  trash: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',
 } as const;
 
 export type UiIconName = keyof typeof UI_ICON_PATHS;

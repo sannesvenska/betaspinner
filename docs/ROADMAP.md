@@ -49,16 +49,18 @@ Order note: win flow (AP6) comes **before** actions (AP7) so a complete session 
 
 **Notes:** electron-vite 5 caps Vite at 7 and typescript-eslint caps TypeScript below 6.1 – upgrade together later. `config.json` currently holds `AppSettings` only; game rules config joins in AP3/AP9.
 
-## AP2 – Content pipeline · M · ⬜
+## AP2 – Content pipeline · M · ✅
 
-1. Folder config CRUD (IPC) + minimal Folders screen (add/remove, group, role, enabled).
-2. Scanner in a worker: formats jpg/jpeg/png/webp/gif/webm/mp4, dimensions/duration, hash (full for images, partial for videos), cache by `path + size + mtime`.
-3. `image-index.json` + rescan; progress reporting.
-4. `cr-media://<hash>` protocol serving only registered folders (range requests for video).
-5. Media component: image / looping muted video / GIF, `contain`.
-6. Empty state + first-run wizard; missing-folder and broken-media states.
+| #   | Task                                                                                                                                                                                                                                               | Status |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 2.1 | `config.json` v2 `{ settings, folders }` with v1 migration; tolerant folder normalization; config service (read-only when the file is from a newer version)                                                                                        | ✅     |
+| 2.2 | Scanner in a worker thread (`?nodeWorker`): non-recursive, jpg/jpeg/png/webp/gif/webm/mp4, header parsing (dimensions, animated GIF/WebP/APNG), SHA-1 full (images) / partial (videos), cache by `path + size + mtime`, unreadable images rejected | ✅     |
+| 2.3 | `image-index.json` (schema bump = cache rebuild), startup scan, single-flight rescan, progress events                                                                                                                                              | ✅     |
+| 2.4 | `cr-media://media/<hash>` protocol: index-only lookup, path containment check, Range/206 for video, `no-store`                                                                                                                                     | ✅     |
+| 2.5 | `Media` component: image / looping muted video & GIF, `contain`, broken-media state                                                                                                                                                                | ✅     |
+| 2.6 | Library screen (folder list by group/role, status, rename, group/role, enable, remove, paged preview grid), first-run empty state, folder setup dialog, missing-folder / too-few-files / skipped-files states                                      | ✅     |
 
-**Result:** own folders registered, media displayed safely. Perf target: 6,000 files rescan < 3 s when cached.
+**Verified:** 33 unit tests; e2e in the running app (videos play and seek via Range, unknown hashes 404, corrupt file skipped, missing folder flagged); rescan of 6,000 cached files < 3 s.
 
 ## AP3 – Session generator (pure) · L · ⬜
 

@@ -7,7 +7,8 @@
   "home": {
     "eyebrow": "Session {{number}}",
     "comingSoon": "The start wheel arrives in the next build.",
-    "openShowcase": "Component showcase"
+    "openShowcase": "Component showcase",
+    "readyCategories": "Categories ready to play:"
   },
   "common": {
     "done": "Done",
@@ -17,7 +18,8 @@
     "roundsShort": "{{count}} rd.",
     "level": "Lv {{level}}",
     "goodCount": "{{count}} good",
-    "badCount": "{{count}} bad"
+    "badCount": "{{count}} bad",
+    "dismiss": "Dismiss"
   },
   "console": {
     "round": "Round",
@@ -71,7 +73,8 @@
     "restart": "Restart",
     "primary": "Roll",
     "text": "Text",
-    "disabled": "Disabled"
+    "disabled": "Disabled",
+    "openFolderSetup": "Folder setup dialog"
   },
   "action": {
     "clearing_edges": {
@@ -133,6 +136,74 @@
     },
     "speed_it_up": {
       "name": "Speed it Up"
+    }
+  },
+  "media": {
+    "broken": "Media could not be loaded"
+  },
+  "library": {
+    "title": "Library",
+    "addFolders": "Add folders",
+    "rescan": "Rescan",
+    "scanning": "Scanning…",
+    "progress": "{{processed}} / {{total}} files",
+    "foldersNav": "Folders",
+    "sectionEmpty": "No folders yet",
+    "noFolders": "Add a folder to get started.",
+    "group": {
+      "good": "Good",
+      "bad": "Bad"
+    },
+    "role": {
+      "content": "Content",
+      "action": "Action"
+    },
+    "field": {
+      "displayName": "Display name",
+      "group": "Group",
+      "role": "Role",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "status": {
+      "ok_one": "{{count}} file",
+      "ok_other": "{{count}} files",
+      "scanning": "Scanning…",
+      "missing": "Folder not found – drive disconnected or moved?",
+      "error": "Folder could not be read",
+      "disabled_one": "Disabled · {{count}} file",
+      "disabled_other": "Disabled · {{count}} files",
+      "tooFew": "Only {{count}} of {{min}} required files – not used in sessions",
+      "skipped_one": "{{count}} unreadable file skipped",
+      "skipped_other": "{{count}} unreadable files skipped"
+    },
+    "detail": {
+      "noMedia": "No supported files in this folder (jpg, png, webp, gif, webm, mp4).",
+      "showing": "Showing {{shown}} of {{total}}",
+      "loadMore": "Load more",
+      "remove": "Remove folder"
+    },
+    "remove": {
+      "title": "Remove folder?",
+      "body": "\"{{name}}\" is removed from the library. Files on disk are not touched.",
+      "confirm": "Remove"
+    },
+    "add": {
+      "title_one": "Set up folder",
+      "title_other": "Set up {{count}} folders",
+      "intro": "Choose whether each folder holds good or bad images, and whether they are used for normal cards (content) or action cards.",
+      "submit_one": "Add folder",
+      "submit_other": "Add {{count}} folders",
+      "nameRequired": "Enter a display name.",
+      "groupRequired": "Choose good or bad."
+    },
+    "empty": {
+      "eyebrow": "First start",
+      "title": "Add your folders",
+      "body": "Chance Runner plays with images from folders on this computer. Nothing leaves your machine.",
+      "step1": "Pick one or more folders – each folder is one category.",
+      "step2": "Mark each folder as good or bad, and as content or action images.",
+      "step3": "The library is scanned; you need at least one good and one bad content folder to play."
     }
   }
 }

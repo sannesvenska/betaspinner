@@ -105,6 +105,7 @@ On startup and on demand ("Rescan"), the main process scans all folders and buil
 - Supported formats: images `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`; videos `.webm`, `.mp4`. "Image" in this document means any supported media file.
 - **[RULE] Animated media:** GIF, WebM and MP4 autoplay, loop and are **muted**. When a visual effect applies, animated media are rendered frame by frame through the effect canvas (§12.4). If rendering exceeds the frame budget (`animatedEffectFallback default true`), the renderer falls back to a static first frame for that card.
 - Each file gets a **content hash** (SHA-1), cached by `path + size + mtime` so rescans are fast. Images hash the full file bytes; videos hash `size + first 1 MB + last 1 MB` to keep scans fast on large files.
+- **[RULE]** Folders are scanned **non-recursively** (one folder = one category). Hidden files are ignored. Images whose header cannot be parsed are skipped and counted as unreadable – they never appear on a card.
 - The hash is the stable key for masks and recency tracking, so renaming or moving a file does not lose its data.
 
 ---
