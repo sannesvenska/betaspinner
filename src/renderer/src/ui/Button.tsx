@@ -8,7 +8,7 @@ type ButtonSize = 'console' | 'primary';
 interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
   variant?: ButtonVariant;
   size?: ButtonSize;
-  keyHint?: string;
+  keyHint?: string | undefined;
   children: ReactNode;
 }
 

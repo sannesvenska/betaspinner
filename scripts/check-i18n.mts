@@ -34,14 +34,23 @@ function flattenKeys(value: JsonValue, prefix = ''): string[] {
   );
 }
 
-function collectUsage(files: string[]): { staticKeys: Set<string>; dynamicPatterns: RegExp[] } {
+/** Any quoted dotted literal – keys passed through ternaries or variables (`t(cond ? 'a.b' : 'a.c')`). */
+const QUOTED_KEY_LITERAL = /['"]([a-z][\w-]*(?:\.[\w-]+)+)['"]/gi;
+
+function collectUsage(files: string[]): {
+  staticKeys: Set<string>;
+  literals: Set<string>;
+  dynamicPatterns: RegExp[];
+} {
   const staticKeys = new Set<string>();
+  const literals = new Set<string>();
   const dynamicPatterns: RegExp[] = [];
   for (const file of files) {
     const source = readFileSync(file, 'utf8');
     for (const pattern of STATIC_KEY_PATTERNS) {
       for (const match of source.matchAll(pattern)) if (match[1]) staticKeys.add(match[1]);
     }
+    for (const match of source.matchAll(QUOTED_KEY_LITERAL)) if (match[1]) literals.add(match[1]);
     for (const match of source.matchAll(DYNAMIC_KEY_PATTERN)) {
       const template = match[1];
       if (!template) continue;
@@ -52,16 +61,24 @@ function collectUsage(files: string[]): { staticKeys: Set<string>; dynamicPatter
       dynamicPatterns.push(new RegExp(`^${escaped}$`));
     }
   }
-  return { staticKeys, dynamicPatterns };
+  return { staticKeys, literals, dynamicPatterns };
 }
 
-function checkPack(packFile: string, staticKeys: Set<string>, dynamicPatterns: RegExp[]): number {
+function checkPack(
+  packFile: string,
+  staticKeys: Set<string>,
+  literals: Set<string>,
+  dynamicPatterns: RegExp[],
+): number {
   const pack = JSON.parse(readFileSync(join(LOCALES_DIR, packFile), 'utf8')) as JsonValue;
   const packKeys = new Set(flattenKeys(pack).map((key) => key.replace(PLURAL_SUFFIX, '')));
 
   const missing = [...staticKeys].filter((key) => !packKeys.has(key)).sort();
   const unused = [...packKeys]
-    .filter((key) => !staticKeys.has(key) && !dynamicPatterns.some((pattern) => pattern.test(key)))
+    .filter(
+      (key) =>
+        !staticKeys.has(key) && !literals.has(key) && !dynamicPatterns.some((pattern) => pattern.test(key)),
+    )
     .sort();
 
   for (const key of missing) console.error(`✗ ${packFile}: missing key "${key}"`);
@@ -70,7 +87,10 @@ function checkPack(packFile: string, staticKeys: Set<string>, dynamicPatterns: R
   return missing.length;
 }
 
-const { staticKeys, dynamicPatterns } = collectUsage(listSourceFiles(RENDERER_DIR));
+const { staticKeys, literals, dynamicPatterns } = collectUsage(listSourceFiles(RENDERER_DIR));
 const packFiles = readdirSync(LOCALES_DIR).filter((file) => file.endsWith('.json'));
-const missingTotal = packFiles.reduce((sum, file) => sum + checkPack(file, staticKeys, dynamicPatterns), 0);
+const missingTotal = packFiles.reduce(
+  (sum, file) => sum + checkPack(file, staticKeys, literals, dynamicPatterns),
+  0,
+);
 process.exitCode = missingTotal > 0 ? 1 : 0;

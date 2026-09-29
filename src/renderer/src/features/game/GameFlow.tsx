@@ -1,0 +1,197 @@
+import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { SessionState } from '@shared/session/types';
+import { useLibraryStore } from '@renderer/stores/libraryStore';
+import { useSessionStore } from '@renderer/stores/sessionStore';
+import { useUiStore } from '@renderer/stores/uiStore';
+import { Button } from '@renderer/ui/Button';
+import { Dialog, DIALOG_AUTOFOCUS } from '@renderer/ui/Dialog';
+import { GameScreen } from './GameScreen';
+
+function useSpaceToConfirm(action: () => void) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (useUiStore.getState().paused || document.querySelector('dialog[open]')) return;
+      if ((event.key === ' ' || event.key === 'Enter') && !(event.target instanceof HTMLButtonElement)) {
+        event.preventDefault();
+        action();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [action]);
+}
+
+function CenteredScreen({
+  eyebrow,
+  title,
+  body,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  body?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <main className="flex h-full flex-col justify-center gap-6 px-24">
+      <div className="font-label text-label uppercase tracking-label text-ink-muted">{eyebrow}</div>
+      <h1 className="font-display text-display font-bold uppercase">{title}</h1>
+      {body && <p className="max-w-2xl text-body text-ink-2">{body}</p>}
+      {children}
+    </main>
+  );
+}
+
+function InitialTask({ session }: { session: SessionState }) {
+  const { t } = useTranslation();
+  const dispatch = useSessionStore((state) => state.dispatch);
+  const confirm = () => void dispatch({ type: 'confirm' });
+  useSpaceToConfirm(confirm);
+  return (
+    <CenteredScreen
+      eyebrow={t('initial.eyebrow', { goal: session.goalField })}
+      title={t('initial.title')}
+      body={t('initial.body')}
+    >
+      <div className="font-display text-display-xl font-bold uppercase">
+        {t('task.count', { count: session.initialTaskCount })}
+      </div>
+      <div>
+        <Button variant="primary" size="primary" keyHint="Space" onClick={confirm}>
+          {t('game.done')}
+        </Button>
+      </div>
+    </CenteredScreen>
+  );
+}
+
+function CategoryReveal({ session }: { session: SessionState }) {
+  const { t } = useTranslation();
+  const folders = useLibraryStore((state) => state.snapshot?.folders ?? []);
+  const markRevealed = useUiStore((state) => state.markRevealed);
+  const name = (id: string) => folders.find((folder) => folder.id === id)?.displayName ?? id;
+  const start = () => {
+    markRevealed(session.id);
+  };
+  useSpaceToConfirm(start);
+  return (
+    <CenteredScreen eyebrow={t('reveal.eyebrow')} title={t('reveal.title')}>
+      <div className="flex gap-16">
+        {(['good', 'bad'] as const).map((group) => (
+          <div
+            key={group}
+            className={`flex flex-col gap-2 border-l-3 pl-5 ${group === 'good' ? 'border-good' : 'border-bad'}`}
+          >
+            <div
+              className={`font-label text-label uppercase tracking-label ${group === 'good' ? 'text-good' : 'text-bad'}`}
+            >
+              {t(`reveal.${group}`)}
+            </div>
+            {session.categories[group].map((id) => (
+              <div key={id} className="font-display text-title font-bold uppercase">
+                {name(id)}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div>
+        <Button variant="primary" size="primary" keyHint="Space" onClick={start}>
+          {t('reveal.start')}
+        </Button>
+      </div>
+    </CenteredScreen>
+  );
+}
+
+function SessionEnd({ session }: { session: SessionState }) {
+  const { t } = useTranslation();
+  const close = useSessionStore((state) => state.close);
+  const goal = session.phase === 'win_check';
+  const title = goal
+    ? t('end.goalReached')
+    : session.endReason === 'mistress_says_no'
+      ? t('end.mistress')
+      : t('end.endedEarly');
+  const body = goal
+    ? t('end.goalBody')
+    : session.endReason === 'mistress_says_no'
+      ? t('end.mistressBody')
+      : t('end.endedBody');
+  const discovered = session.cards.filter((card) => card.discovered).length;
+  return (
+    <CenteredScreen eyebrow={t('game.fieldLabel', { field: session.position })} title={title} body={body}>
+      <dl className="flex gap-12">
+        {[
+          [t('end.discovered'), `${discovered} / 100`],
+          [t('end.rounds'), String(session.round)],
+          [t('end.tasks'), String(session.stats.tasksPerformed)],
+        ].map(([label, value]) => (
+          <div key={label} className="flex flex-col gap-1">
+            <dt className="font-label text-label uppercase tracking-label text-ink-muted">{label}</dt>
+            <dd className="font-display text-stat font-semibold">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <div>
+        <Button variant="primary" size="primary" onClick={() => void close()}>
+          {t('end.backToStart')}
+        </Button>
+      </div>
+    </CenteredScreen>
+  );
+}
+
+/** Routes an active session to the right screen (game-design §8). */
+export function GameFlow({ session }: { session: SessionState }) {
+  const { t } = useTranslation();
+  const revealed = useUiStore((state) => state.revealedSessionIds.includes(session.id));
+  const resumeAnswered = useUiStore((state) => state.resumeAnswered);
+  const answerResume = useUiStore((state) => state.answerResume);
+  const markRevealed = useUiStore((state) => state.markRevealed);
+  const dispatch = useSessionStore((state) => state.dispatch);
+  const finished = session.phase === 'ended' || session.phase === 'win_check';
+
+  let screen;
+  if (finished) screen = <SessionEnd session={session} />;
+  else if (session.phase === 'initial_task') screen = <InitialTask session={session} />;
+  else if (!revealed && session.round === 0) screen = <CategoryReveal session={session} />;
+  else screen = <GameScreen session={session} />;
+
+  // A session found on app start: resume or end early (§8.3)
+  const askResume = !resumeAnswered && !finished;
+  return (
+    <>
+      {screen}
+      <Dialog open={askResume} onClose={answerResume} title={t('resume.title')}>
+        <p className="px-8 py-4 text-body text-ink-2">{t('resume.body')}</p>
+        <div className="flex items-center justify-end gap-3 px-8 pb-7">
+          <span className="mr-auto text-body-sm text-ink-muted">{t('resume.endEarlyHint')}</span>
+          <Button
+            variant="text"
+            onClick={() => {
+              answerResume();
+              void dispatch({ type: 'endEarly' });
+            }}
+          >
+            {t('resume.endEarly')}
+          </Button>
+          <Button
+            variant="primary"
+            {...DIALOG_AUTOFOCUS}
+            keyHint="Enter"
+            onClick={() => {
+              answerResume();
+              markRevealed(session.id);
+            }}
+          >
+            {t('resume.resume')}
+          </Button>
+        </div>
+      </Dialog>
+    </>
+  );
+}

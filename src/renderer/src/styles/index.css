@@ -45,6 +45,7 @@
   --text-title--line-height: 0.9;
   --text-stat: clamp(32px, 3.7vh, 40px);
   --text-stat--line-height: 1.05;
+  --text-button-xl: 32px;
   --text-button-lg: 26px;
   --text-button: 18px;
   --text-chip: 17px;
@@ -102,6 +103,24 @@
 
   button:disabled {
     cursor: not-allowed;
+  }
+}
+
+@keyframes cr-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cr-land {
+  from {
+    transform: scale(1.06);
+  }
+  to {
+    transform: scale(1);
   }
 }
 

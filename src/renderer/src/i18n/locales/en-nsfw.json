@@ -5,10 +5,7 @@
     "loadError": "Could not load settings: {{error}}"
   },
   "home": {
-    "eyebrow": "Session {{number}}",
-    "comingSoon": "The start wheel arrives in the next build.",
-    "openShowcase": "Component showcase",
-    "readyCategories": "Categories ready to play:"
+    "openShowcase": "Component showcase"
   },
   "common": {
     "done": "Done",
@@ -52,6 +49,22 @@
     "success_multiplier": {
       "name": "Hail Mary",
       "description": "Multiplies your chance on the final wheel."
+    },
+    "pace_fast": {
+      "name": "Speed it Up",
+      "description": "Fast pace for every task."
+    },
+    "u_turn": {
+      "name": "U Turn",
+      "description": "One direction is blocked."
+    },
+    "splatter": {
+      "name": "Splatter",
+      "description": "Some cards are covered with splatter."
+    },
+    "shield": {
+      "name": "Shield",
+      "description": "Blocks the next bad action (not Mistress Says No)."
     }
   },
   "showcase": {
@@ -78,64 +91,84 @@
   },
   "action": {
     "clearing_edges": {
-      "name": "Clearing Edges"
+      "name": "Clearing Edges",
+      "description": "Hold at the edge. Afterwards remove one negative effect of your choice."
     },
     "good_fairy": {
-      "name": "Good Fairy"
+      "name": "Good Fairy",
+      "description": "Remove one negative effect for free – or get a shield if you have none."
     },
     "decision_maker": {
-      "name": "Decision Maker"
+      "name": "Decision Maker",
+      "description": "You choose the number of your next move."
     },
     "cleaning_lady": {
-      "name": "Cleaning Lady"
+      "name": "Cleaning Lady",
+      "description": "All pixelation and splatter are washed away."
     },
     "hail_mary": {
-      "name": "Hail Mary"
+      "name": "Hail Mary",
+      "description": "Your chance on the final wheel gets multiplied."
     },
     "switcheroo": {
-      "name": "Switcheroo"
+      "name": "Switcheroo",
+      "description": "Swap the images of the undiscovered cards for another category."
     },
     "pixelate": {
-      "name": "Pixelate"
+      "name": "Pixelate",
+      "description": "Images get more pixelated."
     },
     "splatter": {
-      "name": "Splatter"
+      "name": "Splatter",
+      "description": "Random cards get splattered."
     },
     "squeeze_task": {
-      "name": "Squeeze"
+      "name": "Squeeze",
+      "description": "Squeeze and release – count every one."
     },
     "edge_and_hold": {
-      "name": "Edge & Hold"
+      "name": "Edge & Hold",
+      "description": "Take yourself right to the edge, then hands off. Hold until the timer hits zero."
     },
     "double_trouble": {
-      "name": "Double Trouble"
+      "name": "Double Trouble",
+      "description": "Every task counts double for a few rounds."
     },
     "mistress_says_no": {
-      "name": "Mistress Says No"
+      "name": "Mistress Says No",
+      "description": "No. The session ends right here."
     },
     "guessing_game": {
-      "name": "Guessing Game"
+      "name": "Guessing Game",
+      "description": "Pick two numbers, then the die decides."
     },
     "goal_teleport": {
-      "name": "Goal Teleport"
+      "name": "Goal Teleport",
+      "description": "Finish the task – then the goal jumps somewhere else."
     },
     "u_turn": {
-      "name": "U Turn"
+      "name": "U Turn",
+      "description": "No turning back: the direction you came from is blocked."
     },
     "moving_day": {
-      "name": "Moving Day"
+      "name": "Moving Day",
+      "description": "Finish the task – then you get moved to a random field."
     },
     "highperformer": {
-      "name": "Highperformer"
+      "name": "Highperformer",
+      "description": "As many as you can before the timer runs out."
     },
     "bad_luck": {
-      "name": "Bad Luck"
+      "name": "Bad Luck",
+      "description": "Your win multiplier is gone."
     },
     "take_it_slow": {
-      "name": "Take it Slow"
+      "name": "Take it Slow",
+      "description": "Slow and deep for a few rounds."
     },
     "speed_it_up": {
-      "name": "Speed it Up"
+      "name": "Speed it Up",
+      "description": "Fast and hard for a few rounds."
     }
   },
   "media": {
@@ -205,5 +238,140 @@
       "step2": "Mark each folder as good or bad, and as content or action images.",
       "step3": "The library is scanned; you need at least one good and one bad content folder to play."
     }
+  },
+  "start": {
+    "eyebrow": "Session {{number}}",
+    "title": "Spin for your goal",
+    "body": "Your number is your goal field. Land on it exactly to reach the final wheel.",
+    "spin": "Spin",
+    "penaltyFields": "Penalty fields",
+    "penaltyHint": "Red = {{minutes}} min lockout",
+    "lossStreak": "Loss streak",
+    "sessionsPlayed": "Sessions played",
+    "lockedTitle": "Locked",
+    "lockedBody": "You hit a penalty field. The wheel unlocks in",
+    "notReadyTitle": "Not ready to play",
+    "notReadyBody": "You need at least one enabled good and one enabled bad content folder with enough files.",
+    "openLibrary": "Open library",
+    "generation": {
+      "no_good_category": "No usable good content folder. Check the library.",
+      "no_bad_category": "No usable bad content folder. Check the library."
+    }
+  },
+  "initial": {
+    "eyebrow": "Goal field {{goal}}",
+    "title": "Opening task",
+    "body": "Before the board opens:"
+  },
+  "reveal": {
+    "eyebrow": "This session",
+    "title": "Your categories",
+    "good": "Good",
+    "bad": "Bad",
+    "start": "Start"
+  },
+  "resume": {
+    "title": "Resume session?",
+    "body": "A session was still running when the app closed.",
+    "resume": "Resume",
+    "endEarly": "End early",
+    "endEarlyHint": "Ending early counts as a loss."
+  },
+  "end": {
+    "endedEarly": "Session ended early",
+    "mistress": "Mistress says no",
+    "mistressBody": "The session is over. It counts as a loss.",
+    "endedBody": "It counts as a loss.",
+    "goalReached": "Goal reached",
+    "goalBody": "The win check and final wheel arrive in the next build.",
+    "discovered": "Discovered",
+    "rounds": "Rounds",
+    "tasks": "Tasks",
+    "backToStart": "Back to start"
+  },
+  "game": {
+    "field": "Field",
+    "rolled": "Rolled",
+    "fromField": "From field {{field}}",
+    "goal": "Goal {{field}}",
+    "roll": "Roll",
+    "chooseRoll": "Choose your roll",
+    "chooseDirection": "Choose direction",
+    "left": "Left",
+    "right": "Right",
+    "toField": "Field {{field}}",
+    "goalDistance": "Goal {{distance}}",
+    "actions": "actions",
+    "blocked": "Blocked",
+    "moving": "Moving…",
+    "done": "Done",
+    "ok": "OK",
+    "holding": "Holding…",
+    "confirmGuess": "Roll",
+    "pickTwo": "Pick two different numbers",
+    "goodCard": "Good",
+    "badCard": "Bad",
+    "goodAction": "Good action",
+    "badAction": "Bad action",
+    "fieldLabel": "Field {{field}}",
+    "ringLabel": "Track: field {{position}}, goal {{goal}}",
+    "previewFrom": "{{distance}} from here",
+    "galleryTitle": "Discovered cards",
+    "galleryEmpty": "Nothing discovered yet.",
+    "neutralCard": "Action card"
+  },
+  "task": {
+    "count": "Stroke ×{{count}}",
+    "base": "{{base}} × 2 Double Trouble",
+    "pace": {
+      "slow": "Slow and deep, full length",
+      "fast": "Fast and hard, no breaks"
+    },
+    "timedTitle": "Go!"
+  },
+  "step": {
+    "pickEffect": "Pick a negative effect to remove",
+    "reward": {
+      "title": "You guessed right – choose a reward",
+      "removeEffect": "Remove a negative effect",
+      "removePenalty": "Remove 2 penalty fields"
+    },
+    "switcherooPool": "What do you want to swap?",
+    "switcherooFolder": "Pick the new category",
+    "pool": {
+      "good_content": "Good category",
+      "bad_content": "Bad category",
+      "good_action": "Good action images",
+      "bad_action": "Bad action images"
+    }
+  },
+  "notice": {
+    "effectApplied": {
+      "double_trouble": "Double Trouble for {{rounds}} rounds",
+      "pace_slow": "Slow pace for {{rounds}} rounds",
+      "pace_fast": "Fast pace for {{rounds}} rounds",
+      "u_turn": "Your direction is blocked for {{rounds}} rounds",
+      "pixelate": "Pixelation level {{value}}",
+      "splatter": "{{value}} cards got splattered",
+      "success_multiplier": "Win multiplier ×{{value}}",
+      "shield": "Shield up – it blocks the next bad action"
+    },
+    "effectsCleared": "All visual effects removed",
+    "effectRemoved": "{{effect}} removed",
+    "nothingToRemove": "Nothing to remove",
+    "shieldBlocked": "Your shield blocked {{action}}",
+    "decisionMaker": "You choose your next roll",
+    "guessMatch": "Rolled {{roll}} – you guessed {{first}} and {{second}}. Match!",
+    "guessMiss": "Rolled {{roll}} – you guessed {{first}} and {{second}}. No match.",
+    "goalMoved": "The goal moved from field {{from}} to field {{to}}",
+    "playerMoved": "You moved from field {{from}} to field {{to}}",
+    "relocationSkipped": "No free field – nothing moves",
+    "switcherooDone": "{{changed}} of {{total}} cards changed",
+    "switcherooUnavailable": "No alternatives available",
+    "penaltyFieldsRemoved": "{{count}} penalty fields removed"
+  },
+  "pause": {
+    "title": "Paused",
+    "body": "Click anywhere or press"
   }
 }

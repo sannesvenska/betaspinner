@@ -9,13 +9,25 @@ type SettingsState =
 interface UiState {
   screen: Screen;
   settingsState: SettingsState;
+  /** Neutral pause screen (game-design §19) */
+  paused: boolean;
+  /** Sessions whose category reveal was already shown (UI-only step, not part of the engine). */
+  revealedSessionIds: string[];
+  /** The resume question is asked once per app start. */
+  resumeAnswered: boolean;
   navigate: (screen: Screen) => void;
   loadSettings: () => Promise<void>;
+  togglePause: () => void;
+  markRevealed: (sessionId: string) => void;
+  answerResume: () => void;
 }
 
 export const useUiStore = create<UiState>()((set) => ({
   screen: 'home',
   settingsState: { status: 'loading' },
+  paused: false,
+  revealedSessionIds: [],
+  resumeAnswered: false,
   navigate: (screen) => {
     set({ screen });
   },
@@ -27,4 +39,25 @@ export const useUiStore = create<UiState>()((set) => ({
         : { status: 'error', error: result.error },
     });
   },
+  togglePause: () => {
+    set((state) => ({ paused: !state.paused }));
+  },
+  markRevealed: (sessionId) => {
+    set((state) => ({ revealedSessionIds: [...state.revealedSessionIds, sessionId] }));
+  },
+  answerResume: () => {
+    set({ resumeAnswered: true });
+  },
 }));
+
+const BASE_SPEED = 1;
+
+/** Duration multiplier: 0 with reduced motion (OS or app setting), else the `animationSpeed` setting. */
+export function useAnimationScale(): number {
+  const settingsState = useUiStore((state) => state.settingsState);
+  const settings = settingsState.status === 'ready' ? settingsState.settings : null;
+  const prefersReduced =
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReduced || settings?.reducedMotion) return 0;
+  return settings?.animationSpeed ?? BASE_SPEED;
+}

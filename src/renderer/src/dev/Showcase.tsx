@@ -6,7 +6,7 @@ import { useUiStore } from '@renderer/stores/uiStore';
 import { Button } from '@renderer/ui/Button';
 import { Chip } from '@renderer/ui/Chip';
 import { Countdown } from '@renderer/ui/Countdown';
-import { Dialog, Drawer } from '@renderer/ui/Dialog';
+import { Dialog, Drawer, DIALOG_AUTOFOCUS } from '@renderer/ui/Dialog';
 import { GroupCount } from '@renderer/ui/GroupCount';
 import { HoldToConfirm } from '@renderer/ui/HoldToConfirm';
 import { Icon } from '@renderer/ui/icons/Icon';
@@ -222,7 +222,7 @@ export function Showcase() {
           <Button
             variant="primary"
             keyHint="Enter"
-            autoFocus
+            {...DIALOG_AUTOFOCUS}
             onClick={() => {
               setDialogOpen(false);
             }}

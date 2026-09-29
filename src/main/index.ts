@@ -1,5 +1,7 @@
-import { app, BrowserWindow, dialog } from 'electron';
+import { app, BrowserWindow, dialog, globalShortcut } from 'electron';
 import type { LibraryIndex } from '@shared/content';
+import { DEFAULT_PROGRESSION } from '@shared/session/defaults';
+import type { Progression, SessionState } from '@shared/session/types';
 import type { IpcEvent, IpcEventContract } from '@shared/ipc';
 import {
   CONFIG_MIGRATIONS,
@@ -14,11 +16,20 @@ import { createLibraryService } from './content/libraryService';
 import { handleMediaProtocol, registerMediaScheme } from './content/mediaProtocol';
 import { runScanInWorker } from './content/runScanInWorker';
 import { registerIpcHandlers } from './ipc/registerIpcHandlers';
+import {
+  normalizeProgression,
+  normalizeSessionFile,
+  PROGRESSION_SCHEMA_VERSION,
+  SESSION_SCHEMA_VERSION,
+} from './session/persistence';
+import { createSessionService } from './session/sessionService';
 import { normalizeSettings } from './settings/normalizeSettings';
 import { createJsonStore } from './storage/jsonStore';
 import { createMainWindow } from './window';
 
 const isDev = !app.isPackaged;
+/** Default from game-design §19; configurable in AP9. */
+const PAUSE_HOTKEY = 'CommandOrControl+Shift+Space';
 
 // Dev/test only: isolate app data (config, index) from the real profile
 const userDataOverride = process.env.CHANCE_RUNNER_USER_DATA;
@@ -71,6 +82,25 @@ async function startApp(): Promise<void> {
 
   handleMediaProtocol(library.resolveMedia);
 
+  const sessions = await createSessionService({
+    progressionStore: createJsonStore<Progression>({
+      directory: userData,
+      fileName: 'progression.json',
+      schemaVersion: PROGRESSION_SCHEMA_VERSION,
+      defaults: DEFAULT_PROGRESSION,
+      normalize: normalizeProgression,
+    }),
+    sessionStore: createJsonStore<SessionState | null>({
+      directory: userData,
+      fileName: 'session-current.json',
+      schemaVersion: SESSION_SCHEMA_VERSION,
+      defaults: null,
+      normalize: normalizeSessionFile,
+    }),
+    folders: () => config.get().folders,
+    media: library.mediaEntries,
+  });
+
   const getMainWindow = (): BrowserWindow | undefined => BrowserWindow.getAllWindows()[0];
 
   registerIpcHandlers({
@@ -100,6 +130,10 @@ async function startApp(): Promise<void> {
     'library:removeFolder': ({ id }) => library.removeFolder(id),
     'library:rescan': () => library.rescan(),
     'library:listMedia': ({ folderId, offset, limit }) => library.listMedia(folderId, offset, limit),
+    'session:getSnapshot': () => sessions.snapshot(),
+    'session:spin': () => sessions.spin(),
+    'session:dispatch': (event) => sessions.dispatch(event),
+    'session:close': () => sessions.close(),
   });
 
   // Fullscreen by default, but not while developing
@@ -115,6 +149,18 @@ async function startApp(): Promise<void> {
     if (!window) return;
     if (window.isMinimized()) window.restore();
     window.focus();
+  });
+
+  // game-design §19: global pause hotkey works even when the window is not focused
+  if (
+    !globalShortcut.register(PAUSE_HOTKEY, () => {
+      broadcast('app:togglePause', null);
+    })
+  ) {
+    console.error(`[pause] could not register global hotkey ${PAUSE_HOTKEY}`);
+  }
+  app.on('will-quit', () => {
+    globalShortcut.unregisterAll();
   });
 
   app.on('window-all-closed', () => {

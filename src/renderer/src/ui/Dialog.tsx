@@ -8,13 +8,23 @@ interface ModalProps {
   children: ReactNode;
 }
 
-/** Native <dialog> modal: focus trap, Esc handling and inert background come from the platform. */
+/** Mark the safe default action with this attribute; it gets focus when the dialog opens. */
+export const DIALOG_AUTOFOCUS = { 'data-autofocus': true } as const;
+
+/**
+ * Native <dialog> modal: focus trap, Esc handling and inert background come from the platform.
+ * React's `autoFocus` runs before `showModal()` and would be overridden (the first button wins),
+ * so the default element is focused explicitly after opening.
+ */
 function useNativeDialog(open: boolean) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
+    if (open && !dialog.open) {
+      dialog.showModal();
+      dialog.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+    }
     if (!open && dialog.open) dialog.close();
   }, [open]);
   return dialogRef;

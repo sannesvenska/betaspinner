@@ -38,6 +38,8 @@ export interface LibraryService {
   rescan: () => Promise<LibrarySnapshot>;
   listMedia: (folderId: string, offset: number, limit: number) => { entries: MediaEntry[]; total: number };
   resolveMedia: (hash: string) => ResolvedMedia | undefined;
+  /** All indexed media of registered folders (input for session generation). */
+  mediaEntries: () => readonly MediaEntry[];
 }
 
 /** Windows paths are case-insensitive. */
@@ -170,5 +172,7 @@ export async function createLibraryService(options: LibraryServiceOptions): Prom
     return { path: entry.path, folderPath: folder.path, mimeType: entry.mimeType };
   }
 
-  return { snapshot, addFolders, updateFolder, removeFolder, rescan, listMedia, resolveMedia };
+  const mediaEntries = (): readonly MediaEntry[] => index.entries;
+
+  return { snapshot, addFolders, updateFolder, removeFolder, rescan, listMedia, resolveMedia, mediaEntries };
 }

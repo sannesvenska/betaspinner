@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { FolderConfig, FolderScanStatus } from '@shared/content';
 import { useLibraryStore } from '@renderer/stores/libraryStore';
 import { Button } from '@renderer/ui/Button';
-import { Dialog } from '@renderer/ui/Dialog';
+import { Dialog, DIALOG_AUTOFOCUS } from '@renderer/ui/Dialog';
 import { Icon } from '@renderer/ui/icons/Icon';
 import { SegmentedControl } from '@renderer/ui/SegmentedControl';
 import { Switch } from '@renderer/ui/Switch';
@@ -117,7 +117,7 @@ export function FolderDetail({ folder, status, scanning }: FolderDetailProps) {
         <div className="flex justify-end gap-3 px-8 pb-7">
           <Button
             variant="text"
-            autoFocus
+            {...DIALOG_AUTOFOCUS}
             onClick={() => {
               setConfirmRemove(false);
             }}

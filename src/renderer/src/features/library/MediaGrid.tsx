@@ -54,7 +54,7 @@ export function MediaGrid({ folderId, revision }: MediaGridProps) {
         {state.entries.map((entry) => (
           <li
             key={`${entry.hash}-${entry.fileName}`}
-            className="aspect-square bg-stage"
+            className="aspect-square overflow-hidden bg-stage"
             title={entry.fileName}
           >
             <Media hash={entry.hash} kind={entry.kind} alt={entry.fileName} variant="thumbnail" />

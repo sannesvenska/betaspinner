@@ -86,19 +86,25 @@ Order note: win flow (AP6) comes **before** actions (AP7) so a complete session 
 
 **Result:** 95 tests total. Rule clarifications in game-design §11.1.
 
-## AP5 – Core game UI · L · ⬜
+## AP5 – Core game UI · L · ✅
 
-1. Start screen: start wheel (seeded, choreographed), penalty fields, lockout countdown, History/Admin links.
-2. Initial task, category reveal (+ reroll).
-3. Main layout: console, ring (SVG, all states from design-system §5), stats, stage, task bar.
-4. Dice, direction buttons (neutral + per-side hint), movement animation, card reveal, normal cards.
-5. Ring hover preview + discovered gallery drawer.
-6. Autosave after every state change, resume dialog.
-7. **Pause / neutral screen** + global hotkey (main process `globalShortcut`), stops media/sound/countdowns.
-8. Keyboard control map (§7.2), focus management, reduced motion.
-9. End Early (hold-to-confirm) → loss.
+| #    | Task                                                                                                                                                                  | Status |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 5.1  | Main process owns session + progression (`sessionService`): spin, generate, `reduce`, atomic autosave after every event, close with image recency                     | ✅     |
+| 5.2  | Start screen with seeded start wheel (precomputed angle, 4–6 turns, skippable), penalty fields, lockout countdown, "not ready" state                                  | ✅     |
+| 5.3  | Initial task, category reveal (reroll: setting is off by default – UI follows with the admin, AP9)                                                                    | ✅     |
+| 5.4  | Main layout: console (ring, stats, effect chips, Gallery/Pause/End Early), stage, task bar                                                                            | ✅     |
+| 5.5  | Ring: hatched bad segments, action marker shapes, goal flag, targets + path preview, continuous rotation incl. wrap-around, hover/keyboard preview in the ring center | ✅     |
+| 5.6  | Dice animation, direction buttons (neutral, per-side hint, U Turn blocked state), movement animation, card reveal fade; all skippable                                 | ✅     |
+| 5.7  | Functional UI for every resolution step (task, hold, timed, notice, pick effect, guess, reward, Switcheroo) – visual polish in AP7                                    | ✅     |
+| 5.8  | Discovered gallery drawer (`G`)                                                                                                                                       | ✅     |
+| 5.9  | Resume dialog on app start, End Early (hold 1.5 s or Ctrl+Backspace), session end screen                                                                              | ✅     |
+| 5.10 | Pause / neutral screen + global hotkey `Ctrl+Shift+Space` (media paused, countdowns frozen)                                                                           | ✅     |
+| 5.11 | Keyboard map (§7.2), reduced motion / animation speed scale                                                                                                           | ✅     |
 
-**Result:** M1 – playable.
+**Verified:** 99 tests; e2e in the running app (spin → initial task → reveal → rounds with rolls, directions, Double Trouble; gallery; pause; resume; End Early; close; next session). Found and fixed: dialog default focus pointed at the destructive action (Enter ended the session).
+
+**Deferred:** U Turn dashed arc on the ring (AP7), win check / final wheel (AP6).
 
 ## AP6 – Win flow & progression · M · ⬜
 
