@@ -1,8 +1,7 @@
 import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { FolderConfig, FolderScanStatus, LibraryIndex, MediaEntry, ScanProgress } from '@shared/content';
-import { hashVideo, readAndHashImage } from './hashMedia';
-import { readImageInfo } from './imageHeader';
+import { describeMedia } from './describeMedia';
 import { mediaFormatOf } from './mediaFormats';
 
 /** Parallel file reads per scan; higher values don't help on HDDs. */
@@ -48,25 +47,7 @@ async function listMediaFiles(folder: ScanFolder): Promise<PendingFile[]> {
 }
 
 async function describeFile(file: PendingFile): Promise<MediaEntry> {
-  const format = mediaFormatOf(file.path);
-  if (!format) throw new Error(`Unsupported format: ${file.fileName}`);
-  const base = { ...file, mimeType: format.mimeType };
-
-  if (format.isVideo) {
-    const hash = await hashVideo(file.path, file.size);
-    return { ...base, hash, kind: 'video', width: null, height: null };
-  }
-  const { hash, buffer } = await readAndHashImage(file.path);
-  const info = readImageInfo(buffer);
-  // Corrupt or mislabeled files must never end up on a card
-  if (!info) throw new Error(`Unreadable image header: ${file.fileName}`);
-  return {
-    ...base,
-    hash,
-    kind: info.animated ? 'animated' : 'image',
-    width: info.width,
-    height: info.height,
-  };
+  return { ...file, ...(await describeMedia(file.path, file.size)) };
 }
 
 /**

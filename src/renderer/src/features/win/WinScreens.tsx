@@ -111,31 +111,12 @@ function WinLayout({
   );
 }
 
-/** §14.1 – roll the die that divides the discovered cards. */
-export function WinCheckScreen({ session }: { session: SessionState }) {
-  const { t } = useTranslation();
-  const dispatch = useSessionStore((state) => state.dispatch);
-  const discovered = session.cards.filter((card) => card.discovered).length;
-  const roll = useCallback(() => void dispatch({ type: 'winRoll' }), [dispatch]);
-  useSpaceKey(roll);
-  return (
-    <WinLayout
-      session={session}
-      title={t('win.checkTitle')}
-      body={t('win.checkBody', { discovered })}
-      action={
-        <Button variant="primary" size="primary" keyHint="Space" onClick={roll}>
-          {t('win.roll')}
-        </Button>
-      }
-      center={<div className="font-display text-display-xl font-bold text-ink-muted">?</div>}
-    />
-  );
-}
-
 type WheelStage = 'ready' | 'spinning' | 'holding' | 'stopped';
 
-/** §14.2 – constant spin, then Hold Position decelerates the wheel onto the decided result at t = 0. */
+/**
+ * §14.1 v2 + §14.2 – the release chance is fixed on landing (no roll); constant spin, then Hold Position
+ * decelerates the wheel onto the decided result at t = 0.
+ */
 export function FinalWheelScreen({ session }: { session: SessionState }) {
   const { t } = useTranslation();
   const dispatch = useSessionStore((state) => state.dispatch);
@@ -270,10 +251,18 @@ export function FinalWheelScreen({ session }: { session: SessionState }) {
         <>
           <Stat
             label={t('win.baseChance')}
-            value={`${check.baseChance} %`}
-            detail={t('win.baseDetail', { discovered: check.discovered, roll: check.roll })}
+            value={`${check.base.toFixed(1)} %`}
+            detail={t('win.baseDetail', { discovered: check.discovered, rate: check.rate })}
             tone="muted"
           />
+          {check.bonus > 0 && (
+            <Stat
+              label={t('win.bonus')}
+              value={`+${check.bonus} %`}
+              detail={t('win.bonusDetail', { collected: session.collected })}
+              tone="muted"
+            />
+          )}
           {check.multiplier > 1 && (
             <Stat
               label={t('win.multiplier')}

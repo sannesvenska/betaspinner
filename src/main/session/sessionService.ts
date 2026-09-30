@@ -3,7 +3,6 @@ import { actionGroup, type ActionId } from '@shared/actions';
 import type { FolderConfig, MediaEntry } from '@shared/content';
 import type { SessionMediaKinds, SessionSnapshot, SessionView, SpinResult } from '@shared/ipc';
 import {
-  DEFAULT_ACTIONS,
   DEFAULT_PENALTY_RULES,
   DEFAULT_PIXELATE_MAX_LEVEL,
   DEFAULT_SESSION_RULES,
@@ -15,8 +14,9 @@ import { spinStartWheel } from '@shared/session/goalAndStart';
 import { toSessionRecord, type SessionRecord } from '@shared/session/history';
 import { applyDecay, applySessionOutcome } from '@shared/session/progressionRules';
 import { createRng } from '@shared/session/rng';
-import type { Progression, SessionState } from '@shared/session/types';
+import type { ActionCardDefinition, Progression, SessionState } from '@shared/session/types';
 import type { JsonStore } from '../storage/jsonStore';
+import { isLegacySessionMarker, type StoredSession } from './persistence';
 
 const MS_PER_MINUTE = 60_000;
 /** Seeds stay within int32 so they round-trip through JSON and the PRNG unchanged. */
@@ -31,12 +31,13 @@ export class SessionServiceError extends Error {
 
 interface SessionServiceOptions {
   progressionStore: JsonStore<Progression>;
-  sessionStore: JsonStore<SessionState | null>;
+  sessionStore: JsonStore<StoredSession>;
   historyStore: JsonStore<SessionRecord[]>;
   /** Progression changed outside a request (decay timer) – push it to the UI. */
   onProgressionChanged?: (progression: Progression) => void;
   folders: () => readonly FolderConfig[];
   media: () => readonly MediaEntry[];
+  actionCards: () => readonly ActionCardDefinition[];
   now?: () => Date;
   randomSeed?: () => number;
   newId?: () => string;
@@ -63,11 +64,15 @@ export async function createSessionService(options: SessionServiceOptions): Prom
   const newId = options.newId ?? randomUUID;
 
   let progression = await options.progressionStore.read();
-  let session = await options.sessionStore.read();
+  const stored = await options.sessionStore.read();
+  let session: SessionState | null = isLegacySessionMarker(stored) ? null : stored;
+  // §8.3 v2: an older session is discarded without scoring; the start screen shows a notice
+  let discardedLegacySession = isLegacySessionMarker(stored);
+  if (discardedLegacySession) await options.sessionStore.write(null);
 
   const context = (): EngineContext => ({
     rules: DEFAULT_SESSION_RULES,
-    actions: DEFAULT_ACTIONS,
+    actionCards: options.actionCards(),
     folders: options.folders(),
     media: options.media(),
     imageRecency: progression.imageRecency,
@@ -79,10 +84,17 @@ export async function createSessionService(options: SessionServiceOptions): Prom
     const hashes = new Set(state.cards.flatMap((card) => (card.imageHash ? [card.imageHash] : [])));
     const kinds: SessionMediaKinds = {};
     for (const entry of options.media()) if (hashes.has(entry.hash)) kinds[entry.hash] = entry.kind;
+    for (const card of options.actionCards())
+      if (card.image && hashes.has(card.image.hash)) kinds[card.image.hash] = card.image.kind;
     return kinds;
   }
 
-  const snapshot = (): SessionSnapshot => ({ session, progression, mediaKinds: mediaKindsFor(session) });
+  const snapshot = (): SessionSnapshot => ({
+    session,
+    progression,
+    mediaKinds: mediaKindsFor(session),
+    discardedLegacySession,
+  });
 
   async function saveProgression(next: Progression): Promise<void> {
     await options.progressionStore.write(next);
@@ -117,7 +129,7 @@ export async function createSessionService(options: SessionServiceOptions): Prom
         now: current.toISOString(),
         goalValue: wheel.value,
         rules: DEFAULT_SESSION_RULES,
-        actions: DEFAULT_ACTIONS,
+        actionCards: options.actionCards(),
         folders: options.folders(),
         media: options.media(),
         progression,
@@ -130,6 +142,7 @@ export async function createSessionService(options: SessionServiceOptions): Prom
         categoryUsage,
         blockedActionsNextSession: [],
       });
+      discardedLegacySession = false;
       return { wheel, session: generated, mediaKinds: mediaKindsFor(generated), lockoutUntil: null };
     } catch (error) {
       if (error instanceof GenerationError) {
@@ -195,13 +208,16 @@ export async function createSessionService(options: SessionServiceOptions): Prom
     // Both neighbours, so the test works even while U Turn blocks one direction
     const fields = new Set([(session.position % length) + 1, ((session.position - 2 + length) % length) + 1]);
     fields.delete(session.goalField);
+    const definition = options.actionCards().find((card) => card.type === action);
     const cards = session.cards.map((card) =>
       fields.has(card.field)
         ? {
             field: card.field,
             kind: 'action' as const,
             action,
+            actionCardId: definition?.id ?? action,
             group: actionGroup(action),
+            ...(definition?.image ? { imageHash: definition.image.hash } : {}),
             discovered: false,
           }
         : card,

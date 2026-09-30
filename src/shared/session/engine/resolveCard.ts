@@ -1,8 +1,9 @@
-import { actionGroup, type ActionId } from '../../actions';
+import { actionGroup } from '../../actions';
 import { randInt, shuffle, type Rng } from '../rng';
-import type { Card, ResolutionStep, SessionState } from '../types';
-import { convertConsumedActionCard } from './cardImages';
-import { numberParam, rangeParam, rollRange, type EngineContext } from './context';
+import type { ActionCardDefinition, Card, ResolutionStep, SessionState, TaskFollowUp } from '../types';
+import { collect, convertBadToGood } from './boardChanges';
+import { convertConsumedActionCard, freshNormalCard } from './cardImages';
+import { definitionOf, numberParam, rangeParam, rollRange, type EngineContext } from './context';
 import {
   activeNegativeEffects,
   applyEffect,
@@ -12,15 +13,16 @@ import {
   hasEffect,
   removeEffect,
 } from './effects';
-import { availableSwitcherooPools } from './switcheroo';
+import { availableSwitcherooCategories } from './switcheroo';
+import { enterFinalWheel } from './winFlow';
 
 const SPLATTER_SEED_MAX = 2 ** 31 - 1;
+const DEFAULT_SAFETY_ZONE = 12;
+const DEFAULT_ALTERNATIVES = 3;
 
-const task = (
-  draft: SessionState,
-  baseCount: number,
-  followUp?: 'teleport_goal' | 'move_player',
-): ResolutionStep => ({
+type TaskStep = Extract<ResolutionStep, { kind: 'task' }>;
+
+const task = (draft: SessionState, baseCount: number, followUp?: TaskFollowUp): TaskStep => ({
   kind: 'task',
   count: baseCount * getTaskMultiplier(draft.effects),
   pace: getPace(draft.effects),
@@ -28,9 +30,9 @@ const task = (
 });
 
 /** Hail Mary multiplier: a value on the configured step grid, e.g. 1.5 / 2.0 / 2.5 / 3.0. */
-function rollMultiplier(rng: Rng, context: EngineContext): number {
-  const [min, max] = rangeParam(context, 'hail_mary', 'multiplier', [1.5, 3]);
-  const step = numberParam(context, 'hail_mary', 'multiplierStep', 0.5);
+function rollMultiplier(rng: Rng, definition: ActionCardDefinition | undefined): number {
+  const [min, max] = rangeParam(definition, 'multiplier', [1.5, 3]);
+  const step = numberParam(definition, 'multiplierStep', 0.5);
   const steps = Math.max(0, Math.round((max - min) / step));
   return min + step * randInt(rng, 0, steps);
 }
@@ -57,36 +59,44 @@ function removeNegativeSteps(draft: SessionState): ResolutionStep[] {
     : [{ kind: 'notice', notice: { type: 'nothing_to_remove' } }];
 }
 
-/** game-design §10: the steps an action produces when triggered. Mutates the draft for instant effects. */
+/**
+ * game-design §10: the steps an action card produces when triggered (params from its definition, §10.4).
+ * Mutates the draft for instant effects.
+ */
 export function triggerAction(
   draft: SessionState,
   rng: Rng,
   context: EngineContext,
-  action: ActionId,
+  card: Pick<Card, 'action' | 'actionCardId'>,
 ): ResolutionStep[] {
+  const definition = definitionOf(context, card);
+  const action = definition?.type ?? card.action;
+  if (!action) return [];
+  const actionCardId = definition?.id ?? action;
   draft.stats.actionsTriggered[action] = (draft.stats.actionsTriggered[action] ?? 0) + 1;
+  draft.stats.actionCardsTriggered[actionCardId] = (draft.stats.actionCardsTriggered[actionCardId] ?? 0) + 1;
 
   // Shield (Good Fairy) blocks the next bad action – never Mistress Says No (§11)
   if (actionGroup(action) === 'bad' && action !== 'mistress_says_no' && hasEffect(draft.effects, 'shield')) {
     draft.effects = removeEffect(draft.effects, 'shield');
-    return [{ kind: 'notice', notice: { type: 'shield_blocked', action } }];
+    return [{ kind: 'notice', notice: { type: 'shield_blocked', action, actionCardId } }];
   }
 
   const round = draft.round;
-  const rounds = (key = 'rounds') => rollRange(rng, rangeParam(context, action, key, [2, 4]));
+  const param = (key: string, fallback: readonly [number, number]) =>
+    rollRange(rng, rangeParam(definition, key, fallback));
+  const rounds = () => param('rounds', [2, 4]);
+  const followUp = (kind: TaskFollowUp['kind']): TaskFollowUp => ({
+    kind,
+    safetyZone: rangeParam(definition, 'safetyZone', [DEFAULT_SAFETY_ZONE, DEFAULT_SAFETY_ZONE])[0],
+  });
 
   switch (action) {
     case 'clearing_edges':
-      return [
-        {
-          kind: 'hold',
-          seconds: rollRange(rng, rangeParam(context, action, 'holdSeconds', [15, 35])),
-          thenPickEffect: true,
-        },
-      ];
+      return [{ kind: 'hold', seconds: param('holdSeconds', [15, 35]), thenPickEffect: true }];
     case 'good_fairy': {
       if (activeNegativeEffects(draft.effects).length > 0) return removeNegativeSteps(draft);
-      if (numberParam(context, action, 'shieldEnabled', 1) === 0) return removeNegativeSteps(draft);
+      if (numberParam(definition, 'shieldEnabled', 1) === 0) return removeNegativeSteps(draft);
       draft.effects = applyEffect(draft.effects, { type: 'shield' }, round);
       return [{ kind: 'notice', notice: { type: 'effect_applied', effect: 'shield' } }];
     }
@@ -110,15 +120,28 @@ export function triggerAction(
       ];
     }
     case 'hail_mary': {
-      const value = rollMultiplier(rng, context);
+      const value = rollMultiplier(rng, definition);
       draft.effects = applyEffect(draft.effects, { type: 'success_multiplier', value }, round);
       return [{ kind: 'notice', notice: { type: 'effect_applied', effect: 'success_multiplier', value } }];
     }
     case 'switcheroo': {
-      const pools = availableSwitcherooPools(draft, context);
-      return pools.length > 0
-        ? [{ kind: 'switcheroo_pool', pools }]
+      const categoryIds = availableSwitcherooCategories(draft, context);
+      const alternatives = numberParam(definition, 'alternatives', DEFAULT_ALTERNATIVES);
+      return categoryIds.length > 0
+        ? [{ kind: 'switcheroo_pool', categoryIds, alternatives }]
         : [{ kind: 'notice', notice: { type: 'switcheroo_unavailable' } }];
+    }
+    case 'redemption': {
+      const converted = convertBadToGood(draft, rng, context, param('count', [3, 5]));
+      return [
+        {
+          kind: 'notice',
+          notice:
+            converted > 0
+              ? { type: 'cards_converted', count: converted, source: 'redemption' }
+              : { type: 'nothing_to_convert' },
+        },
+      ];
     }
     case 'pixelate': {
       draft.effects = applyEffect(
@@ -131,7 +154,7 @@ export function triggerAction(
       return [{ kind: 'notice', notice: { type: 'effect_applied', effect: 'pixelate', value: level } }];
     }
     case 'splatter': {
-      const count = rollRange(rng, rangeParam(context, action, 'cardCount', [3, 10]));
+      const count = param('cardCount', [3, 10]);
       const targets = new Set(
         shuffle(
           rng,
@@ -147,15 +170,9 @@ export function triggerAction(
       ];
     }
     case 'squeeze_task':
-      return [task(draft, rollRange(rng, rangeParam(context, action, 'count', [5, 20])))];
+      return [task(draft, param('count', [5, 20]))];
     case 'edge_and_hold':
-      return [
-        {
-          kind: 'hold',
-          seconds: rollRange(rng, rangeParam(context, action, 'holdSeconds', [15, 35])),
-          thenPickEffect: false,
-        },
-      ];
+      return [{ kind: 'hold', seconds: param('holdSeconds', [15, 35]), thenPickEffect: false }];
     case 'double_trouble': {
       const value = rounds();
       draft.effects = applyEffect(draft.effects, { type: 'double_trouble', rounds: value }, round);
@@ -170,9 +187,7 @@ export function triggerAction(
     case 'guessing_game':
       return [{ kind: 'guess' }];
     case 'goal_teleport':
-      return [
-        task(draft, rollRange(rng, rangeParam(context, action, 'taskCount', [15, 35])), 'teleport_goal'),
-      ];
+      return [task(draft, param('taskCount', [15, 35]), followUp('teleport_goal'))];
     case 'u_turn': {
       const value = rounds();
       // Blocks the current direction of travel
@@ -181,15 +196,9 @@ export function triggerAction(
       return [{ kind: 'notice', notice: { type: 'effect_applied', effect: 'u_turn', rounds: value } }];
     }
     case 'moving_day':
-      return [task(draft, rollRange(rng, rangeParam(context, action, 'taskCount', [15, 35])), 'move_player')];
+      return [task(draft, param('taskCount', [15, 35]), followUp('move_player'))];
     case 'highperformer':
-      return [
-        {
-          kind: 'timed_task',
-          seconds: rollRange(rng, rangeParam(context, action, 'seconds', [5, 15])),
-          pace: getPace(draft.effects),
-        },
-      ];
+      return [{ kind: 'timed_task', seconds: param('seconds', [5, 15]), pace: getPace(draft.effects) }];
     case 'bad_luck': {
       if (!hasEffect(draft.effects, 'success_multiplier'))
         return [{ kind: 'notice', notice: { type: 'nothing_to_remove' } }];
@@ -209,9 +218,23 @@ export function triggerAction(
 /** Steps after a successful hold of Clearing Edges. */
 export const afterClearingEdges = (draft: SessionState): ResolutionStep[] => removeNegativeSteps(draft);
 
+/** Task of a normal card: the player may pick a stroke tier (§8.6). */
+export function normalTask(
+  draft: SessionState,
+  context: EngineContext,
+  baseCount: number,
+  revisit = false,
+): ResolutionStep {
+  return {
+    ...task(draft, baseCount),
+    ...(context.rules.strokeTierMax > 1 ? { tierable: true } : {}),
+    ...(revisit ? { revisit: 'converted' as const } : {}),
+  };
+}
+
 /**
- * Lands on a field: reveal + discover + queue its resolution (§8.2).
- * The Goal Field switches to the win check instead (AP6).
+ * Lands on a field: reveal + discover + queue its resolution (§8.2 v2).
+ * The Goal Field starts the final wheel with the current release chance instead (§14).
  */
 export function landOn(
   draft: SessionState,
@@ -221,35 +244,44 @@ export function landOn(
 ): ResolutionStep[] {
   draft.position = field;
   if (field === draft.goalField) {
-    draft.phase = 'win_check';
     draft.reveal = draft.cards[field - 1] ?? null;
+    enterFinalWheel(draft, context);
     return [];
   }
 
   const original = draft.cards[field - 1];
   if (!original) return [];
   let card: Card = { ...original };
+  let revisit = false;
 
-  // §6.6 revisit: same task, new count
-  if (card.kind === 'normal' && card.discovered) {
-    const folder = context.folders.find((candidate) => candidate.id === card.folderId);
-    const range = card.actionConsumed
-      ? context.rules.consumedTaskRange
-      : (folder?.taskRange ?? context.rules.consumedTaskRange);
-    card = { ...card, taskCount: rollRange(rng, range) };
+  if (card.discovered && card.kind === 'collectible') {
+    // §9.4 revisit: no bonus again, only a stroke task
+    card = { ...card, taskCount: rollRange(rng, context.rules.collectibleRevisitTaskRange) };
+    draft.cards[field - 1] = card;
+    draft.reveal = card;
+    draft.phase = 'resolve_card';
+    return [{ ...task(draft, card.taskCount ?? 0), revisit: 'collectible' }];
+  }
+  if (card.discovered && card.kind === 'normal') {
+    // §8.5 revisit conversion: the field turns into a bad card with a new image
+    card = freshNormalCard(draft, rng, context, card, 'bad');
+    draft.stats.revisitConversions++;
+    revisit = true;
   }
   card.discovered = true;
+  if (card.kind === 'collectible') card.collected = true;
   draft.cards[field - 1] = card;
   draft.reveal = card;
   draft.phase = 'resolve_card';
 
   if (card.kind === 'action' && card.action) {
-    const steps = triggerAction(draft, rng, context, card.action);
+    const steps = triggerAction(draft, rng, context, card);
     if (context.rules.actionRetrigger === 'once') {
       const current = draft.cards[field - 1] ?? card;
       draft.cards[field - 1] = convertConsumedActionCard(draft, rng, context, current);
     }
     return steps;
   }
-  return [task(draft, card.taskCount ?? 0)];
+  if (card.kind === 'collectible') return [task(draft, card.taskCount ?? 0), ...collect(draft, rng, context)];
+  return [normalTask(draft, context, card.taskCount ?? 0, revisit)];
 }

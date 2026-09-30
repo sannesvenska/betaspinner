@@ -22,7 +22,10 @@ interface AddFoldersDialogProps {
   onSubmit: (inputs: NewFolderInput[]) => Promise<void>;
 }
 
-/** Wizard step after picking folders: every folder needs an explicit group; role defaults to content. */
+/**
+ * Wizard step after picking folders: content folders need an explicit group; role defaults to content.
+ * Performer galleries have no group (game-design §5.1 v2).
+ */
 export function AddFoldersDialog({ paths, onCancel, onSubmit }: AddFoldersDialogProps) {
   const { t } = useTranslation();
   const [drafts, setDrafts] = useState<Draft[]>(() =>
@@ -36,11 +39,13 @@ export function AddFoldersDialog({ paths, onCancel, onSubmit }: AddFoldersDialog
   };
 
   const submit = async () => {
-    const complete = drafts.flatMap((draft) =>
-      draft.group && draft.displayName.trim()
-        ? [{ path: draft.path, displayName: draft.displayName.trim(), group: draft.group, role: draft.role }]
-        : [],
-    );
+    const complete = drafts.flatMap((draft) => {
+      // The stored group of a performer folder is ignored
+      const group = draft.role === 'performer' ? (draft.group ?? 'good') : draft.group;
+      return group && draft.displayName.trim()
+        ? [{ path: draft.path, displayName: draft.displayName.trim(), group, role: draft.role }]
+        : [];
+    });
     if (complete.length !== drafts.length) {
       setShowErrors(true);
       return;
@@ -74,7 +79,15 @@ export function AddFoldersDialog({ paths, onCancel, onSubmit }: AddFoldersDialog
               }}
             />
             <div className="flex flex-wrap gap-8">
-              <div className="flex flex-col gap-2">
+              <SegmentedControl
+                label={t('library.field.role')}
+                value={draft.role}
+                options={roleOptions(t)}
+                onChange={(role) => {
+                  patchDraft(index, { role });
+                }}
+              />
+              <div className={draft.role === 'performer' ? 'hidden' : 'flex flex-col gap-2'}>
                 <SegmentedControl
                   label={t('library.field.group')}
                   value={draft.group ?? ('' as Group)}
@@ -87,14 +100,6 @@ export function AddFoldersDialog({ paths, onCancel, onSubmit }: AddFoldersDialog
                   <span className="text-body-sm text-bad">{t('library.add.groupRequired')}</span>
                 )}
               </div>
-              <SegmentedControl
-                label={t('library.field.role')}
-                value={draft.role}
-                options={roleOptions(t)}
-                onChange={(role) => {
-                  patchDraft(index, { role });
-                }}
-              />
             </div>
           </section>
         ))}

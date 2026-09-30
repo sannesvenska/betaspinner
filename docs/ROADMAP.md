@@ -6,17 +6,18 @@
 
 ## Milestones
 
-| Milestone                      | Reached after | Meaning                                                                  |
-| ------------------------------ | ------------- | ------------------------------------------------------------------------ |
-| **M0 – Ready to build**        | AP0           | Concept + design system final, open questions closed                     |
-| **M1 – Playable**              | AP5           | Start wheel → session → rounds with normal cards → goal; autosave, pause |
-| **M2 – Full session cycle**    | AP6           | Win check, final wheel, outcomes, penalties, progression                 |
-| **M3 – Feature-complete game** | AP8           | All actions, effects, visual effects                                     |
-| **M4 – Configurable**          | AP9           | Admin covers every `default` value                                       |
-| **M5 – Masks**                 | AP10          | Media Library + Mask Editor                                              |
-| **v1.0**                       | AP11          | Stats, backup, audit, installer                                          |
+| Milestone                      | Reached after | Meaning                                                                       |
+| ------------------------------ | ------------- | ----------------------------------------------------------------------------- |
+| **M0 – Ready to build**        | AP0           | Concept + design system final, open questions closed                          |
+| **M1 – Playable**              | AP5           | Start wheel → session → rounds with normal cards → goal; autosave, pause      |
+| **M2 – Full session cycle**    | AP6           | Win check, final wheel, outcomes, penalties, progression                      |
+| **M3 – Feature-complete game** | AP8           | All actions, effects, visual effects                                          |
+| **M4 – Gameplay v2**           | AP9           | Game-design Revision 3: release chance, conversions, performers, action cards |
+| **M5 – Configurable**          | AP10          | Admin covers every `default` value                                            |
+| **M6 – Masks**                 | AP11          | Media Library + Mask Editor                                                   |
+| **v1.0**                       | AP12          | Stats, backup, audit, installer                                               |
 
-Order note: win flow (AP6) comes **before** actions (AP7) so a complete session loop is testable early. The pause hotkey ships in AP5 (privacy).
+Order note: win flow (AP6) comes **before** actions (AP7) so a complete session loop is testable early. The pause hotkey ships in AP5 (privacy). Gameplay v2 (AP9) comes **before** the admin (AP10) so the admin is built once against the final rule set.
 
 ---
 
@@ -47,7 +48,7 @@ Order note: win flow (AP6) comes **before** actions (AP7) so a complete session 
 | 1.9  | Dev showcase (`import.meta.env.DEV` only)                                                                                                                   | ✅     |
 | 1.10 | Window: min 1280×720, fullscreen default (off in dev), F11, neutral fixed title, F12 devtools in dev                                                        | ✅     |
 
-**Notes:** electron-vite 5 caps Vite at 7 and typescript-eslint caps TypeScript below 6.1 – upgrade together later. `config.json` currently holds `AppSettings` only; game rules config joins in AP3/AP9.
+**Notes:** electron-vite 5 caps Vite at 7 and typescript-eslint caps TypeScript below 6.1 – upgrade together later. `config.json` currently holds `AppSettings` only; game rules config joins in AP3/AP10.
 
 ## AP2 – Content pipeline · M · ✅
 
@@ -71,7 +72,7 @@ Order note: win flow (AP6) comes **before** actions (AP7) so a complete session 
 | 3.3 | Pipeline §6.1–6.6: start wheel + penalty check, start placement, category selection (cooldown/freshness/relaxation), composition, action slots (gates, blocks, min/max, requires), stratified placement with gap, image bags (no repeats, recency, `allowedActions`, `shareWeight` split), neutral action cards | ✅     |
 | 3.4 | Tests per step + 1,000-seed distribution tests (placement spread/gap/protection, Mistress Says No ≈ 5 %, requires never violated, goodChance ratio, no image repeats, determinism)                                                                                                                              | ✅     |
 
-**Result:** `generateSession()` in `src/shared/session/` – 30 tests. Config storage for rules/actions joins with the admin (AP9); until then the defaults are used.
+**Result:** `generateSession()` in `src/shared/session/` – 30 tests. Config storage for rules/actions joins with the admin (AP10); until then the defaults are used.
 
 ## AP4 – Game engine (pure) · L · ✅
 
@@ -92,7 +93,7 @@ Order note: win flow (AP6) comes **before** actions (AP7) so a complete session 
 | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | 5.1  | Main process owns session + progression (`sessionService`): spin, generate, `reduce`, atomic autosave after every event, close with image recency                     | ✅     |
 | 5.2  | Start screen with seeded start wheel (precomputed angle, 4–6 turns, skippable), penalty fields, lockout countdown, "not ready" state                                  | ✅     |
-| 5.3  | Initial task, category reveal (reroll: setting is off by default – UI follows with the admin, AP9)                                                                    | ✅     |
+| 5.3  | Initial task, category reveal (reroll: setting is off by default – UI follows with the admin, AP10)                                                                   | ✅     |
 | 5.4  | Main layout: console (ring, stats, effect chips, Gallery/Pause/End Early), stage, task bar                                                                            | ✅     |
 | 5.5  | Ring: hatched bad segments, action marker shapes, goal flag, targets + path preview, continuous rotation incl. wrap-around, hover/keyboard preview in the ring center | ✅     |
 | 5.6  | Dice animation, direction buttons (neutral, per-side hint, U Turn blocked state), movement animation, card reveal fade; all skippable                                 | ✅     |
@@ -146,33 +147,65 @@ Order note: win flow (AP6) comes **before** actions (AP7) so a complete session 
 
 **Result:** M3 – feature-complete game.
 
-## AP9 – Admin · L · ⬜
+## AP9 – Gameplay v2 · L · 🟨
 
-1. Folders (full properties, weights, task ranges, allowed actions).
-2. Actions (enabled, weights, min/max, sessionChance, requires, params) + generator simulation (1,000 runs) with distribution preview.
-3. Session Rules, Visual Effects, Penalties & Progression (+ reset), Sound & Controls (hotkey, animation speed, reduced motion).
+Implements game-design **Revision 3** (all rules marked **[v2]**, decision log §24.1). Order: data model → generator → engine → UI, so every step stays testable.
+
+| #    | Task                                                                                                                                                                                                                                       | Status |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| 9.1  | Design-system update: session briefing, release-chance stat with breakdown tooltip, undiscovered counter, performer progress (tier markers), collectible marker (star), detour badge, forced-reversal state, stroke tier buttons, 1–3 dice | ✅     |
+| 9.2  | Data model + migration: `config.json` v3 (role `action` → disabled `content`, role `performer`, `allowedActions` dropped), `ActionCardDefinition` store with 21 built-ins, session `schemaVersion`; old sessions discarded unscored (§8.3) | ✅     |
+| 9.3  | Action-art store: copy picked file into `userData/action-art/`, hash, uniqueness check, `cr-media://` serves the store (§10.4)                                                                                                             | ✅     |
+| 9.4  | Generator: initial task = N (§6.1), category count ranges (§6.2), performer selection (§6.2.1), action pool (§6.4), collectibles in composition + placement (§6.3/6.5), action images from definitions, collectible image bag (§6.6)       | ✅     |
+| 9.5  | Engine – release chance: pure `getReleaseChance` (discovered × rate + tier bonus, × multiplier, clamp), win check without roll, hold cap 60 s (§14)                                                                                        | ✅     |
+| 9.6  | Engine – board changes: detour conversion + cap (§8.4), revisit conversion (§8.5), collectibles (collect, revisit task 10–25, bonus tiers, §9.4), new resolver `redemption` (§10.1)                                                        | ✅     |
+| 9.7  | Engine – movement: goal drift on overshoot (§8.8), stroke tier ×1/×2/×3 → 1–3 dice (§8.6), forced reversal (§8.7); new round order (§8.2 v2)                                                                                               | ✅     |
+| 9.8  | Switcheroo rework: pools = active categories, action pools removed, collectibles untouched (§10.3)                                                                                                                                         | ✅     |
+| 9.9  | Tests: unit per rule, fuzz test with the new events, balancing simulation (1,000 bot games: rounds, final chance, share of bad cards seen, conversions, drifts) to verify the defaults                                                     | ✅     |
+| 9.10 | Game UI: session briefing (categories, performer, action pool), console stats, detour badge, forced reversal, stroke tier picker, multi-dice animation, collectible marker + tier notice, goal drift pulse, win check screen without roll  | ✅     |
+| 9.11 | Library screen (minimal until AP10): folder role `performer`; action card list with image assign / duplicate / enable                                                                                                                      | ✅     |
+| 9.12 | Stats + history fields (§17 v2), i18n keys (`pnpm check:i18n`), game-design: remove the `[v2]` markers and superseded rules once implemented                                                                                               | 🟨     |
+
+**Risk:** the defaults (detour conversion 2, rate 0.4 %, tiers, drift range, reversal 10 %) interact – 9.9 decides whether they need tuning before the admin exposes them.
+
+**Verified:** 147 tests (engine rules per mechanic, fuzz test with tiers/drift/reversal, config v2 → v3 migration, action card service, legacy session discard); e2e in the running app with generated media: library action cards tab (image assigned), initial task = N, briefing, stroke tiers + multi-dice, detour badge + conversions, forced reversal, collectibles + tiers, goal drift, final wheel with release chance breakdown. Found and fixed: `allocateByWeight` dropped a card with a remainder of 2 (3 categories → a normal card without folder).
+
+**Balancing (9.9, 200 bot games, bot explores until 25 % then heads for the goal, uses stroke tiers to jump out of explored areas):** 186 / 200 reach the goal (rest: Mistress Says No), Ø 126 rounds, Ø final chance 40 %, Ø 35 cards converted by detours, Ø 98 revisit conversions, Ø 2.4 goal drifts, Ø 4.2 collectibles. Without stroke tiers the bot needs far longer (Ø 162 rounds, 109 / 200 within the event limit). Observation from the e2e run: with the detour rule all undiscovered bad cards were gone after ~50 rounds. **Open decision for the product owner** before AP10: keep 0.4 % / 2 conversions, or tune (e.g. 0.5 % per card, 1 conversion per detour).
+
+**Open (9.12):** the `[v2]` markers stay in game-design until the product owner has confirmed the balancing; superseded rules are marked there.
+
+**Result:** M4 – Gameplay v2 (after 9.12).
+
+## AP10 – Admin · L · ⬜
+
+1. Folders (full properties, weights, task ranges) incl. performer folders.
+2. Action cards (§10.4): definitions list with image, create/duplicate/edit/disable/reset, params, `requires`, action pool size + generator simulation (1,000 runs) with distribution preview.
+3. Session Rules (incl. v2 values: category ranges, detour, release chance rate, hold cap, goal drift, stroke tiers, forced reversal), Performers (collectible count, revisit range, tiers), Visual Effects, Penalties & Progression (+ reset), Sound & Controls (hotkey, animation speed, reduced motion).
 4. Validation + inline errors.
 
-**Result:** M4 – configurable.
+**Result:** M5 – configurable.
 
-## AP10 – Media Library & Mask Editor · L · ⬜
+## AP11 – Media Library & Mask Editor · L · ⬜
 
 1. Library: folder sidebar with review progress, virtualized grid, status badges, filters, bulk actions.
 2. Mask editor: rect/ellipse/polygon/lasso (RDP), select/move/resize, zoom/pan, undo/redo, shortcuts, copy-from-previous, preview slider through the real renderer, autosave.
 3. `masks.json` keyed by hash, normalized coordinates.
 
-**Result:** M5 – masks.
+**Result:** M6 – masks.
 
-## AP11 – Stats, backup, polish, release · M · ⬜
+## AP12 – Stats, backup, polish, release · M · ⬜
 
 1. Session stats collection + History screen (sortable table, summary).
 2. Session summary screen.
-3. Backup export/import (ZIP, path remapping).
+3. Backup export/import (ZIP, path remapping; includes `action-art/`).
 4. Accessibility audit (keyboard, focus, contrast, reduced motion), performance audit (6,000 files).
-5. electron-builder installer (NSIS) + portable build; app icon.
+5. Remove the dev component showcase (AP1.9 / AP8.5).
+6. E2E driver: capture the Playwright walkthrough used for AP9 as a project script (clear `ELECTRON_RUN_AS_NODE` when launched from VS Code).
+7. electron-builder installer (NSIS) + portable build; app icon.
 
 **Result:** v1.0.
 
 ## Later (parking lot)
 
 - Pace metronome · Admin PIN · additional language packs.
+- Category zones on the ring · session composition by draft or deck presets.

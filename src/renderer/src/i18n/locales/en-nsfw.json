@@ -19,15 +19,23 @@
     "dismiss": "Dismiss"
   },
   "console": {
-    "round": "Round",
+    "releaseChance": "Release chance",
     "discovered": "Discovered",
     "actionsLeft": "Actions left",
-    "winMultiplier": "Win multiplier",
     "gallery": "Gallery",
     "pause": "Pause",
     "pauseHint": "Pause instantly (Ctrl + Shift + Space)",
     "endEarly": "End early",
-    "endEarlyHint": "Hold to end the session. Counts as a loss."
+    "endEarlyHint": "Hold to end the session. Counts as a loss.",
+    "undiscovered": "Undiscovered",
+    "performer": "{{name}}",
+    "collected": "{{collected}} / {{total}}",
+    "chance": {
+      "base": "{{discovered}} discovered × {{rate}} % = {{base}} %",
+      "bonus": "+{{bonus}} % performer bonus",
+      "multiplier": "× {{multiplier}} Hail Mary",
+      "cap": "Always between {{min}} and {{max}} %"
+    }
   },
   "countdown": {
     "hold": "Hold",
@@ -115,6 +123,10 @@
       "name": "Switcheroo",
       "description": "Swap the images of the undiscovered cards for another category."
     },
+    "redemption": {
+      "name": "Redemption",
+      "description": "A few bad fields ahead of you turn good."
+    },
     "pixelate": {
       "name": "Pixelate",
       "description": "Images get more pixelated."
@@ -190,7 +202,7 @@
     },
     "role": {
       "content": "Content",
-      "action": "Action"
+      "performer": "Performer"
     },
     "field": {
       "displayName": "Display name",
@@ -225,7 +237,7 @@
     "add": {
       "title_one": "Set up folder",
       "title_other": "Set up {{count}} folders",
-      "intro": "Choose whether each folder holds good or bad images, and whether they are used for normal cards (content) or action cards.",
+      "intro": "Choose whether each folder holds normal cards (content: good or bad) or the gallery of one performer (collectibles).",
       "submit_one": "Add folder",
       "submit_other": "Add {{count}} folders",
       "nameRequired": "Enter a display name.",
@@ -236,8 +248,41 @@
       "title": "Add your folders",
       "body": "Chance Runner plays with images from folders on this computer. Nothing leaves your machine.",
       "step1": "Pick one or more folders – each folder is one category.",
-      "step2": "Mark each folder as good or bad, and as content or action images.",
+      "step2": "Mark each folder as good or bad content, or as a performer gallery.",
       "step3": "The library is scanned; you need at least one good and one bad content folder to play."
+    },
+    "section": {
+      "good": "Good · Content",
+      "bad": "Bad · Content",
+      "performer": "Performers"
+    },
+    "tabs": {
+      "label": "Show",
+      "folders": "Folders",
+      "actionCards": "Action cards"
+    },
+    "cards": {
+      "intro": "Every action card is its own card with its own image. Cards without an image use the neutral design. Duplicate a card to create a variant.",
+      "section": {
+        "good": "Good action cards",
+        "bad": "Bad action cards"
+      },
+      "name": "Name",
+      "builtIn": "Built-in",
+      "variant": "Variant",
+      "neutral": "Neutral action design",
+      "chooseImage": "Choose image",
+      "replaceImage": "Replace image",
+      "removeImage": "Remove image",
+      "duplicate": "Duplicate",
+      "copyName": "{{name}} (copy)",
+      "reset": "Reset",
+      "delete": "Delete",
+      "error": {
+        "image_in_use": "This image already belongs to another action card. Every card needs its own image.",
+        "built_in": "Built-in cards cannot be deleted – reset them instead.",
+        "not_found": "This action card no longer exists."
+      }
     }
   },
   "start": {
@@ -260,18 +305,24 @@
     },
     "nextDecay": "Next decay",
     "decayHint": "−{{count}} fields every hour",
-    "lossHint": "Next loss adds {{count}} fields"
+    "lossHint": "Next loss adds {{count}} fields",
+    "legacyDiscarded": "Your last session was saved by an older version of the rules and was discarded without scoring."
   },
   "initial": {
     "eyebrow": "Goal field {{goal}}",
     "title": "Opening task",
     "body": "Before the board opens:"
   },
-  "reveal": {
+  "briefing": {
     "eyebrow": "This session",
-    "title": "Your categories",
+    "title": "Your board",
     "good": "Good",
     "bad": "Bad",
+    "performer": "Performer",
+    "noPerformer": "No performer gallery this time",
+    "tierConvert": "{{collected}} found: {{count}} bad fields turn good",
+    "tierChance": "{{collected}} found: release chance +{{percent}} %",
+    "actions": "Action cards",
     "start": "Start"
   },
   "resume": {
@@ -335,7 +386,13 @@
     "previewFrom": "{{distance}} from here",
     "galleryTitle": "Discovered cards",
     "galleryEmpty": "Nothing discovered yet.",
-    "neutralCard": "Action card"
+    "neutralCard": "Action card",
+    "rollDice_one": "Roll",
+    "rollDice_other": "Roll {{count}} dice",
+    "forcedReversal": "Only backwards this round",
+    "forcedBlocked": "Backwards only",
+    "detour": "Detour · +{{count}} good",
+    "performer": "Performer"
   },
   "task": {
     "count": "Stroke ×{{count}}",
@@ -344,7 +401,11 @@
       "slow": "Slow and deep, full length",
       "fast": "Fast and hard, no breaks"
     },
-    "timedTitle": "Go!"
+    "timedTitle": "Go!",
+    "revisit": "Revisited – this field turned bad",
+    "collectibleRevisit": "Already collected – no bonus",
+    "dice_one": "{{count}} die",
+    "dice_other": "{{count}} dice"
   },
   "step": {
     "pickEffect": "Pick a negative effect to remove",
@@ -353,14 +414,8 @@
       "removeEffect": "Remove a negative effect",
       "removePenalty": "Remove 2 penalty fields"
     },
-    "switcherooPool": "What do you want to swap?",
-    "switcherooFolder": "Pick the new category",
-    "pool": {
-      "good_content": "Good category",
-      "bad_content": "Bad category",
-      "good_action": "Good action images",
-      "bad_action": "Bad action images"
-    },
+    "switcherooPool": "Which category do you want to replace?",
+    "switcherooFolder": "Replace {{category}} with",
     "poolCards_one": "{{count}} card",
     "poolCards_other": "{{count}} cards"
   },
@@ -387,7 +442,22 @@
     "relocationSkipped": "No free field – nothing moves",
     "switcherooDone": "{{changed}} of {{total}} cards changed",
     "switcherooUnavailable": "No alternatives available",
-    "penaltyFieldsRemoved": "{{count}} penalty fields removed"
+    "penaltyFieldsRemoved": "{{count}} penalty fields removed",
+    "goalDrifted": "You jumped over the goal – it moved to field {{to}}",
+    "converted": {
+      "detour_one": "Detour: {{count}} bad field turned good",
+      "detour_other": "Detour: {{count}} bad fields turned good",
+      "redemption_one": "{{count}} bad field turned good",
+      "redemption_other": "{{count}} bad fields turned good",
+      "collectible_one": "{{count}} bad field turned good",
+      "collectible_other": "{{count}} bad fields turned good"
+    },
+    "nothingToConvert": "No bad fields left to turn",
+    "tier": {
+      "convert": "{{collected}} collected – {{count}} bad fields turned good",
+      "chance": "{{collected}} collected – release chance +{{percent}} %",
+      "convertNone": "{{collected}} collected – no bad fields left to turn"
+    }
   },
   "pause": {
     "title": "Paused",
@@ -395,9 +465,6 @@
   },
   "win": {
     "eyebrow": "Session {{number}} · Goal reached",
-    "checkTitle": "Goal reached",
-    "checkBody": "You discovered {{discovered}} of 100 cards. Roll to set your chance: discovered ÷ roll.",
-    "roll": "Roll",
     "wheelTitle": "Final wheel",
     "wheelBody": "Stay right at the edge. The wheel stops when the countdown hits zero. White: you may finish. Red: denied.",
     "startTask": "Start task",
@@ -407,7 +474,7 @@
     "hold": "Hold",
     "ofSeconds": "of {{seconds}} s",
     "baseChance": "Base chance",
-    "baseDetail": "{{discovered}} discovered ÷ roll {{roll}}",
+    "baseDetail": "{{discovered}} discovered × {{rate}} %",
     "multiplier": "Hail Mary",
     "multiplierDetail": "Success multiplier",
     "finalChance": "Final chance",
@@ -415,7 +482,9 @@
     "allowed": "Allowed",
     "denied": "Denied",
     "areaAllowed": "Allowed",
-    "areaDenied": "Denied"
+    "areaDenied": "Denied",
+    "bonus": "Performer bonus",
+    "bonusDetail": "{{collected}} collected"
   },
   "outcome": {
     "allowedTitle": "Success allowed",

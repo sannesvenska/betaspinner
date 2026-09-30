@@ -1,4 +1,3 @@
-import { actionGroup, type ActionId } from '../actions';
 import type { FolderConfig, MediaEntry } from '../content';
 import type { Group } from '../game';
 import { assignActionSlots } from './assignActionSlots';
@@ -6,11 +5,20 @@ import { placeStart } from './goalAndStart';
 import { createImageBag, type ImageBag } from './imageBags';
 import { placeActions } from './placeActions';
 import { createRng, randInt, shuffle, type Rng } from './rng';
+import { cardGroup, selectActionPool } from './selectActionPool';
 import { selectCategories } from './selectCategories';
 import { ALL_FIELDS, wrapField } from './track';
-import type { ActionConfig, Card, Progression, SessionRules, SessionState } from './types';
+import type {
+  ActionCardDefinition,
+  Card,
+  Progression,
+  SessionRules,
+  SessionState,
+  SessionStats,
+} from './types';
 
 const GROUPS: readonly Group[] = ['good', 'bad'];
+const STROKE_TIER_SLOTS = 3;
 
 export type GenerationErrorCode = 'no_good_category' | 'no_bad_category';
 
@@ -26,10 +34,10 @@ export interface GenerateSessionInput {
   sessionId: string;
   /** ISO timestamp */
   now: string;
-  /** Start wheel result = Goal Field (game-design §6.1) */
+  /** Start wheel result = Goal Field and initial task count (game-design §6.1) */
   goalValue: number;
   rules: SessionRules;
-  actions: readonly ActionConfig[];
+  actionCards: readonly ActionCardDefinition[];
   folders: readonly FolderConfig[];
   media: readonly MediaEntry[];
   progression: Progression;
@@ -50,7 +58,8 @@ export function allocateByWeight(total: number, weights: readonly number[]): num
   const order = exact
     .map((value, index) => ({ index, rest: value - Math.floor(value) }))
     .sort((a, b) => b.rest - a.rest);
-  for (let i = 0; i < total - counts.reduce((acc, count) => acc + count, 0); i++) {
+  const missing = total - counts.reduce((acc, count) => acc + count, 0);
+  for (let i = 0; i < missing; i++) {
     const target = order[i % order.length]?.index ?? 0;
     counts[target] = (counts[target] ?? 0) + 1;
   }
@@ -67,6 +76,26 @@ function mediaByFolder(media: readonly MediaEntry[]): Map<string, MediaEntry[]> 
   return byFolder;
 }
 
+export const emptyStats = (): SessionStats => ({
+  rolls: 0,
+  tasksPerformed: 0,
+  holdTasks: 0,
+  holdSeconds: 0,
+  actionsTriggered: {},
+  actionCardsTriggered: {},
+  maxPixelLevel: 0,
+  switches: [],
+  detourConversions: 0,
+  detours: 0,
+  revisitConversions: 0,
+  goalDrifts: 0,
+  forcedReversals: 0,
+  strokeTiers: Array<number>(STROKE_TIER_SLOTS).fill(0),
+});
+
+const rollCount = (rng: Rng, [min, max]: readonly [number, number]): number =>
+  randInt(rng, Math.round(min), Math.round(max));
+
 /**
  * game-design §6 – pure and deterministic: the same input always yields the same session.
  * Throws GenerationError when a group has no eligible content category.
@@ -77,14 +106,14 @@ export function generateSession(input: GenerateSessionInput): GenerateSessionRes
   const sessionIndex = progression.sessionCounter + 1;
   const byFolder = mediaByFolder(input.media);
   const folderById = new Map(input.folders.map((folder) => [folder.id, folder]));
-  const usedHashes = new Set<string>();
+  const imageCount = (id: string) => byFolder.get(id)?.length ?? 0;
+  const selectionBase = { usage: progression.categoryUsage, sessionIndex, rules };
 
-  // §6.1 goal, start, initial task
+  // §6.1 goal, start; the initial task count equals the wheel value (v2)
   const goalField = wrapField(input.goalValue);
   const startField = placeStart(rng, goalField, rules);
-  const initialTaskCount = randInt(rng, rules.initialTaskRange[0], rules.initialTaskRange[1]);
 
-  // §6.2 categories
+  // §6.2 categories (count rolled per group)
   const categories = {} as Record<Group, string[]>;
   for (const group of GROUPS) {
     const candidates = input.folders.filter(
@@ -92,60 +121,87 @@ export function generateSession(input: GenerateSessionInput): GenerateSessionRes
         folder.role === 'content' &&
         folder.group === group &&
         folder.enabled &&
-        (byFolder.get(folder.id)?.length ?? 0) >= folder.minImages,
+        imageCount(folder.id) >= folder.minImages,
     );
     const picked = selectCategories(rng, {
+      ...selectionBase,
       candidates,
-      count: rules.categoriesPerSession[group],
-      usage: progression.categoryUsage,
-      sessionIndex,
-      rules,
+      count: rollCount(rng, rules.categoriesPerSession[group]),
     });
     if (picked.length === 0)
       throw new GenerationError(group === 'good' ? 'no_good_category' : 'no_bad_category');
     categories[group] = picked;
   }
 
+  // §6.2.1 performer – needs enough images for every collectible
+  const performerCandidates = input.folders.filter(
+    (folder) =>
+      folder.role === 'performer' &&
+      folder.enabled &&
+      imageCount(folder.id) >= Math.max(folder.minImages, rules.collectibleCount[1]),
+  );
+  const performerFolderId =
+    selectCategories(rng, { ...selectionBase, candidates: performerCandidates, count: 1 })[0] ?? null;
+
   // §6.3 composition
-  const plannedActions = randInt(rng, rules.actionCardCount[0], rules.actionCardCount[1]);
+  const plannedActions = rollCount(rng, rules.actionCardCount);
   const goodShare = rules.actionGoodShare === 'linked' ? progression.goodChance : rules.actionGoodShare;
   const plannedGood = Math.round(plannedActions * goodShare);
+  const collectibleCount = performerFolderId ? rollCount(rng, rules.collectibleCount) : 0;
 
-  // §6.4 action types (unfillable slots become normal cards)
+  // §6.4 action pool, then slots (unfillable slots become normal cards)
+  const pool = selectActionPool(rng, {
+    cards: input.actionCards,
+    blocked: progression.blockedActionsNextSession,
+    size: rules.actionPoolSize,
+  });
   const slots = assignActionSlots(rng, {
     slotCounts: { good: plannedGood, bad: plannedActions - plannedGood },
-    actions: input.actions,
-    blocked: progression.blockedActionsNextSession,
+    pool,
   });
+  const actionCardIds = [...slots.good, ...slots.bad];
 
-  // §6.5 placement
-  const actionFields = placeActions(rng, {
-    startField,
-    goalField,
-    count: slots.good.length + slots.bad.length,
-    rules,
-  });
-  const actionIds: ActionId[] = shuffle(rng, [...slots.good, ...slots.bad]).slice(0, actionFields.length);
-  const actionByField = new Map(actionFields.map((field, index) => [field, actionIds[index] as ActionId]));
+  // §6.5 placement: actions and collectibles share the stratified slots
+  const specialFields = shuffle(
+    rng,
+    placeActions(rng, {
+      startField,
+      goalField,
+      count: actionCardIds.length + collectibleCount,
+      rules,
+    }),
+  );
+  const collectibleFields = new Set(specialFields.slice(0, collectibleCount));
+  const shuffledActions = shuffle(rng, actionCardIds);
+  const actionByField = new Map(
+    specialFields.slice(collectibleCount).flatMap((field, index) => {
+      const id = shuffledActions[index];
+      return id === undefined ? [] : [[field, id] as const];
+    }),
+  );
 
-  const normalFields = ALL_FIELDS.filter((field) => field !== goalField && !actionByField.has(field));
+  const normalFields = ALL_FIELDS.filter(
+    (field) => field !== goalField && !actionByField.has(field) && !collectibleFields.has(field),
+  );
   const goodNormalCount = Math.round(normalFields.length * progression.goodChance);
   const shuffledNormal = shuffle(rng, normalFields);
   const normalGroup = new Map<number, Group>(
     shuffledNormal.map((field, index) => [field, index < goodNormalCount ? 'good' : 'bad']),
   );
 
-  // §6.6 images – one bag per content category, one per action group
-  const bagOptions = {
-    imageRecency: progression.imageRecency,
-    sessionIndex,
-    recencySessions: rules.imageRecencySessions,
-    usedHashes,
-  };
+  // §6.6 images – one bag per content category and one for the performer
+  const usedHashes = new Set<string>();
+  const bagFor = (folderId: string): ImageBag =>
+    createImageBag(rng, {
+      entries: byFolder.get(folderId) ?? [],
+      imageRecency: progression.imageRecency,
+      sessionIndex,
+      recencySessions: rules.imageRecencySessions,
+      usedHashes,
+    });
   const categoryBags = new Map<string, ImageBag>();
-  for (const id of [...categories.good, ...categories.bad]) {
-    categoryBags.set(id, createImageBag(rng, { ...bagOptions, entries: byFolder.get(id) ?? [] }));
-  }
+  for (const id of [...categories.good, ...categories.bad]) categoryBags.set(id, bagFor(id));
+  const performerBag = performerFolderId ? bagFor(performerFolderId) : undefined;
 
   // Folder per normal card, split by shareWeight when a group has several categories
   const folderForField = new Map<number, string>();
@@ -165,30 +221,29 @@ export function generateSession(input: GenerateSessionInput): GenerateSessionRes
     });
   }
 
-  const actionBags = new Map<Group, ImageBag>();
-  for (const group of GROUPS) {
-    const actionFolderIds = input.folders
-      .filter((folder) => folder.role === 'action' && folder.group === group && folder.enabled)
-      .map((folder) => folder.id);
-    const entries = actionFolderIds.flatMap((id) => byFolder.get(id) ?? []);
-    actionBags.set(group, createImageBag(rng, { ...bagOptions, entries }));
-  }
-
-  const cards: Card[] = ALL_FIELDS.map((field) =>
-    buildCard(rng, field, {
-      goalField,
-      startField,
-      actionByField,
-      normalGroup,
-      folderForField,
-      folderById,
-      categoryBags,
-      actionBags,
-    }),
-  );
+  const cardById = new Map(input.actionCards.map((card) => [card.id, card]));
+  const context: CardContext = {
+    goalField,
+    startField,
+    actionByField,
+    cardById,
+    collectibleFields,
+    performer: performerFolderId ? folderById.get(performerFolderId) : undefined,
+    performerBag,
+    normalGroup,
+    folderForField,
+    folderById,
+    categoryBags,
+  };
+  const cards: Card[] = ALL_FIELDS.map((field) => buildCard(rng, field, context));
 
   const categoryUsage: Progression['categoryUsage'] = { ...progression.categoryUsage };
-  for (const id of [...categories.good, ...categories.bad]) {
+  const usedFolders = [
+    ...categories.good,
+    ...categories.bad,
+    ...(performerFolderId ? [performerFolderId] : []),
+  ];
+  for (const id of usedFolders) {
     categoryUsage[id] = {
       lastUsedSessionIndex: sessionIndex,
       timesUsed: (categoryUsage[id]?.timesUsed ?? 0) + 1,
@@ -206,9 +261,10 @@ export function generateSession(input: GenerateSessionInput): GenerateSessionRes
       goalField,
       startField,
       position: startField,
-      initialTaskCount,
+      initialTaskCount: input.goalValue,
       categories,
-      activeActionFolders: { good: null, bad: null },
+      performerFolderId,
+      actionPool: pool.map((card) => card.id),
       cards,
       effects: [],
       round: 0,
@@ -216,22 +272,20 @@ export function generateSession(input: GenerateSessionInput): GenerateSessionRes
       pending: [],
       reveal: null,
       lastRoll: null,
+      lastDice: [],
+      nextDice: 1,
       chooseNextRoll: false,
+      forcedDirection: null,
+      lastForcedRound: null,
       lastMove: null,
+      collected: 0,
+      reachedTiers: [],
       endReason: null,
       penaltyFieldsRemoved: 0,
       winCheck: null,
       finalWheel: null,
       reward: null,
-      stats: {
-        rolls: 0,
-        tasksPerformed: 0,
-        holdTasks: 0,
-        holdSeconds: 0,
-        actionsTriggered: {},
-        maxPixelLevel: 0,
-        switches: [],
-      },
+      stats: emptyStats(),
     },
     categoryUsage,
   };
@@ -240,43 +294,64 @@ export function generateSession(input: GenerateSessionInput): GenerateSessionRes
 interface CardContext {
   goalField: number;
   startField: number;
-  actionByField: ReadonlyMap<number, ActionId>;
+  actionByField: ReadonlyMap<number, string>;
+  cardById: ReadonlyMap<string, ActionCardDefinition>;
+  collectibleFields: ReadonlySet<number>;
+  performer: FolderConfig | undefined;
+  performerBag: ImageBag | undefined;
   normalGroup: ReadonlyMap<number, Group>;
   folderForField: ReadonlyMap<number, string>;
   folderById: ReadonlyMap<string, FolderConfig>;
   categoryBags: ReadonlyMap<string, ImageBag>;
-  actionBags: ReadonlyMap<Group, ImageBag>;
 }
+
+const rollTasks = (rng: Rng, folder: FolderConfig | undefined): number => {
+  const [minTasks, maxTasks] = folder?.taskRange ?? [1, 1];
+  return randInt(rng, minTasks, maxTasks);
+};
 
 function buildCard(rng: Rng, field: number, context: CardContext): Card {
   const discovered = field === context.startField;
   if (field === context.goalField) return { field, kind: 'goal', discovered: false };
 
-  const action = context.actionByField.get(field);
-  if (action) {
-    const group = actionGroup(action);
-    const entry = context.actionBags.get(group)?.draw((candidate) => {
-      const allowed = context.folderById.get(candidate.folderId)?.allowedActions;
-      return allowed === null || allowed === undefined || allowed.includes(action);
-    });
+  const actionCardId = context.actionByField.get(field);
+  const definition = actionCardId ? context.cardById.get(actionCardId) : undefined;
+  if (definition) {
+    const group = cardGroup(definition);
     // No image → built-in neutral action design (game-design §6.3)
-    return entry
-      ? { field, kind: 'action', group, action, folderId: entry.folderId, imageHash: entry.hash, discovered }
-      : { field, kind: 'action', group, action, discovered };
+    return {
+      field,
+      kind: 'action',
+      group,
+      action: definition.type,
+      actionCardId: definition.id,
+      ...(definition.image ? { imageHash: definition.image.hash } : {}),
+      discovered,
+    };
+  }
+
+  if (context.collectibleFields.has(field) && context.performer) {
+    const entry = context.performerBag?.draw();
+    return {
+      field,
+      kind: 'collectible',
+      folderId: context.performer.id,
+      ...(entry ? { imageHash: entry.hash } : {}),
+      taskCount: rollTasks(rng, context.performer),
+      discovered,
+    };
   }
 
   const group = context.normalGroup.get(field) ?? 'bad';
   const folderId = context.folderForField.get(field) as string;
-  const folder = context.folderById.get(folderId);
   const entry = context.categoryBags.get(folderId)?.draw();
-  const [minTasks, maxTasks] = folder?.taskRange ?? [1, 1];
   return {
     field,
     kind: 'normal',
     group,
     folderId,
     ...(entry ? { imageHash: entry.hash } : {}),
-    taskCount: randInt(rng, minTasks, maxTasks),
+    taskCount: rollTasks(rng, context.folderById.get(folderId)),
     discovered,
   };
 }

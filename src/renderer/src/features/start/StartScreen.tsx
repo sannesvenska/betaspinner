@@ -45,6 +45,7 @@ export function StartScreen() {
   const answerResume = useUiStore((state) => state.answerResume);
   const scale = useAnimationScale();
   const progression = useSessionStore((state) => state.snapshot?.progression);
+  const discardedLegacySession = useSessionStore((state) => state.snapshot?.discardedLegacySession ?? false);
   const spin = useSessionStore((state) => state.spin);
   const adopt = useSessionStore((state) => state.adopt);
   const library = useLibraryStore((state) => state.snapshot);
@@ -183,6 +184,7 @@ export function StartScreen() {
           </div>
         )}
         {result?.generationError && <Alert>{t(`start.generation.${result.generationError}`)}</Alert>}
+        {discardedLegacySession && <Alert>{t('start.legacyDiscarded')}</Alert>}
       </section>
 
       <div className="flex h-[min(80vh,900px)] items-center justify-center">

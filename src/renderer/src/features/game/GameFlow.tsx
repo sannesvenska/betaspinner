@@ -1,16 +1,19 @@
 import { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DEFAULT_PENALTY_RULES } from '@shared/session/defaults';
+import { DEFAULT_PENALTY_RULES, DEFAULT_SESSION_RULES } from '@shared/session/defaults';
+import { cardGroup } from '@shared/session/selectActionPool';
 import { applySessionOutcome, LOSS_OUTCOMES } from '@shared/session/progressionRules';
 import { createRng } from '@shared/session/rng';
 import type { SessionState } from '@shared/session/types';
-import { FinalWheelScreen, OutcomeScreen, WinCheckScreen } from '@renderer/features/win/WinScreens';
+import { FinalWheelScreen, OutcomeScreen } from '@renderer/features/win/WinScreens';
+import { actionCardName, useActionCardsStore } from '@renderer/stores/actionCardsStore';
 import { useLibraryStore } from '@renderer/stores/libraryStore';
 import { useSessionStore } from '@renderer/stores/sessionStore';
 import { useUiStore } from '@renderer/stores/uiStore';
 import { Button } from '@renderer/ui/Button';
 import { Dialog } from '@renderer/ui/Dialog';
 import { DIALOG_AUTOFOCUS } from '@renderer/ui/dialogAutofocus';
+import { Icon } from '@renderer/ui/icons/Icon';
 import { GameScreen } from './GameScreen';
 import { NO_EFFECTS } from '@renderer/effects/cardEffects';
 import { GameStage } from './GameStage';
@@ -80,39 +83,99 @@ function InitialTask({ session }: { session: SessionState }) {
   );
 }
 
-function CategoryReveal({ session }: { session: SessionState }) {
+function BriefingColumn({
+  label,
+  tone,
+  children,
+}: {
+  label: string;
+  tone: 'good' | 'bad' | 'collectible' | 'neutral';
+  children: React.ReactNode;
+}) {
+  const border =
+    tone === 'good'
+      ? 'border-good'
+      : tone === 'bad'
+        ? 'border-bad'
+        : tone === 'collectible'
+          ? 'border-collectible'
+          : 'border-line-strong';
+  const text =
+    tone === 'good'
+      ? 'text-good'
+      : tone === 'bad'
+        ? 'text-bad'
+        : tone === 'collectible'
+          ? 'text-collectible'
+          : 'text-ink-muted';
+  return (
+    <div className={`flex min-w-0 flex-col gap-2 border-l-3 pl-5 ${border}`}>
+      <div className={`font-label text-label uppercase tracking-label ${text}`}>{label}</div>
+      {children}
+    </div>
+  );
+}
+
+/** Session briefing (design-system §10): categories, performer and the session's action pool. */
+function SessionBriefing({ session }: { session: SessionState }) {
   const { t } = useTranslation();
   const folders = useLibraryStore((state) => state.snapshot?.folders ?? []);
+  const actionCards = useActionCardsStore((state) => state.cards);
   const markRevealed = useUiStore((state) => state.markRevealed);
   const name = (id: string) => folders.find((folder) => folder.id === id)?.displayName ?? id;
+  const pool = session.actionPool
+    .map((id) => actionCards.find((card) => card.id === id))
+    .filter((card) => card !== undefined)
+    .sort((a, b) => Number(cardGroup(a) === 'bad') - Number(cardGroup(b) === 'bad'));
   const start = () => {
     markRevealed(session.id);
   };
   useSpaceToConfirm(start);
   return (
-    <CenteredScreen eyebrow={t('reveal.eyebrow')} title={t('reveal.title')}>
-      <div className="flex gap-16">
+    <CenteredScreen eyebrow={t('briefing.eyebrow')} title={t('briefing.title')}>
+      <div className="grid max-w-6xl grid-cols-4 gap-10">
         {(['good', 'bad'] as const).map((group) => (
-          <div
-            key={group}
-            className={`flex flex-col gap-2 border-l-3 pl-5 ${group === 'good' ? 'border-good' : 'border-bad'}`}
-          >
-            <div
-              className={`font-label text-label uppercase tracking-label ${group === 'good' ? 'text-good' : 'text-bad'}`}
-            >
-              {t(`reveal.${group}`)}
-            </div>
+          <BriefingColumn key={group} label={t(`briefing.${group}`)} tone={group}>
             {session.categories[group].map((id) => (
-              <div key={id} className="font-display text-title font-bold uppercase">
+              <div key={id} className="font-display text-chip font-bold uppercase tracking-chip">
                 {name(id)}
               </div>
             ))}
-          </div>
+          </BriefingColumn>
         ))}
+        <BriefingColumn label={t('briefing.performer')} tone="collectible">
+          {session.performerFolderId ? (
+            <>
+              <div className="font-display text-chip font-bold uppercase tracking-chip">
+                {name(session.performerFolderId)}
+              </div>
+              {DEFAULT_SESSION_RULES.collectibleTiers.map((tier) => (
+                <div key={tier.collected} className="text-body-sm text-ink-2">
+                  {tier.bonus.type === 'convert_bad'
+                    ? t('briefing.tierConvert', { collected: tier.collected, count: tier.bonus.count })
+                    : t('briefing.tierChance', { collected: tier.collected, percent: tier.bonus.percent })}
+                </div>
+              ))}
+            </>
+          ) : (
+            <div className="text-body-sm text-ink-muted">{t('briefing.noPerformer')}</div>
+          )}
+        </BriefingColumn>
+        <BriefingColumn label={t('briefing.actions')} tone="neutral">
+          {pool.map((card) => (
+            <div
+              key={card.id}
+              className={`flex items-center gap-2 text-body-sm ${cardGroup(card) === 'good' ? 'text-good' : 'text-bad'}`}
+            >
+              <Icon name={card.type} size={16} />
+              <span className="text-ink-2">{actionCardName(t, actionCards, card.id, card.type)}</span>
+            </div>
+          ))}
+        </BriefingColumn>
       </div>
       <div>
         <Button variant="primary" size="primary" keyHint="Space" onClick={start}>
-          {t('reveal.start')}
+          {t('briefing.start')}
         </Button>
       </div>
     </CenteredScreen>
@@ -124,6 +187,7 @@ function SessionEnd({ session }: { session: SessionState }) {
   const close = useSessionStore((state) => state.close);
   const progression = useSessionStore((state) => state.snapshot?.progression);
   const mediaKinds = useSessionStore((state) => state.snapshot?.mediaKinds ?? {});
+  const actionCards = useActionCardsStore((state) => state.cards);
   const outcome = session.endReason ?? 'ended_early';
   const discovered = session.cards.filter((card) => card.discovered).length;
   const onClose = useCallback(() => void close(), [close]);
@@ -143,7 +207,9 @@ function SessionEnd({ session }: { session: SessionState }) {
           }),
         LOSS_OUTCOMES.includes(outcome) && t('end.change.lossStreak', { count: change.lossStreak }),
         session.reward?.type === 'block_bad_action' &&
-          t('end.change.blocked', { action: t(`action.${session.reward.action}.name`) }),
+          t('end.change.blocked', {
+            action: actionCardName(t, actionCards, session.reward.actionCardId, session.reward.action),
+          }),
       ].filter((line): line is string => typeof line === 'string')
     : [];
   const isLoss = LOSS_OUTCOMES.includes(outcome);
@@ -208,16 +274,14 @@ export function GameFlow({ session }: { session: SessionState }) {
   const markRevealed = useUiStore((state) => state.markRevealed);
   const dispatch = useSessionStore((state) => state.dispatch);
   const finished = session.phase === 'ended';
-  const afterGoal =
-    session.phase === 'win_check' || session.phase === 'final_wheel' || session.phase === 'outcome';
+  const afterGoal = session.phase === 'final_wheel' || session.phase === 'outcome';
 
   let screen;
   if (finished) screen = <SessionEnd session={session} />;
-  else if (session.phase === 'win_check') screen = <WinCheckScreen session={session} />;
   else if (session.phase === 'final_wheel') screen = <FinalWheelScreen session={session} />;
   else if (session.phase === 'outcome') screen = <OutcomeScreen session={session} />;
   else if (session.phase === 'initial_task') screen = <InitialTask session={session} />;
-  else if (!revealed && session.round === 0) screen = <CategoryReveal session={session} />;
+  else if (!revealed && session.round === 0) screen = <SessionBriefing session={session} />;
   else screen = <GameScreen session={session} />;
 
   // A session found on app start: resume or end early (§8.3)

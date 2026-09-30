@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { shortDistance, wrapField } from '../track';
 import { computeActionHint } from './actionHint';
 import { applyEffect } from './effects';
+import { folder, mediaFor, standardInput } from '../testFixtures';
 import { head, landOnAction, readyToRoll, run, setup, withCard } from './engineTestKit';
-import { reduce } from './reduce';
+import { isDirectionBlocked, reduce } from './reduce';
 
 describe('engine – core loop (§8)', () => {
   it('runs initial task → start card → roll → direction → landing', () => {
@@ -45,12 +46,10 @@ describe('engine – core loop (§8)', () => {
       const { session, context } = readyToRoll({ seed: 5 });
       let state = session;
       for (let i = 0; i < 15 && state.phase === 'roll'; i++) {
-        state = run(
-          state,
-          context,
-          { type: 'roll' },
-          { type: 'chooseDirection', direction: i % 2 ? 'left' : 'right' },
-        );
+        state = run(state, context, { type: 'roll' });
+        const preferred = i % 2 ? 'left' : 'right';
+        const direction = isDirectionBlocked(state, preferred) ? (i % 2 ? 'right' : 'left') : preferred;
+        state = run(state, context, { type: 'chooseDirection', direction });
         while (state.phase === 'resolve_card') {
           const step = head(state);
           const event =
@@ -61,7 +60,7 @@ describe('engine – core loop (§8)', () => {
                 : step?.kind === 'choose_reward'
                   ? ({ type: 'chooseReward', reward: 'remove_penalty_fields' } as const)
                   : step?.kind === 'switcheroo_pool'
-                    ? ({ type: 'switcherooPool', pool: step.pools[0] } as const)
+                    ? ({ type: 'switcherooPool', categoryId: step.categoryIds[0] ?? '' } as const)
                     : step?.kind === 'switcheroo_folder'
                       ? ({ type: 'switcherooFolder', folderId: step.folderIds[0] ?? '' } as const)
                       : ({ type: 'confirm' } as const);
@@ -76,7 +75,7 @@ describe('engine – core loop (§8)', () => {
 });
 
 describe('engine – movement rules', () => {
-  it('passing over the goal does nothing; landing exactly starts the win check', () => {
+  it('passing over the goal makes it drift (§8.8); landing exactly starts the final wheel', () => {
     const { session, context } = readyToRoll();
     const goalField = wrapField(session.position + 2);
     const prepared = {
@@ -100,8 +99,15 @@ describe('engine – movement rules', () => {
     );
     expect(passed.phase).toBe('resolve_card');
     // Passed fields stay undiscovered
-    for (const step of [1, 2, 3])
+    for (const step of [1, 3])
       expect(passed.cards[wrapField(session.position + step) - 1]?.discovered).toBe(false);
+    expect(head(passed)).toMatchObject({ kind: 'notice', notice: { type: 'goal_drifted', from: goalField } });
+    expect(passed.goalField).not.toBe(goalField);
+    expect(shortDistance(passed.goalField, goalField)).toBeGreaterThanOrEqual(3);
+    expect(shortDistance(passed.goalField, goalField)).toBeLessThanOrEqual(8);
+    expect(passed.cards[passed.goalField - 1]?.kind).toBe('goal');
+    expect(passed.cards[goalField - 1]?.kind).not.toBe('goal');
+    expect(passed.stats.goalDrifts).toBe(1);
 
     const landed = run(
       prepared,
@@ -109,12 +115,12 @@ describe('engine – movement rules', () => {
       { type: 'chooseRoll', value: 2 },
       { type: 'chooseDirection', direction: 'right' },
     );
-    expect(landed.phase).toBe('win_check');
+    expect(landed.phase).toBe('final_wheel');
+    expect(landed.winCheck?.discovered).toBe(landed.cards.filter((card) => card.discovered).length);
     expect(reduce(landed, { type: 'roll' }, context).error).toBe('invalid_event');
   });
 
-  it('re-rolls the task count when landing on a discovered normal card again', () => {
-    const counts = new Set<number>();
+  it('turns a revisited normal card into a bad card with a new image (§8.5)', () => {
     for (let seed = 1; seed <= 40; seed++) {
       const { session, context } = readyToRoll({ seed });
       const target = wrapField(session.position + 1);
@@ -125,6 +131,7 @@ describe('engine – movement rules', () => {
           kind: 'normal',
           group: 'good',
           folderId: 'good-a',
+          imageHash: 'old'.padEnd(40, '0'),
           taskCount: 100,
           discovered: true,
         },
@@ -135,12 +142,15 @@ describe('engine – movement rules', () => {
         { type: 'chooseRoll', value: 1 },
         { type: 'chooseDirection', direction: 'right' },
       );
-      const count = state.cards[target - 1]?.taskCount ?? 0;
-      expect(count).toBeGreaterThanOrEqual(6);
-      expect(count).toBeLessThanOrEqual(18);
-      counts.add(count);
+      const card = state.cards[target - 1];
+      expect(card).toMatchObject({ kind: 'normal', group: 'bad', discovered: true });
+      expect(state.categories.bad).toContain(card?.folderId);
+      expect(card?.imageHash).not.toBe('old'.padEnd(40, '0'));
+      expect(card?.taskCount).toBeGreaterThanOrEqual(6);
+      expect(card?.taskCount).toBeLessThanOrEqual(18);
+      expect(state.stats.revisitConversions).toBe(1);
+      expect(state.pending.at(-1)).toMatchObject({ kind: 'task', revisit: 'converted', tierable: true });
     }
-    expect(counts.size).toBeGreaterThan(3);
   });
 
   it('blocks the U Turn direction', () => {
@@ -176,7 +186,7 @@ describe('engine – effects over rounds', () => {
       expect(state.effects.some((effect) => effect.type === 'double_trouble')).toBe(true);
       const target = wrapField(state.position + 1);
       state = withCard(
-        { ...state, chooseNextRoll: true },
+        { ...state, chooseNextRoll: true, forcedDirection: null },
         { field: target, kind: 'normal', group: 'bad', taskCount: 7, discovered: false, folderId: 'bad-a' },
       );
       state = run(
@@ -325,7 +335,7 @@ describe('engine – actions (§10)', () => {
   it('Goal Teleport moves the goal to an undiscovered field outside the safety zone', () => {
     const { session, context } = readyToRoll();
     let state = landOnAction(session, context, 'goal_teleport');
-    expect(head(state)).toMatchObject({ kind: 'task', followUp: 'teleport_goal' });
+    expect(head(state)).toMatchObject({ kind: 'task', followUp: { kind: 'teleport_goal', safetyZone: 12 } });
     state = run(state, context, { type: 'confirm' });
     const notice = head(state);
     if (notice?.kind !== 'notice' || notice.notice.type !== 'goal_moved')
@@ -350,25 +360,32 @@ describe('engine – actions (§10)', () => {
     expect(state.reveal?.field).toBe(state.position);
   });
 
-  it('Switcheroo swaps the undiscovered cards of the chosen content pool', () => {
-    const { session, context } = readyToRoll();
+  it('Switcheroo replaces the chosen active category (§10.3 v2)', () => {
+    const base = standardInput();
+    const { session, context } = readyToRoll({
+      folders: [...base.folders, folder('good-d', 'good'), folder('bad-d', 'bad')],
+      media: [...base.media, ...mediaFor('good-d', 80), ...mediaFor('bad-d', 80)],
+    });
     let state = landOnAction(session, context, 'switcheroo');
     const poolStep = head(state);
-    if (poolStep?.kind !== 'switcheroo_pool') throw new Error('expected pool choice');
-    expect(poolStep.pools).toEqual(['good_content', 'bad_content']); // one alternative each, action folders active = all
-    state = run(state, context, { type: 'switcherooPool', pool: 'bad_content' });
+    if (poolStep?.kind !== 'switcheroo_pool') throw new Error('expected category choice');
+    expect(poolStep.categoryIds).toEqual([...session.categories.good, ...session.categories.bad]);
+    const categoryId = session.categories.bad[0] ?? '';
+    state = run(state, context, { type: 'switcherooPool', categoryId });
     const folderStep = head(state);
     if (folderStep?.kind !== 'switcheroo_folder') throw new Error('expected folder choice');
     const [folderId] = folderStep.folderIds;
     if (!folderId) throw new Error('no alternative');
+    expect(session.categories.bad).not.toContain(folderId);
     state = run(state, context, { type: 'switcherooFolder', folderId });
 
-    expect(state.categories.bad).toEqual([folderId]);
-    const undiscoveredBad = state.cards.filter(
-      (card) => card.kind === 'normal' && card.group === 'bad' && !card.discovered,
-    );
-    expect(undiscoveredBad.every((card) => card.folderId === folderId)).toBe(true);
-    expect(state.stats.switches).toHaveLength(1);
+    expect(state.categories.bad).toContain(folderId);
+    expect(state.categories.bad).not.toContain(categoryId);
+    expect(state.categories.bad).toHaveLength(session.categories.bad.length);
+    const hidden = state.cards.filter((card) => card.kind === 'normal' && !card.discovered);
+    expect(hidden.some((card) => card.folderId === categoryId)).toBe(false);
+    expect(hidden.some((card) => card.folderId === folderId)).toBe(true);
+    expect(state.stats.switches).toEqual([{ group: 'bad', from: categoryId, to: folderId }]);
     const hashes = state.cards.flatMap((card) => (card.imageHash ? [card.imageHash] : []));
     expect(new Set(hashes).size).toBe(hashes.length);
   });

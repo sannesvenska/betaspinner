@@ -11,7 +11,7 @@ import type { Result } from './result';
 import type { EngineEvent } from './session/engine/reduce';
 import type { GenerationErrorCode } from './session/generateSession';
 import type { WheelResult } from './session/goalAndStart';
-import type { Progression, SessionState } from './session/types';
+import type { ActionCardDefinition, Progression, SessionState } from './session/types';
 import type { AppSettings } from './settings';
 
 export interface AppInfo {
@@ -38,7 +38,17 @@ export interface SessionSnapshot {
   session: SessionState | null;
   mediaKinds: SessionMediaKinds;
   progression: Progression;
+  /** A saved session of an older format was discarded without scoring (game-design §8.3 v2). */
+  discardedLegacySession: boolean;
 }
+
+/** Editable fields of an action card definition (the full editor follows with the admin, AP10). */
+export type ActionCardPatch = Partial<
+  Pick<
+    ActionCardDefinition,
+    'name' | 'description' | 'enabled' | 'weight' | 'minPerSession' | 'maxPerSession' | 'params'
+  >
+>;
 
 export interface SpinResult {
   wheel: WheelResult;
@@ -73,6 +83,14 @@ export interface IpcInvokeContract {
   /** Runs one engine event; the new state is saved before it is returned. */
   'session:dispatch': { request: EngineEvent; response: SessionView };
   'session:close': { request: undefined; response: SessionSnapshot };
+  'actionCards:list': { request: undefined; response: ActionCardDefinition[] };
+  'actionCards:update': { request: { id: string; patch: ActionCardPatch }; response: ActionCardDefinition[] };
+  'actionCards:duplicate': { request: { id: string; name: string }; response: ActionCardDefinition[] };
+  'actionCards:remove': { request: { id: string }; response: ActionCardDefinition[] };
+  'actionCards:reset': { request: { id: string }; response: ActionCardDefinition[] };
+  /** Opens the native file picker and assigns the picked file; unchanged list when cancelled. */
+  'actionCards:pickImage': { request: { id: string }; response: ActionCardDefinition[] };
+  'actionCards:clearImage': { request: { id: string }; response: ActionCardDefinition[] };
   /** Dev builds only (QA): puts an action card on both neighbour fields and enables a chosen roll. */
   'dev:placeAction': { request: { action: ActionId }; response: SessionView };
 }
@@ -115,6 +133,13 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'session:spin',
   'session:dispatch',
   'session:close',
+  'actionCards:list',
+  'actionCards:update',
+  'actionCards:duplicate',
+  'actionCards:remove',
+  'actionCards:reset',
+  'actionCards:pickImage',
+  'actionCards:clearImage',
   'dev:placeAction',
 ];
 

@@ -9,6 +9,7 @@ export const ACTION_ICON_PATHS: Readonly<Record<ActionId, string>> = {
   cleaning_lady: 'M4 20h16M6 16l8-8 4 4-8 8zM14 8l2-2 4 4-2 2',
   hail_mary: 'M4 17l6-6 4 4 6-8M15 7h5v5',
   switcheroo: 'M4 8h14l-3-3M20 16H6l3 3',
+  redemption: 'M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3M18 3v4h-4M6 21v-4h4',
   pixelate: 'M4 4h5v5H4zM15 4h5v5h-5zM9.5 9.5h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5z',
   splatter: 'M12 5c2 3 6 3 6 7s-3 4-3 7-3 1-4-1-5-2-5-5 3-5 4-6 2-2 2-2zM5 5v.01M20 20v.01M20 6v.01',
   squeeze_task: 'M3 12h6M6 9l3 3-3 3M21 12h-6M18 9l-3 3 3 3M12 5v14',
@@ -27,6 +28,8 @@ export const ACTION_ICON_PATHS: Readonly<Record<ActionId, string>> = {
 
 export const UI_ICON_PATHS = {
   goal: 'M5 21V4M5 5h12l-2.5 4 2.5 4H5',
+  star: 'M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z',
+  reverse: 'M9 5L4 10l5 5M4 10h11a5 5 0 0 1 0 10h-3',
   shield: 'M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z',
   gallery: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
   arrowLeft: 'M20 12H4M10 6l-6 6 6 6',

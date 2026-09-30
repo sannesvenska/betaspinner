@@ -20,6 +20,8 @@ const GOAL_ICON_SIZE = 20;
 const BLOCK_ARC_RADIUS = R_INNER - 30;
 const BLOCK_ARC_MARGIN_DEG = 6;
 const BLOCK_ICON_SIZE = 22;
+const STAR_SIZE = 6;
+const STAR_WAIST = 1.8;
 
 interface RingProps {
   cards: readonly Card[];
@@ -32,9 +34,9 @@ interface RingProps {
   targets?: { left: number; right: number; blocked: Direction | null } | null;
   previewField: number | null;
   onPreview: (field: number | null) => void;
-  /** U Turn: the blocked half of the ring gets a dashed inner arc (design-system §5). */
-  blocked: Direction | null;
-  /** Goal Teleport just happened – the goal segment pulses. */
+  /** U Turn / forced reversal: the blocked half of the ring gets a dashed inner arc (design-system §5, §10). */
+  blocked: { side: Direction; reason: 'u_turn' | 'forced' } | null;
+  /** Goal Teleport or goal drift just happened – the goal segment pulses. */
   goalPulse: boolean;
   center: ReactNode;
 }
@@ -141,7 +143,8 @@ export function Ring({
             const isGoal = card.field === goalField;
             const isTarget = targetSet.has(card.field);
             let fill = 'var(--color-ring-empty)';
-            if (card.discovered && card.kind !== 'goal')
+            if (card.discovered && card.kind === 'collectible') fill = 'var(--color-collectible)';
+            else if (card.discovered && card.kind !== 'goal')
               fill = card.group === 'good' ? 'var(--color-good)' : `url(#${hatchId})`;
             if (isCurrent) fill = 'var(--color-ink)';
             if (isGoal) fill = 'var(--color-bg)';
@@ -200,6 +203,19 @@ export function Ring({
                 />
               );
             })}
+          {cards
+            .filter((card) => card.kind === 'collectible' && card.discovered && card.field !== position)
+            .map((card) => {
+              const [x, y] = polar(MARKER_RADIUS, fieldAngle(card.field));
+              // 4-point star = collectible (design-system §10), distinct from circle/diamond
+              return (
+                <path
+                  key={card.field}
+                  d={`M${x} ${y - STAR_SIZE}L${x + STAR_WAIST} ${y - STAR_WAIST}L${x + STAR_SIZE} ${y}L${x + STAR_WAIST} ${y + STAR_WAIST}L${x} ${y + STAR_SIZE}L${x - STAR_WAIST} ${y + STAR_WAIST}L${x - STAR_SIZE} ${y}L${x - STAR_WAIST} ${y - STAR_WAIST}Z`}
+                  fill="var(--color-collectible)"
+                />
+              );
+            })}
           {(() => {
             const [x, y] = polar(GOAL_ICON_RADIUS, fieldAngle(goalField));
             return (
@@ -253,7 +269,7 @@ export function Ring({
               );
             })}
         </g>
-        {blocked && <BlockedArc side={blocked} />}
+        {blocked && <BlockedArc side={blocked.side} reason={blocked.reason} />}
       </svg>
       <div className="pointer-events-none absolute inset-[22%] flex flex-col items-center justify-center gap-1 text-center">
         {center}
@@ -263,7 +279,7 @@ export function Ring({
 }
 
 /** Screen-space arc on the blocked side (the ring keeps the current field at 12 o'clock). */
-function BlockedArc({ side }: { side: Direction }) {
+function BlockedArc({ side, reason }: { side: Direction; reason: 'u_turn' | 'forced' }) {
   const sign = side === 'right' ? 1 : -1;
   const start = sign * BLOCK_ARC_MARGIN_DEG;
   const end = sign * (180 - BLOCK_ARC_MARGIN_DEG);
@@ -288,7 +304,7 @@ function BlockedArc({ side }: { side: Direction }) {
       >
         <rect width="24" height="24" fill="var(--color-panel)" />
         <path
-          d={ACTION_ICON_PATHS.u_turn}
+          d={reason === 'u_turn' ? ACTION_ICON_PATHS.u_turn : UI_ICON_PATHS.reverse}
           fill="none"
           stroke="var(--color-bad)"
           strokeWidth={1.8}

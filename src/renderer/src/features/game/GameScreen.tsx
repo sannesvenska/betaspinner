@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { DEFAULT_SESSION_RULES } from '@shared/session/defaults';
 import { computeActionHint } from '@shared/session/engine/actionHint';
 import type { EngineEvent } from '@shared/session/engine/reduce';
+import { computeReleaseChance } from '@shared/session/engine/releaseChance';
 import { clockwiseDistance, shortDistance, TRACK_LENGTH, wrapField } from '@shared/session/track';
-import type { Direction, SessionState } from '@shared/session/types';
+import type { Direction, SessionState, StrokeTier } from '@shared/session/types';
+import { useActionCardsStore } from '@renderer/stores/actionCardsStore';
 import { useLibraryStore } from '@renderer/stores/libraryStore';
 import { useSessionStore } from '@renderer/stores/sessionStore';
 import { useAnimationScale, useUiStore } from '@renderer/stores/uiStore';
@@ -13,6 +16,7 @@ import { cardEffectOptions } from '@renderer/effects/cardEffects';
 import { EffectMedia } from '@renderer/effects/EffectMedia';
 import { useCountdown } from '@renderer/ui/useCountdown';
 import { playCue } from '@renderer/sound/sound';
+import { DiceFace } from '@renderer/ui/DiceFace';
 import { getBlockedDirection } from '@shared/session/engine/effects';
 import { GalleryDrawer } from './GalleryDrawer';
 import { GameConsole } from './GameConsole';
@@ -27,6 +31,10 @@ const DICE_TICK_MS = 75;
 const SEGMENT_DEG = 360 / TRACK_LENGTH;
 const PREVIEW_SIZE = 'h-[45%] w-[45%]';
 const COUNTDOWN_TICK_SECONDS = 3;
+const DIE_SIDES = 6;
+const SMALL_DIE_SIZE = 28;
+/** Session rules until the admin makes them configurable (AP10). */
+const RULES = DEFAULT_SESSION_RULES;
 
 const rotationFor = (position: number): number => -(position - 0.5) * SEGMENT_DEG;
 
@@ -44,6 +52,14 @@ function movementDelta(previous: number, session: SessionState): number {
   return clockwise <= TRACK_LENGTH / 2 ? clockwise : clockwise - TRACK_LENGTH;
 }
 
+/** U Turn wins over the forced reversal (they never overlap by rule, §8.7). */
+function blockedArc(session: SessionState): { side: Direction; reason: 'u_turn' | 'forced' } | null {
+  const uTurn = getBlockedDirection(session.effects);
+  if (uTurn) return { side: uTurn, reason: 'u_turn' };
+  if (!session.forcedDirection) return null;
+  return { side: session.forcedDirection === 'left' ? 'right' : 'left', reason: 'forced' };
+}
+
 const isEditable = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement &&
   (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
@@ -55,6 +71,7 @@ export function GameScreen({ session }: GameScreenProps) {
   const error = useSessionStore((state) => state.error);
   const dismissError = useSessionStore((state) => state.dismissError);
   const folders = useLibraryStore((state) => state.snapshot?.folders ?? []);
+  const actionCards = useActionCardsStore((state) => state.cards);
   const paused = useUiStore((state) => state.paused);
   const togglePause = useUiStore((state) => state.togglePause);
   const scale = useAnimationScale();
@@ -62,6 +79,8 @@ export function GameScreen({ session }: GameScreenProps) {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [previewField, setPreviewField] = useState<number | null>(null);
   const [guess, setGuess] = useState<number[]>([]);
+  // Picked per card (§8.6): a choice only counts for the step it was made on
+  const [tierChoice, setTierChoice] = useState<{ stepKey: number; tier: StrokeTier } | null>(null);
   const [animating, setAnimating] = useState<'rolling' | 'moving' | null>(null);
   const [diceFace, setDiceFace] = useState<number | null>(null);
   const [rotation, setRotation] = useState(() => rotationFor(session.position));
@@ -70,12 +89,18 @@ export function GameScreen({ session }: GameScreenProps) {
   const animationTimer = useRef<number | undefined>(undefined);
 
   const hint = useMemo(() => computeActionHint(session), [session]);
+  const releaseChance = useMemo(() => computeReleaseChance(session, RULES), [session]);
+  const performerName = session.performerFolderId
+    ? (folders.find((folder) => folder.id === session.performerFolderId)?.displayName ?? null)
+    : null;
   const step = session.pending[0];
+  const tierable = step?.kind === 'task' && step.tierable === true;
 
   // Hold / timed countdown for the current step; restarts per step, freezes while paused
   const timedSeconds = step?.kind === 'hold' || step?.kind === 'timed_task' ? step.seconds : 0;
   const stepKey = session.round * 1000 + session.pending.length;
   const countdown = useCountdown(timedSeconds, paused || galleryOpen, stepKey);
+  const strokeTier: StrokeTier = tierChoice?.stepKey === stepKey ? tierChoice.tier : 1;
 
   const finishAnimation = useCallback(() => {
     window.clearTimeout(animationTimer.current);
@@ -121,8 +146,9 @@ export function GameScreen({ session }: GameScreenProps) {
       playCue('dice');
       return;
     }
-    // Result is decided; the animation only shows it (cycling faces, decelerating)
+    // Result is decided; the animation only shows it (cycling sums, decelerating)
     setAnimating('rolling');
+    const dice = Math.max(1, next.lastDice.length);
     const started = performance.now();
     const tick = () => {
       if (performance.now() - started >= duration) {
@@ -130,7 +156,7 @@ export function GameScreen({ session }: GameScreenProps) {
         playCue('dice');
         return;
       }
-      setDiceFace(1 + Math.floor(Math.random() * 6));
+      setDiceFace(dice + Math.floor(Math.random() * (dice * (DIE_SIDES - 1) + 1)));
       animationTimer.current = window.setTimeout(tick, DICE_TICK_MS);
     };
     tick();
@@ -158,7 +184,10 @@ export function GameScreen({ session }: GameScreenProps) {
   const handlers: TaskBarHandlers = useMemo(
     () => ({
       confirm: () => {
-        send({ type: 'confirm' });
+        send(tierable ? { type: 'confirm', tier: strokeTier } : { type: 'confirm' });
+      },
+      selectTier: (tier) => {
+        setTierChoice({ stepKey, tier });
       },
       roll: () => void roll(),
       chooseRoll: (value) => {
@@ -187,15 +216,15 @@ export function GameScreen({ session }: GameScreenProps) {
         send({ type: 'chooseReward', reward });
       },
       switcherooPool: (index) => {
-        const pool = step?.kind === 'switcheroo_pool' ? step.pools[index] : undefined;
-        if (pool) send({ type: 'switcherooPool', pool });
+        const categoryId = step?.kind === 'switcheroo_pool' ? step.categoryIds[index] : undefined;
+        if (categoryId) send({ type: 'switcherooPool', categoryId });
       },
       switcherooFolder: (index) => {
         const folderId = step?.kind === 'switcheroo_folder' ? step.folderIds[index] : undefined;
         if (folderId) send({ type: 'switcherooFolder', folderId });
       },
     }),
-    [send, roll, guess, step],
+    [send, roll, guess, step, tierable, strokeTier, stepKey],
   );
 
   // Keyboard map (game-design §7.2)
@@ -240,6 +269,7 @@ export function GameScreen({ session }: GameScreenProps) {
       const number = Number(key);
       if (!Number.isInteger(number) || number < 1 || number > 9) return;
       if (session.phase === 'roll' && session.chooseNextRoll && number <= 6) handlers.chooseRoll(number);
+      else if (tierable && number <= RULES.strokeTierMax) handlers.selectTier(number as StrokeTier);
       else if (step?.kind === 'guess' && number <= 6) handlers.toggleGuess(number);
       else if (step?.kind === 'pick_effect') {
         const effect = step.options[number - 1];
@@ -260,7 +290,7 @@ export function GameScreen({ session }: GameScreenProps) {
       window.removeEventListener('keyup', onKeyUp);
       window.clearTimeout(endEarlyTimer.current);
     };
-  }, [paused, animating, session, step, handlers, countdown.finished, finishAnimation, send]);
+  }, [paused, animating, session, step, tierable, handlers, countdown.finished, finishAnimation, send]);
 
   const targets =
     session.phase === 'choose_direction' && session.lastRoll && animating !== 'rolling'
@@ -288,9 +318,13 @@ export function GameScreen({ session }: GameScreenProps) {
       </div>
       <div className="font-label text-label uppercase tracking-label text-ink">
         {t('game.fieldLabel', { field: previewCard.field })} ·{' '}
-        <span className={previewCard.group === 'good' ? 'text-good' : 'text-bad'}>
-          {t(previewCard.group === 'good' ? 'game.goodCard' : 'game.badCard')}
-        </span>
+        {previewCard.kind === 'collectible' ? (
+          <span className="text-collectible">{t('game.performer')}</span>
+        ) : (
+          <span className={previewCard.group === 'good' ? 'text-good' : 'text-bad'}>
+            {t(previewCard.group === 'good' ? 'game.goodCard' : 'game.badCard')}
+          </span>
+        )}
       </div>
       <div className="font-label text-label text-ink-muted">
         {t('game.previewFrom', { distance: shortDistance(previewCard.field, session.position) })}
@@ -305,9 +339,17 @@ export function GameScreen({ session }: GameScreenProps) {
       >
         {diceFace ?? session.lastRoll}
       </div>
-      <div className="font-label text-label text-ink-muted">
-        {t('game.fromField', { field: session.position })}
-      </div>
+      {diceFace === null && session.lastDice.length > 1 ? (
+        <div className="flex gap-1.5" aria-label={session.lastDice.join(' + ')}>
+          {session.lastDice.map((value, index) => (
+            <DiceFace key={index} value={value} size={SMALL_DIE_SIZE} tone="muted" />
+          ))}
+        </div>
+      ) : (
+        <div className="font-label text-label text-ink-muted">
+          {t('game.fromField', { field: session.position })}
+        </div>
+      )}
     </>
   ) : (
     <>
@@ -328,7 +370,10 @@ export function GameScreen({ session }: GameScreenProps) {
     >
       <GameConsole
         session={session}
+        rules={RULES}
         hint={hint}
+        releaseChance={releaseChance}
+        performerName={performerName}
         ring={
           <Ring
             cards={session.cards}
@@ -339,8 +384,11 @@ export function GameScreen({ session }: GameScreenProps) {
             targets={targets}
             previewField={previewField}
             onPreview={setPreviewField}
-            blocked={getBlockedDirection(session.effects)}
-            goalPulse={step?.kind === 'notice' && step.notice.type === 'goal_moved'}
+            blocked={blockedArc(session)}
+            goalPulse={
+              step?.kind === 'notice' &&
+              (step.notice.type === 'goal_moved' || step.notice.type === 'goal_drifted')
+            }
             center={ringCenter}
           />
         }
@@ -362,10 +410,13 @@ export function GameScreen({ session }: GameScreenProps) {
         />
         <TaskBar
           session={session}
+          rules={RULES}
           folders={folders}
+          actionCards={actionCards}
           hint={hint}
           countdown={timedSeconds > 0 ? countdown : null}
           guess={guess}
+          strokeTier={strokeTier}
           animating={animating}
           handlers={handlers}
         />

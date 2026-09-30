@@ -26,7 +26,7 @@ interface SettingsDialogProps {
   onClose: () => void;
 }
 
-/** App-level settings (sound, motion, window). The full admin area follows in AP9. */
+/** App-level settings (sound, motion, window). The full admin area follows in AP10. */
 export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const { t } = useTranslation();
   const settingsState = useUiStore((state) => state.settingsState);

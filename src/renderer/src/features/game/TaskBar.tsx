@@ -2,8 +2,19 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { FolderConfig } from '@shared/content';
 import type { ActionHint } from '@shared/session/engine/actionHint';
-import { wrapField } from '@shared/session/track';
-import type { Direction, EffectType, SessionState, SwitcherooPool } from '@shared/session/types';
+import { detourConversionsAvailable, isDetour } from '@shared/session/engine/boardChanges';
+import { getBlockedDirection } from '@shared/session/engine/effects';
+import { isDirectionBlocked } from '@shared/session/engine/reduce';
+import { clockwiseDistance, wrapField } from '@shared/session/track';
+import type {
+  ActionCardDefinition,
+  Direction,
+  EffectType,
+  SessionRules,
+  SessionState,
+  StrokeTier,
+} from '@shared/session/types';
+import { actionCardDescription, actionCardName } from '@renderer/stores/actionCardsStore';
 import { Button } from '@renderer/ui/Button';
 import { classNames } from '@renderer/ui/classNames';
 import { Countdown } from '@renderer/ui/Countdown';
@@ -13,13 +24,14 @@ import { KeyHint } from '@renderer/ui/KeyHint';
 import { DiceFace } from '@renderer/ui/DiceFace';
 import { EFFECT_ICONS, GOOD_EFFECTS } from './effectIcons';
 import { FolderPreview } from './FolderPreview';
-import { noticeText } from './noticeText';
+import { isBoardNotice, noticeText } from './noticeText';
 import { PickTile } from './PickTile';
 
 const DIE_FACES = [1, 2, 3, 4, 5, 6] as const;
 
 export interface TaskBarHandlers {
   confirm: () => void;
+  selectTier: (tier: StrokeTier) => void;
   roll: () => void;
   chooseRoll: (value: number) => void;
   chooseDirection: (direction: Direction) => void;
@@ -33,21 +45,33 @@ export interface TaskBarHandlers {
 
 interface TaskBarProps {
   session: SessionState;
+  rules: SessionRules;
   folders: readonly FolderConfig[];
+  actionCards: readonly ActionCardDefinition[];
   hint: ActionHint;
   /** Hold / timed countdown of the current step */
   countdown: { secondsRemaining: number; finished: boolean } | null;
   guess: number[];
+  /** Stroke tier picked for the current normal card (§8.6) */
+  strokeTier: StrokeTier;
   animating: 'rolling' | 'moving' | null;
   handlers: TaskBarHandlers;
 }
 
-function Eyebrow({ children, tone }: { children: ReactNode; tone: 'good' | 'bad' | 'neutral' }) {
+type Tone = 'good' | 'bad' | 'collectible' | 'neutral';
+
+function Eyebrow({ children, tone }: { children: ReactNode; tone: Tone }) {
   return (
     <div
       className={classNames(
         'flex items-center gap-2 font-label text-label uppercase tracking-label',
-        tone === 'good' ? 'text-good' : tone === 'bad' ? 'text-bad' : 'text-ink-muted',
+        tone === 'good'
+          ? 'text-good'
+          : tone === 'bad'
+            ? 'text-bad'
+            : tone === 'collectible'
+              ? 'text-collectible'
+              : 'text-ink-muted',
       )}
     >
       {children}
@@ -69,8 +93,21 @@ function Title({ children, size = 'task' }: { children: ReactNode; size?: 'task'
   );
 }
 
+const tiersUpTo = (max: number): StrokeTier[] => ([1, 2, 3] as const).filter((tier) => tier <= max);
+
 /** The single task bar (design-system §4): what to do now + exactly one primary action. */
-export function TaskBar({ session, folders, hint, countdown, guess, animating, handlers }: TaskBarProps) {
+export function TaskBar({
+  session,
+  rules,
+  folders,
+  actionCards,
+  hint,
+  countdown,
+  guess,
+  strokeTier,
+  animating,
+  handlers,
+}: TaskBarProps) {
   const { t } = useTranslation();
   const reveal = session.reveal;
   const step = session.pending[0];
@@ -79,10 +116,9 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
 
   const cardEyebrow = () => {
     if (!reveal) return null;
-    const tone = reveal.group ?? 'neutral';
     if (reveal.kind === 'action' && reveal.action) {
       return (
-        <Eyebrow tone={tone}>
+        <Eyebrow tone={reveal.group ?? 'neutral'}>
           <span className="flex size-6 items-center justify-center rounded-full bg-bg">
             <Icon name={reveal.action} size={14} />
           </span>
@@ -91,15 +127,25 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
         </Eyebrow>
       );
     }
+    if (reveal.kind === 'collectible') {
+      return (
+        <Eyebrow tone="collectible">
+          <Icon name="star" size={14} />
+          {t('game.performer')} · {folderName(reveal.folderId)}
+        </Eyebrow>
+      );
+    }
     return (
-      <Eyebrow tone={tone}>
+      <Eyebrow tone={reveal.group ?? 'neutral'}>
         {t(reveal.group === 'good' ? 'game.goodCard' : 'game.badCard')} · {folderName(reveal.folderId)}
       </Eyebrow>
     );
   };
-  const actionTitle = reveal?.kind === 'action' && reveal.action ? t(`action.${reveal.action}.name`) : null;
-  const actionDescription =
-    reveal?.kind === 'action' && reveal.action ? t(`action.${reveal.action}.description`) : null;
+  const isAction = reveal?.kind === 'action' && reveal.action !== undefined;
+  const actionTitle = isAction ? actionCardName(t, actionCards, reveal.actionCardId, reveal.action) : null;
+  const actionDescription = isAction
+    ? actionCardDescription(t, actionCards, reveal.actionCardId, reveal.action)
+    : null;
 
   const effectMeta = (type: EffectType): string => {
     const effect = session.effects.find((candidate) => candidate.type === type);
@@ -109,18 +155,12 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
       return t('common.roundsShort', { count: effect.remainingRounds });
     return '';
   };
-  /** Undiscovered cards a Switcheroo pool would change (§10.3). */
-  const poolCardCount = (pool: SwitcherooPool): number => {
-    const group = pool.startsWith('good') ? 'good' : 'bad';
-    const kind = pool.endsWith('content') ? 'normal' : 'action';
-    return session.cards.filter(
-      (card) =>
-        card.kind === kind &&
-        card.group === group &&
-        !card.discovered &&
-        !(kind === 'action' && card.actionConsumed),
-    ).length;
-  };
+  /** Undiscovered cards a Switcheroo category swap would change (§10.3 v2). */
+  const categoryCardCount = (categoryId: string): number =>
+    session.cards.filter((card) => card.kind === 'normal' && card.folderId === categoryId && !card.discovered)
+      .length;
+  const categoryTone = (categoryId: string) =>
+    session.categories.good.includes(categoryId) ? 'good' : 'bad';
 
   let content: ReactNode;
   let controls: ReactNode = null;
@@ -128,7 +168,20 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
   if (animating === 'moving') {
     content = <Title size="phase">{t('game.moving')}</Title>;
   } else if (session.phase === 'roll') {
-    content = <Title size="phase">{session.chooseNextRoll ? t('game.chooseRoll') : t('game.roll')}</Title>;
+    const dice = Math.max(1, session.nextDice);
+    content = (
+      <>
+        <Title size="phase">
+          {session.chooseNextRoll ? t('game.chooseRoll') : t('game.rollDice', { count: dice })}
+        </Title>
+        {session.forcedDirection && (
+          <div className="flex items-center gap-2 text-body text-ink-2">
+            <Icon name="reverse" size={18} />
+            {t('game.forcedReversal')}
+          </div>
+        )}
+      </>
+    );
     controls = session.chooseNextRoll ? (
       <div className="flex gap-2">
         {DIE_FACES.map((value) => (
@@ -152,26 +205,27 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
     );
   } else if (session.phase === 'choose_direction') {
     const steps = session.lastRoll ?? 0;
+    const detourCards = detourConversionsAvailable(session, rules);
     const direction = (dir: Direction) => {
       const sign = dir === 'right' ? 1 : -1;
       const target = wrapField(session.position + sign * steps);
       const side = dir === 'right' ? hint.right : hint.left;
       const goalDistance =
         dir === 'right'
-          ? (session.goalField - session.position + 100) % 100
-          : (session.position - session.goalField + 100) % 100;
-      const isBlocked = session.effects.some(
-        (effect) => effect.type === 'u_turn' && (effect.value ?? 0) === sign,
-      );
+          ? clockwiseDistance(session.position, session.goalField)
+          : clockwiseDistance(session.goalField, session.position);
+      const blocked = isDirectionBlocked(session, dir);
+      const blockedByUTurn = getBlockedDirection(session.effects) === dir;
+      const detour = !blocked && detourCards > 0 && isDetour(session.position, target, session.goalField);
       return (
         <button
           key={dir}
           type="button"
-          disabled={isBlocked || animating === 'rolling'}
+          disabled={blocked || animating === 'rolling'}
           onClick={() => {
             handlers.chooseDirection(dir);
           }}
-          className="flex h-28 w-[clamp(15rem,22vw,24rem)] flex-col justify-center gap-2 rounded-panel border border-line-strong px-5 text-left transition-colors duration-150 hover:bg-surface disabled:opacity-40"
+          className="flex min-h-28 w-[clamp(15rem,22vw,24rem)] flex-col justify-center gap-2 py-3 rounded-panel border border-line-strong px-5 text-left transition-colors duration-150 hover:bg-surface disabled:opacity-40"
         >
           <span className="flex items-center justify-between font-display text-button-xl font-bold uppercase tracking-chip">
             <span className="flex items-center gap-3">
@@ -181,10 +235,11 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
             </span>
             <KeyHint keys={dir === 'left' ? '←' : '→'} />
           </span>
-          <span className="flex items-center gap-3 font-label text-label uppercase tracking-label text-ink-muted">
-            {isBlocked ? (
+          <span className="flex items-center gap-3 font-label text-label uppercase tracking-label whitespace-nowrap text-ink-muted">
+            {blocked ? (
               <>
-                <Icon name="u_turn" size={16} className="text-bad" /> {t('game.blocked')}
+                <Icon name={blockedByUTurn ? 'u_turn' : 'reverse'} size={16} className="text-bad" />{' '}
+                {t(blockedByUTurn ? 'game.blocked' : 'game.forcedBlocked')}
               </>
             ) : (
               <>
@@ -193,6 +248,11 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
               </>
             )}
           </span>
+          {detour && (
+            <span className="self-start rounded-panel border border-ink px-1.5 font-label text-label uppercase tracking-label whitespace-nowrap text-ink">
+              {t('game.detour', { count: detourCards })}
+            </span>
+          )}
         </button>
       );
     };
@@ -202,12 +262,15 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
     switch (step.kind) {
       case 'task': {
         const multiplied = session.effects.some((effect) => effect.type === 'double_trouble');
+        const tier = step.tierable ? strokeTier : 1;
         content = (
           <>
             {cardEyebrow()}
-            <Title>{t('task.count', { count: step.count })}</Title>
+            <Title>{t('task.count', { count: step.count * tier })}</Title>
             <div className="text-body text-ink-2">
               {[
+                step.revisit === 'converted' ? t('task.revisit') : null,
+                step.revisit === 'collectible' ? t('task.collectibleRevisit') : null,
                 actionTitle ? actionDescription : null,
                 multiplied ? t('task.base', { base: step.count / 2 }) : null,
                 step.pace ? t(`task.pace.${step.pace}`) : null,
@@ -218,9 +281,30 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
           </>
         );
         controls = (
-          <Button variant="primary" size="primary" keyHint="Space" onClick={handlers.confirm}>
-            {t('game.done')}
-          </Button>
+          <div className="flex items-center gap-2">
+            {step.tierable &&
+              tiersUpTo(rules.strokeTierMax).map((value) => (
+                <Button
+                  key={value}
+                  variant={value === tier ? 'primary' : 'outline'}
+                  size="primary"
+                  keyHint={String(value)}
+                  aria-pressed={value === tier}
+                  className="px-5"
+                  onClick={() => {
+                    handlers.selectTier(value);
+                  }}
+                >
+                  ×{value}
+                  <span className="font-label text-key tracking-label">
+                    {t('task.dice', { count: value })}
+                  </span>
+                </Button>
+              ))}
+            <Button variant="primary" size="primary" keyHint="Space" onClick={handlers.confirm}>
+              {t('game.done')}
+            </Button>
+          </div>
         );
         break;
       }
@@ -255,13 +339,16 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
       case 'notice': {
         const notice = step.notice;
         const guessResult = notice.type === 'guess_result' ? notice : null;
+        const text = noticeText(t, notice, actionCards);
+        const title = isBoardNotice(notice) ? null : actionTitle;
         content = (
           <>
             {cardEyebrow()}
-            <Title>{actionTitle ?? noticeText(t, notice)}</Title>
+            {/* Board notices carry a whole sentence – one step smaller so it fits (design-system §10) */}
+            <Title size={isBoardNotice(notice) ? 'phase' : 'task'}>{title ?? text}</Title>
             <div className="flex items-center gap-2 text-body text-ink-2">
               {notice.type === 'shield_blocked' && <Icon name="shield" size={18} className="text-good" />}
-              {actionTitle ? noticeText(t, notice) : null}
+              {title ? text : null}
             </div>
           </>
         );
@@ -391,13 +478,13 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
         );
         controls = (
           <div className="flex gap-2">
-            {step.pools.map((pool, index) => (
+            {step.categoryIds.map((categoryId, index) => (
               <PickTile
-                key={pool}
-                title={t(`step.pool.${pool}`)}
+                key={categoryId}
+                title={folderName(categoryId)}
                 icon={<Icon name="switcheroo" size={20} />}
-                meta={t('step.poolCards', { count: poolCardCount(pool) })}
-                tone={pool.startsWith('good') ? 'good' : 'bad'}
+                meta={t('step.poolCards', { count: categoryCardCount(categoryId) })}
+                tone={categoryTone(categoryId)}
                 keyHint={String(index + 1)}
                 onClick={() => {
                   handlers.switcherooPool(index);
@@ -412,7 +499,9 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
           <>
             {cardEyebrow()}
             <Title>{actionTitle}</Title>
-            <div className="text-body text-ink-2">{t('step.switcherooFolder')}</div>
+            <div className="text-body text-ink-2">
+              {t('step.switcherooFolder', { category: folderName(step.categoryId) })}
+            </div>
           </>
         );
         controls = (
@@ -422,7 +511,7 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
                 key={id}
                 title={folderName(id)}
                 preview={<FolderPreview folderId={id} />}
-                tone={step.pool.startsWith('good') ? 'good' : 'bad'}
+                tone={categoryTone(step.categoryId)}
                 keyHint={String(index + 1)}
                 onClick={() => {
                   handlers.switcherooFolder(index);
@@ -436,8 +525,8 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
   }
 
   const resolving = session.phase === 'resolve_card' && animating !== 'moving';
-  const isAction = resolving && reveal?.kind === 'action';
-  const isBadAction = isAction && reveal.group === 'bad';
+  const isActionReveal = resolving && reveal?.kind === 'action';
+  const isBadAction = isActionReveal && reveal.group === 'bad';
   // Re-mount per revealed card so the banner animation replays (design-system §7 "Action reveal")
   const revealKey = resolving && reveal ? `${session.round}-${reveal.field}` : session.phase;
   return (
@@ -451,7 +540,7 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
       <div
         className={classNames(
           'flex min-w-0 flex-1 flex-col gap-1.5',
-          isAction && 'origin-left animate-[cr-banner_320ms_ease-out]',
+          isActionReveal && 'origin-left animate-[cr-banner_320ms_ease-out]',
         )}
       >
         {content}

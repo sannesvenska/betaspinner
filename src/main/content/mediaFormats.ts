@@ -18,3 +18,8 @@ const MEDIA_FORMATS: Readonly<Record<string, MediaFormat>> = {
 
 export const mediaFormatOf = (filePath: string): MediaFormat | undefined =>
   MEDIA_FORMATS[extname(filePath).toLowerCase()];
+
+/** Extensions without the dot, for file pickers. */
+export const MEDIA_EXTENSIONS: readonly string[] = Object.keys(MEDIA_FORMATS).map((extension) =>
+  extension.slice(1),
+);

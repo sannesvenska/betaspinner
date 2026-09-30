@@ -1,8 +1,10 @@
-import type { ActionId } from './actions';
 import type { Group } from './game';
 
-/** game-design §5 – content model. */
-export type FolderRole = 'content' | 'action';
+/**
+ * game-design §5 – content model. `performer` folders are galleries of one performer (§6.2.1);
+ * their `group` is stored but ignored.
+ */
+export type FolderRole = 'content' | 'performer';
 export type UnmaskedEffectBehavior = 'full' | 'none';
 
 export interface FolderConfig {
@@ -15,7 +17,6 @@ export interface FolderConfig {
   selectionWeight: number;
   shareWeight: number;
   taskRange: [number, number];
-  allowedActions: ActionId[] | null;
   unmaskedEffectBehavior: UnmaskedEffectBehavior;
   minImages: number;
 }
@@ -30,7 +31,6 @@ export const FOLDER_DEFAULTS = {
   selectionWeight: 50,
   shareWeight: 50,
   taskRange: [6, 18],
-  allowedActions: null,
   unmaskedEffectBehavior: 'full',
   minImages: 5,
 } as const satisfies Partial<FolderConfig>;
@@ -91,3 +91,12 @@ export const mediaUrl = (hash: string): string => `${MEDIA_PROTOCOL}://media/${h
 /** Folder is usable for sessions (game-design §5.2 `minImages`). */
 export const isFolderEligible = (folder: FolderConfig, status: FolderScanStatus | undefined): boolean =>
   folder.enabled && status?.state === 'ok' && status.mediaCount >= folder.minImages;
+
+/** Unique image of an action card definition, copied into `userData/action-art/` (game-design §10.4). */
+export interface ActionArtImage {
+  hash: string;
+  /** File name inside the action-art store: `<hash><ext>` */
+  fileName: string;
+  mimeType: string;
+  kind: MediaKind;
+}

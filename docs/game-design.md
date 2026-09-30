@@ -5,6 +5,7 @@
 > All user-facing text is referenced via i18n keys; names used here (e.g. action names) are **internal IDs**, not display labels.
 > Visual rules live in [design-system.md](design-system.md); work packages in [ROADMAP.md](ROADMAP.md).
 > **Revision 2 (2026-09-29):** Q&A decisions merged – see §24.
+> **Revision 3 (2026-09-30) – Gameplay v2:** implemented in ROADMAP AP9. Rules marked **[v2]** override the older text of the same section (kept until the balancing is confirmed, AP9.12). Decision log: §24.1, implementation notes: §24.2.
 
 ---
 
@@ -37,19 +38,24 @@ The app works fully offline. No network calls are made.
 
 ## 3. Glossary
 
-| Term              | Meaning                                                                                                                 |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| **Field**         | One of the 100 positions on the circular track (numbered 1–100, wraps 100 → 1). Displayed as a segment of the **ring**. |
-| **Discovered**    | A field the player has **landed on** (or the start field). Fields passed over during movement stay undiscovered.        |
-| **Card**          | The content placed on a field: an image plus either a task (normal card) or an action (action card).                    |
-| **Goal Field**    | The field the player must land on to trigger the win check. Has no image task.                                          |
-| **Category**      | A content folder of images, belonging to the `good` or `bad` group.                                                     |
-| **Action Folder** | A folder tagged as action source. Its images are used exclusively as visuals for action cards.                          |
-| **Round**         | One complete move: roll → choose direction → move → resolve landed card. Effect durations count in rounds.              |
-| **Effect**        | A temporary or session-long modifier (e.g. Double Trouble, Pixelate).                                                   |
-| **Task**          | A physical instruction with a count or duration that the player confirms with a button.                                 |
-| **Penalty Field** | A red segment on the start wheel that blocks starting a session for a time.                                             |
-| **Progression**   | Persistent values carried between sessions (good chance, penalty fields, blocked effects, loss streak).                 |
+| Term                       | Meaning                                                                                                                 |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **Field**                  | One of the 100 positions on the circular track (numbered 1–100, wraps 100 → 1). Displayed as a segment of the **ring**. |
+| **Discovered**             | A field the player has **landed on** (or the start field). Fields passed over during movement stay undiscovered.        |
+| **Card**                   | The content placed on a field: an image plus either a task (normal card) or an action (action card).                    |
+| **Goal Field**             | The field the player must land on to trigger the win check. Has no image task.                                          |
+| **Category**               | A content folder of images, belonging to the `good` or `bad` group.                                                     |
+| **Action Folder**          | _(removed in v2)_ A folder tagged as action source. Replaced by **action card definitions** with their own image.       |
+| **Action Card Definition** | **[v2]** A uniquely defined action card: resolver type + name + params + weights + one unique image (§10.4).            |
+| **Action Pool**            | **[v2]** The subset of action card definitions that can appear in one session (§6.4).                                   |
+| **Performer**              | **[v2]** A gallery folder of one performer. One per session; its images are placed as **collectible** cards (§9.4).     |
+| **Detour**                 | **[v2]** A move that increases the shortest distance to the Goal Field; converts bad cards to good (§8.4).              |
+| **Release Chance**         | **[v2]** The live win-check chance shown in the console; replaces the win-check die roll (§14.1).                       |
+| **Round**                  | One complete move: roll → choose direction → move → resolve landed card. Effect durations count in rounds.              |
+| **Effect**                 | A temporary or session-long modifier (e.g. Double Trouble, Pixelate).                                                   |
+| **Task**                   | A physical instruction with a count or duration that the player confirms with a button.                                 |
+| **Penalty Field**          | A red segment on the start wheel that blocks starting a session for a time.                                             |
+| **Progression**            | Persistent values carried between sessions (good chance, penalty fields, blocked effects, loss streak).                 |
 
 ---
 
@@ -57,9 +63,9 @@ The app works fully offline. No network calls are made.
 
 1. Open app → penalty decay is applied → start wheel shows current penalty fields.
 2. Spin start wheel → Goal Field value N (or penalty lockout if a red field is hit).
-3. Perform the initial task (count from its own range, §6.1) → confirm.
-4. Session is generated (categories, cards, action slots, start position).
-5. Repeat rounds until the Goal Field is reached or the session ends (End Early / Mistress Says No).
+3. Perform the initial task (**[v2]** count = N, §6.1) → confirm.
+4. Session is generated (categories, performer, action pool, cards, start position) → session briefing.
+5. Repeat rounds until the Goal Field is reached or the session ends (End Early / Mistress Says No). **[v2]** The player watches the live release chance and decides when to head for the goal.
 6. Win check → final wheel → outcome → progression update → stats saved.
 
 ---
@@ -79,22 +85,33 @@ Every registered folder has exactly one **group** and one **role**:
 
 **[RULE]** Content folders and action folders are separate pools. A content folder never produces action cards and an action folder never produces normal cards. This makes the action card count fully controllable and independent of which categories are picked.
 
+**[v2] Folder roles change:**
+
+| Group    | Role        | Used for                                                             |
+| -------- | ----------- | -------------------------------------------------------------------- |
+| `good`   | `content`   | Normal cards with favorable/reward images                            |
+| `bad`    | `content`   | Normal cards with challenging images                                 |
+| – (none) | `performer` | Gallery of one performer; source of collectible cards (§6.2.1, §9.4) |
+
+- The `action` role is **removed**. Action visuals come from action card definitions (§10.4). Migration: existing action folders are converted to disabled `content` folders of their group (the user can remove them); `allowedActions` is dropped.
+- Performer folders have no group. `selectionWeight`, `taskRange`, `minImages` and `unmaskedEffectBehavior` apply; `shareWeight` does not.
+
 ### 5.2 Folder Properties
 
-| Property                 | Type                  | Default     | Description                                                                                                                |
-| ------------------------ | --------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `id`                     | string                | generated   | Stable ID (UUID).                                                                                                          |
-| `path`                   | string                | –           | Absolute path on disk.                                                                                                     |
-| `displayName`            | string                | folder name | Shown in admin and on the category reveal screen.                                                                          |
-| `group`                  | `good` \| `bad`       | –           |                                                                                                                            |
-| `role`                   | `content` \| `action` | `content`   |                                                                                                                            |
-| `enabled`                | boolean               | true        | Disabled folders are ignored entirely.                                                                                     |
-| `selectionWeight`        | number (1–100)        | 50          | How likely this category is picked for a session (content only).                                                           |
-| `shareWeight`            | number (1–100)        | 50          | Image share among the selected categories of the same group (only relevant if more than one category per group is picked). |
-| `taskRange`              | [min, max]            | [6, 18]     | Task count range for normal cards from this folder.                                                                        |
-| `allowedActions`         | ActionId[] \| null    | null        | Action folders only: restrict which actions may use this folder's images. `null` = any action of the matching group.       |
-| `unmaskedEffectBehavior` | `full` \| `none`      | `full`      | How visual effects apply to images without a defined mask (see §12).                                                       |
-| `minImages`              | number                | 5           | Folder is only eligible for selection if it contains at least this many images.                                            |
+| Property                 | Type                  | Default     | Description                                                                                                                            |
+| ------------------------ | --------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                     | string                | generated   | Stable ID (UUID).                                                                                                                      |
+| `path`                   | string                | –           | Absolute path on disk.                                                                                                                 |
+| `displayName`            | string                | folder name | Shown in admin and on the category reveal screen.                                                                                      |
+| `group`                  | `good` \| `bad`       | –           |                                                                                                                                        |
+| `role`                   | `content` \| `action` | `content`   |                                                                                                                                        |
+| `enabled`                | boolean               | true        | Disabled folders are ignored entirely.                                                                                                 |
+| `selectionWeight`        | number (1–100)        | 50          | How likely this category is picked for a session (content only).                                                                       |
+| `shareWeight`            | number (1–100)        | 50          | Image share among the selected categories of the same group (only relevant if more than one category per group is picked).             |
+| `taskRange`              | [min, max]            | [6, 18]     | Task count range for normal cards from this folder.                                                                                    |
+| `allowedActions`         | ActionId[] \| null    | null        | Action folders only: restrict which actions may use this folder's images. `null` = any action of the matching group. **[v2] removed.** |
+| `unmaskedEffectBehavior` | `full` \| `none`      | `full`      | How visual effects apply to images without a defined mask (see §12).                                                                   |
+| `minImages`              | number                | 5           | Folder is only eligible for selection if it contains at least this many images.                                                        |
 
 > **Change vs. original concept:** the single "weight" property was ambiguous (it meant both "how often is this folder picked" and "how many images does it contribute"). It is split into `selectionWeight` and `shareWeight`.
 
@@ -135,6 +152,7 @@ Pipeline order:
 
 - The start wheel yields a value N from `wheel.range` (`default [1, 100]`). N is the Goal Field number.
 - **[RULE]** The initial task count is rolled separately with the seeded RNG from `initialTask.range` (`default [10, 40]`) and shown after the wheel stops.
+- **[v2] [RULE]** The initial task count **equals N** (the wheel value). `initialTask.range` is removed. No multiplier applies.
 - **[RULE]** The start position is **not** fixed to field 1. It is placed roughly opposite the goal: `start = wrap(N + 50 + randInt(-startJitter, +startJitter))`, `startJitter default 15`. This guarantees a meaningful distance in both directions regardless of N.
 - Configurable `minGoalDistance` (`default 25`, measured as the shorter way around). The jitter is re-rolled until satisfied.
 
@@ -168,6 +186,20 @@ Effect: high-weight categories still appear more often, but a category that has 
 
 **Setup screen:** after generation, a short "category reveal" shows the chosen good and bad category names (display names via i18n-safe labels). If `allowReroll` is on, a single "Reroll" button is available.
 
+**[v2] More categories per session:**
+
+- `categoriesPerSession.good` / `.bad` become ranges, `default [2, 3]` each (a fixed number is written as `[n, n]`). The count per group is rolled per session; the algorithm above is unchanged.
+- Normal cards of a group are split between its categories by `shareWeight` and mixed by a plain shuffle (no zones).
+- Wherever a rule draws "a new image from the active category of a group" (consumed action cards, revisit conversion §8.5, detour conversion §8.4, Redemption), the category is picked by `shareWeight` among the active categories of that group.
+- The category reveal becomes the **session briefing**: good categories, bad categories, the performer (§6.2.1) and the session's action pool (§6.4) as icon row.
+- _Later option (parking lot):_ **category zones** – each category owns contiguous arcs of the ring so the player can steer into a category.
+
+### 6.2.1 Performer Selection [v2]
+
+- One performer folder per session, picked with the same cooldown / freshness algorithm as categories (own candidate list: enabled `performer` folders with `imageCount ≥ collectibles.count.max`).
+- If no eligible performer folder exists, the session has no collectibles (the briefing and console hide the collection).
+- The performer's `categoryUsage` is tracked like a category.
+
 ### 6.3 Card Composition
 
 The track has 100 fields:
@@ -197,6 +229,15 @@ N_bad       = normalCount − N_good
 
 **[RULE]** If the action folders of a group contain zero images, action cards of that group still exist but use a neutral built-in action card design instead of an image.
 
+**[v2] Collectibles:** `collectibles.count` (`default [6, 8]`) collectible cards are added when a performer is selected:
+
+```
+C           = performer ? randInt(collectibles.count.min, collectibles.count.max) : 0
+normalCount = 99 − A − C                 // includes the start field
+```
+
+`N_good` / `N_bad` are computed from the reduced `normalCount` as before. **[v2]** Action cards without an image use the neutral built-in design (action folders no longer exist).
+
 ### 6.4 Action Slot Assignment
 
 Each action slot receives a concrete action type. Every action has these configurable parameters:
@@ -224,6 +265,16 @@ Example dependencies (defaults):
 - `cleaning_lady` requires `pixelate` or `splatter`.
 - `bad_luck` requires `hail_mary`.
 
+**[v2] Action pool per session.** Slots are filled from **action card definitions** (§10.4) instead of the fixed 20 actions. Before slot assignment, the session draws its **action pool**:
+
+1. Candidates = enabled definitions, minus those blocked by progression, minus failed `sessionChance` gates (rolled per definition).
+2. Definitions with `minPerSession > 0` are always in the pool.
+3. Fill up to `actionPool.size` (`default [8, 10]` distinct definitions, rolled per session) by weighted pick without replacement; keep at least 1 good and 1 bad definition if available.
+4. `requires` refers to **resolver types** (e.g. `cleaning_lady` requires type `pixelate` or `splatter`); a definition whose requirement is not in the pool is replaced (max 10 attempts, then dropped).
+5. Slot assignment (steps 3–5 above) then works on the pool only. `maxPerSession` is per definition.
+
+The pool is shown in the session briefing. Actions outside the pool cannot appear in this session.
+
 ### 6.5 Placement on the Track
 
 Action cards should be spread across the whole track – not clustered and not predictable.
@@ -238,6 +289,8 @@ Action cards should be spread across the whole track – not clustered and not p
 
 All remaining fields become normal cards; good/bad normal cards are distributed by a plain shuffle.
 
+**[v2]** Collectible cards are placed together with action cards: the stratified placement runs over `A + C` slots, and collectibles take random slots of that set. `minActionGap` applies between all special cards.
+
 ### 6.6 Image Assignment
 
 **Normal cards:**
@@ -250,11 +303,15 @@ All remaining fields become normal cards; good/bad normal cards are distributed 
 
 - The action type is decided first; then an image is drawn from action folders of the matching group whose `allowedActions` includes this action (or is `null`).
 - Fallback: any action folder of the group → built-in neutral action design.
+- **[v2]** Every action card shows the **image of its definition** (§10.4); without an image → built-in neutral action design. No image bags for actions.
+
+**[v2] Collectible cards:** images from the session's performer folder (shuffle bag, no repeats, recency preference); task count from the performer folder's `taskRange`.
 
 **Task counts:**
 
 - Normal cards roll their task count from their folder's `taskRange` **at generation time** and store it on the card (so reloading a session does not change it). Modifiers (e.g. Double Trouble) are applied at display time.
 - **[RULE] Revisits:** landing again on an already discovered normal card shows the same task with a **new** count, rolled from the same `taskRange` with the session RNG and stored on the card before display (reload-safe).
+- **[v2]** Replaced by the revisit conversion (§8.5): revisited cards become bad cards with a new image.
 
 ---
 
@@ -277,6 +334,12 @@ Layout (see design-system.md for sizes): **left console** (ring, stats, active e
 - **Discovered gallery:** a drawer opened from the console (hotkey `G`) showing all discovered cards as thumbnails with field number, group and action icon. Read-only; it pauses nothing.
 - **Active effects:** chips in the console below the stats, each with icon, name (i18n) and remaining rounds. Hover/focus shows a description.
 - **Stats:** round, discovered count, success multiplier, and the **action card hint** (§7.4).
+- **[v2] Stats layout [RULE]:** release chance · discovered / undiscovered · actions left (round and win multiplier leave the console; the multiplier is part of the release chance breakdown and the Hail Mary chip).
+- **[v2] Additional stats [RULE]:**
+  - **Release chance** – the live value of §14.1 (e.g. "Release chance 18 %"), prominent in the stats block; hover/focus shows the breakdown (discovered × rate, performer bonus, multiplier, cap).
+  - **Undiscovered normal cards** – "32 good · 41 bad" (updates after reveals, conversions and track changes).
+  - **Performer collection** – performer name + progress towards the next bonus tier ("2 / 5", tier markers at 3 / 4 / 5); hidden without performer.
+- **[v2] Direction buttons** additionally show a **detour badge** on a side whose move would be a detour (§8.4), e.g. "Detour · +2 good", and the forced-reversal state (§8.7).
 
 ### 7.2 Controls
 
@@ -287,6 +350,7 @@ Layout (see design-system.md for sizes): **left console** (ring, stats, active e
 | Primary action of the phase (Done / Roll / Spin / Start / Confirm) | button                        | `Space` or `Enter`            |
 | Direction left / right                                             | direction buttons             | `←` / `→`                     |
 | Number choice (Decision Maker, Guessing Game)                      | number buttons                | `1`–`6`                       |
+| **[v2]** Stroke tier on normal cards (×1 / ×2 / ×3, §8.6)          | tier buttons                  | `1` / `2` / `3`               |
 | Picker selection (effects, rewards, Switcheroo)                    | tiles                         | `←` `→` + `Enter`, or `1`–`9` |
 | Discovered gallery                                                 | console button                | `G`                           |
 | Cancel / close dialog or drawer                                    | button                        | `Esc`                         |
@@ -343,9 +407,73 @@ The console stats and the direction buttons show how many action cards are still
 5. Effect durations tick down by one (**[RULE]** ticking happens at the end of each round, after the landed card is resolved; effects created during this round start ticking next round).
 6. If landed **exactly** on the Goal Field → win flow (§14). Passing over the Goal Field has no effect. Otherwise → back to 1.
 
+**[v2] Round structure:**
+
+1. Resolve the current card (task or action). On a normal card the player first picks the **stroke tier** (§8.6) → confirms.
+2. **Forced reversal check** (§8.7) – if it triggers, only the reverse direction is allowed this round.
+3. Player rolls the dice (1–3 dice depending on the stroke tier).
+4. Player chooses a direction (unless blocked / forced).
+5. Movement animation. Then, in this order:
+   1. **Overshoot:** if the path passed over the Goal Field without landing on it → goal drift (§8.8).
+   2. **Detour:** if the move increased the shortest distance to the goal (measured against the goal before the move) → detour conversion (§8.4).
+   3. **Landing:** first visit → reveal, mark as discovered, +release chance. Revisit → revisit conversion (§8.5) or collectible revisit (§9.4).
+6. Effect ticking as before.
+7. Exactly on the Goal Field → win flow (§14); otherwise → back to 1.
+
 ### 8.3 Resume
 
 **[RULE]** The session is autosaved after every state change. If the app is closed mid-session, the next start offers "Resume session" (or "End Early", which counts as a loss).
+
+**[v2]** A saved session with an older session `schemaVersion` cannot be resumed: it is discarded **without scoring** (no loss, no history entry) and the start screen shows a one-time notice.
+
+### 8.4 Detour Conversion [v2]
+
+**[RULE]** A rolled move is a **detour** when `shortestDistance(landing, goal) > shortestDistance(start, goal)`, with `goal` = the Goal Field before the move. Teleports (Moving Day) are never detours.
+
+- Each detour converts `detourConversion` (`default 2`) random **undiscovered bad normal cards** into good normal cards: group → `good`, new image from an active good category (§6.2), task count from that folder's `taskRange`. Collectibles and action cards are never converted.
+- Applied immediately after the move; a notice step shows "2 bad fields turned good" and the undiscovered counter updates.
+- `maxDetourConversions` (`default null` = unlimited) caps the conversions per session. With no bad cards left, the detour badge is hidden.
+- Direction buttons show the detour badge before the choice (§7.1), so the trade-off (longer way + more tasks vs. better board) is a visible decision.
+
+### 8.5 Revisit Conversion [v2]
+
+**[RULE]** Landing on an **already discovered** field (not by teleport onto an undiscovered field) converts it into a **bad normal card**: new image from an active bad category (§6.2), new task count from that folder's `taskRange`, then it is resolved like a fresh card.
+
+- Applies to good and bad normal cards (bad cards also get a new image), the start field and consumed action cards.
+- **Exceptions:** collectible cards (§9.4), action cards that still trigger (`actionRetrigger: always`), the Goal Field.
+- The discovered count and the release chance do not change (the field was already counted).
+- Effect: lingering around the goal gets progressively worse, but the images never repeat.
+
+### 8.6 Stroke Tier [v2]
+
+**[RULE]** On every **normal card** (good or bad; not on action cards, collectibles, the initial task) the player chooses a tier before confirming:
+
+| Tier | Task count | Next move         |
+| ---- | ---------- | ----------------- |
+| ×1   | × 1        | roll 1 die        |
+| ×2   | × 2        | roll 2 dice (sum) |
+| ×3   | × 3        | roll 3 dice (sum) |
+
+- The tier multiplies with other task multipliers (Double Trouble).
+- Decision Maker overrides the roll (choice 1–6 regardless of the tier). Guessing Game dice are unaffected.
+- The dice UI shows 1–3 dice; the action hint and targets work for any step count.
+- Setting `strokeTiers.enabled` (`default true`); max tier `strokeTiers.max` (`default 3`).
+
+### 8.7 Forced Reversal [v2]
+
+**[RULE]** Before each roll (not in the first round after the start card, not while U Turn is active, not directly after a forced reversal), with `forcedReversalChance` (`default 0.10`) the player may only move in the **opposite direction of the last move** this round.
+
+- Shown before the roll as a notice and on the direction buttons (blocked side with its own icon, distinct from U Turn).
+- Implemented with the direction-block mechanism for exactly one move; it is not an effect and not removable.
+
+### 8.8 Goal Drift on Overshoot [v2]
+
+**[RULE]** When a rolled move **passes over** the Goal Field without landing on it, the Goal Field jumps to a random **undiscovered** field within `goalDrift.range` (`default [3, 8]` fields, shorter distance, either side) of its current position, excluding the player's field.
+
+- The jump swaps the Goal Field with the target card (same as `goal_teleport`); the ring shows the goal pulse animation.
+- No valid field → widen the range by 4 up to 20; still none → any undiscovered field; still none → the goal stays.
+- Intended decision: 3 fields before the goal with a roll of 4, the player either goes 4 back (revisits → bad cards, §8.5) and retries, or jumps over the goal and chases it into fresh, undiscovered territory (+release chance).
+- Action hint counters update after the drift.
 
 ---
 
@@ -367,6 +495,26 @@ If no action image is available, the card uses the built-in neutral action desig
 
 No image task. Landing triggers the win flow (§14).
 
+### 9.4 Collectible Card (Performer) [v2]
+
+**[RULE]**
+
+- Shows a performer image and a task (count from the performer folder's `taskRange`). Ring: its own marker shape (star) once discovered; never color-only.
+- **First landing** collects the card: the collection counter increases and bonus tiers are checked.
+- **Revisit:** no bonus again; the card shows only a stroke task with count `collectibles.revisitTaskRange` (`default [10, 25]`), same image. It is exempt from the revisit conversion (§8.5), the detour conversion and Switcheroo.
+- Collectibles count as discovered (release chance) like any card.
+- Splatter can hit collectibles; Goal Teleport / goal drift / Moving Day treat them like normal undiscovered cards (the goal swap moves the card).
+
+**Bonus tiers [RULE]** (`collectibles.tiers`, configurable; each tier triggers once, immediately, cumulative):
+
+| Collected | Bonus (default)                                           |
+| --------- | --------------------------------------------------------- |
+| 3         | Convert 5 undiscovered bad normal cards to good (as §8.4) |
+| 4         | +5 % release chance (flat, added to the base, §14.1)      |
+| 5         | +10 % release chance (total +15 %)                        |
+
+A reached tier shows a reward notice step (performer image + bonus text).
+
 ---
 
 ## 10. Action Catalog
@@ -375,14 +523,15 @@ All actions are identified by ID; labels and descriptions come from i18n keys `a
 
 ### 10.1 Good Actions
 
-| ID               | Default weight | Behavior                                                                                                                                                                                                                                                                                           | Params (defaults)                 |
-| ---------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `clearing_edges` | 20             | Player performs a Hold Position task; on completion, the player removes one active negative effect of their choice.                                                                                                                                                                                | hold duration 15–35 s             |
-| `good_fairy`     | 15             | Player removes one active negative effect of their choice for free. If none are active, it grants a "shield" that blocks the next bad action (`shieldEnabled default true`).                                                                                                                       | –                                 |
-| `decision_maker` | 20             | Player chooses the step count (1–6) for the next move instead of rolling.                                                                                                                                                                                                                          | –                                 |
-| `cleaning_lady`  | 15             | Removes all visual effects (pixelate level to 0, all splatters).                                                                                                                                                                                                                                   | requires `pixelate` or `splatter` |
-| `hail_mary`      | 10             | Grants a success multiplier for the win check.                                                                                                                                                                                                                                                     | range 1.5–3.0, step 0.5           |
-| `switcheroo`     | 10             | Player first chooses a **target pool** (good category, bad category, good action images, bad action images), then picks one of 3 random alternative folders of that pool. All undiscovered cards of that pool get new images from the chosen folder. Discovered cards remain unchanged. See §10.3. | alternatives 3                    |
+| ID                    | Default weight | Behavior                                                                                                                                                                                                                                                                                           | Params (defaults)                 |
+| --------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `clearing_edges`      | 20             | Player performs a Hold Position task; on completion, the player removes one active negative effect of their choice.                                                                                                                                                                                | hold duration 15–35 s             |
+| `good_fairy`          | 15             | Player removes one active negative effect of their choice for free. If none are active, it grants a "shield" that blocks the next bad action (`shieldEnabled default true`).                                                                                                                       | –                                 |
+| `decision_maker`      | 20             | Player chooses the step count (1–6) for the next move instead of rolling.                                                                                                                                                                                                                          | –                                 |
+| `cleaning_lady`       | 15             | Removes all visual effects (pixelate level to 0, all splatters).                                                                                                                                                                                                                                   | requires `pixelate` or `splatter` |
+| `hail_mary`           | 10             | Grants a success multiplier for the win check.                                                                                                                                                                                                                                                     | range 1.5–3.0, step 0.5           |
+| `redemption` **[v2]** | 10             | Converts N random undiscovered bad normal cards into good ones (same rules as §8.4). If none are left, shows "nothing to convert".                                                                                                                                                                 | N 3–5                             |
+| `switcheroo`          | 10             | Player first chooses a **target pool** (good category, bad category, good action images, bad action images), then picks one of 3 random alternative folders of that pool. All undiscovered cards of that pool get new images from the chosen folder. Discovered cards remain unchanged. See §10.3. | alternatives 3                    |
 
 ### 10.2 Bad Actions
 
@@ -425,7 +574,32 @@ All actions are identified by ID; labels and descriptions come from i18n keys `a
 - The session's `categories` record is updated for content pools; for action pools, `activeActionFolders[group]` is set to the chosen folder for all later image draws (e.g. after `goal_teleport`).
 - Stats record the swap (`from`, `to`, `pool`).
 
+**[v2] Switcheroo with several categories and without action folders:**
+
+- The action image pools are **removed** (action images belong to definitions).
+- Step 1 lists the **active categories** (good and bad) as pools; the player picks one. Step 2 offers up to 3 alternative folders of the same group (excluding all active categories). Only undiscovered normal cards of the chosen category change; the chosen folder replaces it in `categories`.
+- Collectible cards are never affected.
+
 **Safety zones [RULE]:** for `goal_teleport` and `moving_day`, the target field must be undiscovered and at least `safetyZone` fields (shorter distance) away from both the current position and the current Goal Field. If no such field exists, reduce the zone by 2 until a valid field is found; if still none, the action only performs its task.
+
+### 10.4 Action Card Definitions [v2]
+
+**[RULE]** Actions are no longer tags on folders. Every action card is a uniquely defined **ActionCardDefinition**:
+
+| Field                                                                  | Description                                                                                                                                                  |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`                                                                   | Stable ID (slug for built-ins, e.g. `pixelate`; UUID for user-created cards).                                                                                |
+| `type`                                                                 | Resolver type = one of the action IDs of §10.1/10.2 (incl. `redemption`). The group is derived from the type.                                                |
+| `name` / `description`                                                 | Built-ins: i18n keys `action.<type>.name/description`. User cards: free text (user content, not i18n – the only exception to the no-hardcoded-strings rule). |
+| `image`                                                                | The card's **unique** image in the action-art store (`hash`, `fileName`, `mimeType`, `kind`), or `null` → neutral built-in design.                           |
+| `enabled`, `weight`, `minPerSession`, `maxPerSession`, `sessionChance` | As in §6.4, per definition.                                                                                                                                  |
+| `requires`                                                             | Resolver types (any of) that must be in the session's action pool.                                                                                           |
+| `params`                                                               | Type-specific params (defaults from §10.1/10.2), overridable per definition.                                                                                 |
+
+- **Built-ins:** one definition per type (21 incl. `redemption`) ships as default and can be edited, disabled or duplicated; built-ins cannot be deleted (reset to default instead).
+- **Variants:** the user can create more cards of the same type with their own name, params, weight and image (e.g. "Squeeze – hard" with count 15–30).
+- **Images [RULE]:** assigned in the admin by picking any supported media file. The file is **copied** into `userData/action-art/` and addressed by its content hash via `cr-media://` (the protocol serves index files and the action-art store only). One image per definition; the same file may not be assigned to two definitions (uniqueness check by hash).
+- Stats and history record the definition id **and** type.
 
 ---
 
@@ -531,7 +705,7 @@ Ring hover previews and the discovered gallery use the same pipeline at small si
 - Decoded images are cached by hash (64 entries) instead of caching processed frames – drawing is cheap, fetching is not (the media protocol sends `no-store`).
 - The media scheme is CORS-enabled so canvases stay untainted and `ImageDecoder` can fetch.
 - Splatter textures live in `src/renderer/src/assets/splatter/` (any PNG/SVG/WebP there is used); `pnpm generate:splatter` recreates the placeholders. Stamp layout is deterministic per `splatterSeed`.
-- Region masks (§12.1) are not applied yet: folders behave as `unmaskedEffectBehavior` says (`full` / `none`) until the Mask Editor milestone (AP10).
+- Region masks (§12.1) are not applied yet: folders behave as `unmaskedEffectBehavior` says (`full` / `none`) until the Mask Editor milestone (AP11).
 
 ---
 
@@ -567,11 +741,24 @@ When the player lands on the Goal Field:
 3. `baseChance = floor(discovered / roll)` (in percent).
 4. `finalChance = clamp(floor(baseChance × successMultiplier), minChance, maxChance)` (`minChance default 1`, `maxChance default 95`).
 
+**[v2] Release chance without a die [RULE]:** the win-check roll is **removed**. The chance is deterministic and shown live in the console (§7.1) during the whole session:
+
+```
+base        = discovered × chancePerDiscovered + collectibleBonus   // percent
+finalChance = clamp(floor(base × successMultiplier), minChance, maxChance)
+```
+
+- `chancePerDiscovered` `default 0.4` (keeps the old average: E[1/d6] ≈ 0.41). All discovered cards count the same (good, bad, action, collectible, start).
+- `collectibleBonus` = sum of reached percentage tiers (§9.4).
+- No separate win check screen: landing on the goal opens the final wheel directly; its side panel shows the breakdown (base, performer bonus, multiplier, final chance). The `win_check` phase no longer exists.
+- Purpose: the player sees the potential chance and decides whether to reveal more fields before heading for the goal.
+
 ### 14.2 Final Wheel
 
 - Wheel with a white area (= `finalChance` %) and a red area (rest).
 - "Start Task" → wheel starts spinning.
 - Button changes to "Hold Position"; pressing it starts a countdown equal to the discovered count (in seconds). The wheel decelerates so that it stops exactly at 0.
+- **[v2]** Countdown = `min(discovered, holdSecondsCap)`, `holdSecondsCap default 60`.
 - **[RULE]** The result is determined by the seeded RNG when "Start Task" is pressed; the animation is choreographed to land on it.
 - Result: `Success Allowed` (white) or `Denied` (red).
 
@@ -605,7 +792,8 @@ Stored in `progression.json`:
 - `lossStreak`
 - `lockoutUntil` (timestamp or null)
 - `blockedActionsNextSession` (ActionId[], cleared after use)
-- `categoryUsage` (folderId → lastUsedSessionIndex, timesUsed)
+- `categoryUsage` (folderId → lastUsedSessionIndex, timesUsed) – **[v2]** includes performer folders
+- `blockedActionsNextSession` **[v2]** holds action card definition ids
 - `imageRecency` (imageHash → lastSessionIndex)
 - `sessionCounter`
 
@@ -619,15 +807,18 @@ Admin is a separate route, reachable from the start screen. (Admin PIN: later, n
 
 **First-run:** with no folders registered, the start screen shows an empty state that leads into a setup wizard (add folder → group → role → scan).
 
-| Screen                      | Contents                                                                                                                                                                                                        |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Folders**                 | Add/remove folders, group, role, enabled, `selectionWeight`, `shareWeight`, `taskRange`, `allowedActions`, `unmaskedEffectBehavior`, image count, rescan.                                                       |
-| **Media Library**           | Thumbnail review and Mask Editor (§12.2–12.3).                                                                                                                                                                  |
-| **Actions**                 | Per action: enabled, weight, min/max per session, sessionChance, requires, params. Live preview: "expected action cards per session" and a simulated distribution (run the generator 1,000× with random seeds). |
-| **Session Rules**           | Categories per session, cooldown, freshness, action card count range, protected zones, gap, start distance, animation speed, retrigger mode.                                                                    |
-| **Visual Effects**          | Pixelation block sizes, splatter count range, splatter textures.                                                                                                                                                |
-| **Penalties & Progression** | Step, cap, decay, lockout duration, good chance bounds/step; buttons to reset progression.                                                                                                                      |
-| **Backup**                  | Export/import of config, progression, masks and history as one ZIP/JSON bundle (image files excluded; folder paths are remapped on import if missing).                                                          |
+| Screen                       | Contents                                                                                                                                                                                                              |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Folders**                  | Add/remove folders, group, role, enabled, `selectionWeight`, `shareWeight`, `taskRange`, `allowedActions`, `unmaskedEffectBehavior`, image count, rescan.                                                             |
+| **Media Library**            | Thumbnail review and Mask Editor (§12.2–12.3).                                                                                                                                                                        |
+| **Actions**                  | Per action: enabled, weight, min/max per session, sessionChance, requires, params. Live preview: "expected action cards per session" and a simulated distribution (run the generator 1,000× with random seeds).       |
+| **Session Rules**            | Categories per session, cooldown, freshness, action card count range, protected zones, gap, start distance, animation speed, retrigger mode.                                                                          |
+| **Visual Effects**           | Pixelation block sizes, splatter count range, splatter textures.                                                                                                                                                      |
+| **Penalties & Progression**  | Step, cap, decay, lockout duration, good chance bounds/step; buttons to reset progression.                                                                                                                            |
+| **[v2] Action Cards**        | Replaces "Actions": list of definitions grouped by good/bad with image thumbnail; create/duplicate/edit/disable/reset; image picker (copy into action-art, uniqueness check); action pool size; simulation as before. |
+| **[v2] Performers**          | Performer folders (enabled, weight, taskRange), collectible count, revisit task range, bonus tiers.                                                                                                                   |
+| **[v2] Session Rules (add)** | Categories per session ranges, detour conversion + cap, release chance rate, hold cap, goal drift range, stroke tiers, forced reversal chance.                                                                        |
+| **Backup**                   | Export/import of config, progression, masks and history as one ZIP/JSON bundle (image files excluded; folder paths are remapped on import if missing).                                                                |
 
 ---
 
@@ -641,7 +832,8 @@ Per session:
 - Total tasks performed (sum of counts), hold/edge tasks (count + total seconds)
 - Discovered cards, action cards triggered (per type)
 - Max pixelate level reached
-- Win check: roll, chance, multiplier, wheel result
+- Win check: roll, chance, multiplier, wheel result (**[v2]** no roll; chance breakdown instead)
+- **[v2]** Performer + collected count + reached tiers, detours + converted cards, revisit conversions, goal drifts, stroke tier usage, forced reversals, action pool (definition ids)
 - Outcome: `success` | `interrupted` | `no_result` | `denied` | `ended_early` | `mistress_says_no`
 
 History screen: table of past sessions (sortable), plus summary (sessions, win rate, average discovered cards, current streak).
@@ -798,6 +990,52 @@ interface ImageMask {
 }
 ```
 
+**[v2] Model changes (sketch):**
+
+```ts
+type FolderRole = 'content' | 'performer'; // 'action' removed
+type ActionType = ActionId | 'redemption'; // resolver types
+
+interface ActionCardDefinition {
+  id: string; // slug for built-ins, UUID for user cards
+  type: ActionType;
+  builtIn: boolean;
+  name: string | null; // null = i18n key action.<type>.name
+  description: string | null;
+  image: ActionArtImage | null; // action-art store: { hash, fileName, mimeType, kind }
+  enabled: boolean;
+  weight: number;
+  minPerSession: number;
+  maxPerSession: number | null;
+  sessionChance?: number;
+  requires?: ActionType[];
+  params: Record<string, number | [number, number]>;
+}
+
+interface Card {
+  // … as above, plus:
+  kind: 'normal' | 'action' | 'goal' | 'collectible';
+  actionDefinitionId?: string; // replaces `action` as source of truth; type derived from the definition
+  collected?: boolean; // collectibles
+}
+
+interface SessionState {
+  // … as above, plus:
+  schemaVersion: number;
+  performerFolderId: string | null;
+  actionPool: string[]; // definition ids
+  collected: number;
+  reachedTiers: number[];
+  detourConversions: number;
+  nextDice: number; // set by the stroke tier of the last normal card
+  forcedDirection: 'left' | 'right' | null; // forced reversal for the current roll
+  lastForcedRound: number | null; // never two forced reversals in a row
+  lastRoll: number | null; // sum (or chosen value)
+  lastDice: number[]; // 1–3 dice, empty for a chosen value
+  // phase 'win_check' is removed: landing on the goal starts 'final_wheel'
+}
+```
+
 ---
 
 ## 21. Storage Layout
@@ -812,6 +1050,7 @@ All files live in `app.getPath('userData')` (e.g. `%APPDATA%/ChanceRunner/`):
 | `history.json`         | Past session stats                                                          |
 | `masks.json`           | ImageMask records keyed by hash                                             |
 | `image-index.json`     | Cached scan (path, size, mtime, hash, dimensions)                           |
+| `action-art/`          | **[v2]** Copied action card images, file name = content hash + extension    |
 
 **[RULE]** Writes are atomic (write to temp file, then rename). Every file has a `schemaVersion` field; a migration function runs on load.
 
@@ -863,6 +1102,38 @@ See [ROADMAP.md](ROADMAP.md) for work packages, order and milestones.
 | Admin PIN                            | Later                                                                                            | §16           |
 | Mask editor                          | Own milestone after core game                                                                    | §12           |
 
+### 24.1 Revision 3 – Gameplay v2 (2026-09-30)
+
+| Topic                | Decision                                                                                                                             | Section      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------ |
+| Initial task         | Count = start wheel value N, no own range                                                                                            | §6.1         |
+| Category variety     | 2–3 categories per group (range), mixed by shuffle; zones as later option                                                            | §6.2         |
+| Bad → good           | Detour (distance to goal grows) converts 2 undiscovered bad cards immediately; optional cap; plus `redemption` action                | §8.4, §10.1  |
+| Undiscovered counter | Console shows undiscovered good · bad normal cards                                                                                   | §7.1         |
+| Release chance       | Win-check die removed; `discovered × 0.4 %` (all cards equal) × multiplier + bonuses, live in the stats                              | §14.1        |
+| Hold Position        | Countdown capped at 60 s                                                                                                             | §14.2        |
+| Revisits             | Every revisit turns the field into a bad card with a new image; collectibles, still-triggering actions, goal exempt                  | §8.5         |
+| Actions              | Uniquely defined action cards (type + params + unique image), variants possible; action folders removed                              | §10.4        |
+| Action images        | Picked in admin, copied into `action-art/`, hash-addressed, unique per card                                                          | §10.4        |
+| Session composition  | Rule-based random: categories + performer + action pool (8–10 definitions); shown in a session briefing                              | §6.2, §6.4   |
+| Performers           | One per session, 6–8 collectibles, known from the start, progress in console; tiers 3/4/5; revisit = stroke task 10–25 without bonus | §6.2.1, §9.4 |
+| Goal hopping         | Overshoot moves the goal to an undiscovered field 3–8 away                                                                           | §8.8         |
+| Stroke tier          | Normal cards: ×1/×2/×3 task → 1/2/3 dice next move                                                                                   | §8.6         |
+| Forced reversal      | 10 % per roll: only the reverse of the last direction allowed                                                                        | §8.7         |
+| Old saved sessions   | Discarded without scoring after the schema change                                                                                    | §8.3         |
+
+### 24.2 Implementation Notes (AP9)
+
+- **Code:** generator `src/shared/session/` (`selectActionPool`, `assignActionSlots`, `generateSession`); engine `engine/boardChanges.ts` (detour, goal drift, collectibles), `engine/releaseChance.ts`, `engine/reduce.ts` (round order, stroke tiers, forced reversal); main `config/actionCardsConfig.ts`, `config/actionCardService.ts`, `content/actionArtStore.ts`.
+- **Stroke tier:** sent with the task's `confirm` event (`{ type: 'confirm', tier }`); only tasks with `tierable: true` accept it. The start card counts as a normal card (tierable).
+- **Revisit markers:** task steps carry `revisit: 'converted'` (field turned bad) or `'collectible'` (collected card, plain task) so the UI can explain it.
+- **Notice order:** drift and detour notices are queued **before** the landed card's steps; their title is always the notice text.
+- **Release chance rounding:** `floor(x + 1e-9)`, so floating point noise (0.4 × 35 = 14.000000000000002) never costs a percent.
+- **Action images:** `cr-media://` serves library media first, then images assigned to a card from `userData/action-art/`; replaced or cleared images are deleted from the store when no card uses them.
+- **Config:** `config.json` v3; missing built-in cards are added on load (e.g. `redemption` after an update); an image assigned to two cards stays on the first one only.
+- **Session file:** schema v2; a v1 file migrates to a marker and is discarded unscored, the start screen shows a notice once.
+- **Balancing:** simulation results and the open tuning question are in ROADMAP AP9.
+
 ---
 
 ## 25. Later / Parking Lot
@@ -870,3 +1141,5 @@ See [ROADMAP.md](ROADMAP.md) for work packages, order and milestones.
 - Pace metronome (visual pulse + optional click) for Take it Slow / Speed it Up.
 - Admin PIN.
 - Additional language packs (SFW, German).
+- Category zones on the ring (§6.2).
+- Session composition by draft (player picks categories) or deck presets.

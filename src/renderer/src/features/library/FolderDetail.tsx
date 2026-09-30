@@ -38,7 +38,9 @@ export function FolderDetail({ folder, status, scanning }: FolderDetailProps) {
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-2">
         <div className="font-label text-label uppercase tracking-label text-ink-muted">
-          {t(`library.group.${folder.group}`)} · {t(`library.role.${folder.role}`)}
+          {folder.role === 'performer'
+            ? t('library.role.performer')
+            : `${t(`library.group.${folder.group}`)} · ${t(`library.role.${folder.role}`)}`}
         </div>
         <h2 className="font-display text-title font-bold uppercase">{folder.displayName}</h2>
         <div className="flex items-center gap-2 font-label text-label text-ink-muted select-text">
@@ -69,12 +71,14 @@ export function FolderDetail({ folder, status, scanning }: FolderDetailProps) {
           }}
         />
         <div className="flex flex-wrap items-end gap-8">
-          <SegmentedControl
-            label={t('library.field.group')}
-            value={folder.group}
-            options={groupOptions(t)}
-            onChange={(group) => void updateFolder(folder.id, { group })}
-          />
+          {folder.role === 'content' && (
+            <SegmentedControl
+              label={t('library.field.group')}
+              value={folder.group}
+              options={groupOptions(t)}
+              onChange={(group) => void updateFolder(folder.id, { group })}
+            />
+          )}
           <SegmentedControl
             label={t('library.field.role')}
             value={folder.role}

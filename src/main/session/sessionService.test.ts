@@ -4,6 +4,7 @@ import { standardInput } from '@shared/session/testFixtures';
 import type { SessionRecord } from '@shared/session/history';
 import type { Progression, SessionState } from '@shared/session/types';
 import type { JsonStore } from '../storage/jsonStore';
+import type { StoredSession } from './persistence';
 import { createSessionService, SessionServiceError } from './sessionService';
 
 function memoryStore<T>(initial: T): JsonStore<T> & { current: () => T; writes: () => number } {
@@ -22,10 +23,10 @@ function memoryStore<T>(initial: T): JsonStore<T> & { current: () => T; writes: 
   };
 }
 
-async function setup(progression: Progression = DEFAULT_PROGRESSION) {
+async function setup(progression: Progression = DEFAULT_PROGRESSION, storedSession: StoredSession = null) {
   const fixture = standardInput();
   const progressionStore = memoryStore(progression);
-  const sessionStore = memoryStore<SessionState | null>(null);
+  const sessionStore = memoryStore<StoredSession>(storedSession);
   const historyStore = memoryStore<SessionRecord[]>([]);
   let seed = 100;
   const service = await createSessionService({
@@ -34,6 +35,7 @@ async function setup(progression: Progression = DEFAULT_PROGRESSION) {
     historyStore,
     folders: () => fixture.folders,
     media: () => fixture.media,
+    actionCards: () => fixture.actionCards,
     now: () => new Date('2026-09-29T20:00:00.000Z'),
     randomSeed: () => seed++,
     newId: () => 'session-id',
@@ -47,9 +49,11 @@ describe('sessionService', () => {
     const result = await service.spin();
 
     expect(result.session?.goalField).toBe(result.wheel.value);
-    expect(sessionStore.current()?.id).toBe('session-id');
+    expect(sessionStore.current()).toMatchObject({ id: 'session-id' });
     expect(progressionStore.current().sessionCounter).toBe(1);
-    expect(Object.keys(progressionStore.current().categoryUsage)).toHaveLength(2);
+    // 2-3 categories per group + the performer
+    expect(Object.keys(progressionStore.current().categoryUsage).length).toBeGreaterThanOrEqual(5);
+    expect(progressionStore.current().categoryUsage['perf-a']).toBeDefined();
     await expect(service.spin()).rejects.toBeInstanceOf(SessionServiceError);
   });
 
@@ -76,7 +80,8 @@ describe('sessionService', () => {
 
     const { session: state, mediaKinds } = await service.dispatch({ type: 'confirm' });
     expect(state.phase).toBe('resolve_card');
-    expect(Object.values(mediaKinds).length).toBeGreaterThan(90);
+    // Every normal card and collectible has an image; built-in action cards use the neutral design
+    expect(Object.values(mediaKinds).length).toBeGreaterThan(70);
     expect(sessionStore.writes()).toBe(writesBefore + 1);
 
     await expect(service.dispatch({ type: 'roll' })).rejects.toMatchObject({ code: 'rejected' });
@@ -98,6 +103,18 @@ describe('sessionService', () => {
     expect(progressionStore.current().penaltyFields).toHaveLength(2);
     expect(historyStore.current()).toHaveLength(1);
     expect(historyStore.current()[0]).toMatchObject({ id: 'session-id', outcome: 'ended_early' });
+  });
+
+  it('discards a session of the old schema without scoring and reports it once (8.3 v2)', async () => {
+    const { service, sessionStore, progressionStore, historyStore } = await setup(DEFAULT_PROGRESSION, {
+      legacyDiscarded: true,
+    });
+    expect(service.snapshot()).toMatchObject({ session: null, discardedLegacySession: true });
+    expect(sessionStore.current()).toBeNull();
+    expect(progressionStore.current().lossStreak).toBe(0);
+    expect(historyStore.current()).toHaveLength(0);
+    await service.spin();
+    expect(service.snapshot().discardedLegacySession).toBe(false);
   });
 });
 
@@ -124,6 +141,7 @@ describe('sessionService idempotency and decay', () => {
       historyStore,
       folders: () => [],
       media: () => [],
+      actionCards: () => [],
     });
     await restarted.close();
     expect(progressionStore.current()).toMatchObject({ lossStreak: 1, penaltyFields: [5, 6] });
@@ -139,10 +157,11 @@ describe('sessionService idempotency and decay', () => {
     const changes: Progression[] = [];
     const service = await createSessionService({
       progressionStore: memoryStore<Progression>(progression),
-      sessionStore: memoryStore<SessionState | null>(null),
+      sessionStore: memoryStore<StoredSession>(null),
       historyStore: memoryStore<SessionRecord[]>([]),
       folders: () => [],
       media: () => [],
+      actionCards: () => [],
       now: () => new Date('2026-09-29T20:00:00.000Z'),
       onProgressionChanged: (next) => changes.push(next),
     });

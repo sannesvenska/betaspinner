@@ -24,6 +24,7 @@
   --color-ink-muted: #8e857a;
   --color-good: #e3a64a;
   --color-bad: #e0442f;
+  --color-collectible: #8fb3c4;
   --color-penalty: var(--color-bad);
   --color-danger: var(--color-bad);
   --color-ring-empty: #3a332d;

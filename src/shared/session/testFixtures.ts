@@ -1,13 +1,13 @@
-import type { FolderConfig, MediaEntry } from '../content';
+import type { FolderConfig, FolderRole, MediaEntry } from '../content';
 import { FOLDER_DEFAULTS } from '../content';
 import type { Group } from '../game';
-import { DEFAULT_ACTIONS, DEFAULT_PROGRESSION, DEFAULT_SESSION_RULES } from './defaults';
+import { DEFAULT_ACTION_CARDS, DEFAULT_PROGRESSION, DEFAULT_SESSION_RULES } from './defaults';
 import type { GenerateSessionInput } from './generateSession';
 
 export function folder(
   id: string,
   group: Group,
-  role: 'content' | 'action' = 'content',
+  role: FolderRole = 'content',
   extra: Partial<FolderConfig> = {},
 ): FolderConfig {
   return {
@@ -37,15 +37,16 @@ export function mediaFor(folderId: string, count: number): MediaEntry[] {
   }));
 }
 
-/** 2 good + 2 bad categories (80 images each) and one action folder per group. */
+/** 3 good + 3 bad categories (80 images each) and one performer gallery (20 images). */
 export function standardInput(overrides: Partial<GenerateSessionInput> = {}): GenerateSessionInput {
   const folders = [
     folder('good-a', 'good'),
     folder('good-b', 'good'),
+    folder('good-c', 'good'),
     folder('bad-a', 'bad'),
     folder('bad-b', 'bad'),
-    folder('act-good', 'good', 'action'),
-    folder('act-bad', 'bad', 'action'),
+    folder('bad-c', 'bad'),
+    folder('perf-a', 'good', 'performer'),
   ];
   return {
     seed: 1,
@@ -53,9 +54,9 @@ export function standardInput(overrides: Partial<GenerateSessionInput> = {}): Ge
     now: '2026-09-29T20:00:00.000Z',
     goalValue: 42,
     rules: DEFAULT_SESSION_RULES,
-    actions: DEFAULT_ACTIONS,
+    actionCards: DEFAULT_ACTION_CARDS,
     folders,
-    media: folders.flatMap((entry) => mediaFor(entry.id, 80)),
+    media: folders.flatMap((entry) => mediaFor(entry.id, entry.role === 'performer' ? 20 : 80)),
     progression: DEFAULT_PROGRESSION,
     ...overrides,
   };

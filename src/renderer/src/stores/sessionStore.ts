@@ -45,6 +45,7 @@ export const useSessionStore = create<SessionStoreState>()((set, get) => ({
           ...snapshot.progression,
           lockoutUntil: result.lockoutUntil ?? snapshot.progression.lockoutUntil,
         },
+        discardedLegacySession: result.session ? false : snapshot.discardedLegacySession,
       },
     });
     // Progression changed in main (session counter, category usage) – refresh quietly

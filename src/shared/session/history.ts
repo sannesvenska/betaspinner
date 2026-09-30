@@ -1,7 +1,7 @@
 import type { ActionId } from '../actions';
 import type { Group } from '../game';
 import type { ProgressionChange } from './progressionRules';
-import type { EndReason, SessionState, WinCheck } from './types';
+import type { EndReason, ReleaseChance, SessionState, SessionStats } from './types';
 
 /** game-design §17 – one entry per finished session in history.json. */
 export interface SessionRecord {
@@ -13,6 +13,10 @@ export interface SessionRecord {
   seed: number;
   goalValue: number;
   categories: Record<Group, string[]>;
+  performerFolderId: string | null;
+  collected: number;
+  reachedTiers: number[];
+  actionPool: string[];
   rounds: number;
   rolls: number;
   tasksPerformed: number;
@@ -20,8 +24,15 @@ export interface SessionRecord {
   holdSeconds: number;
   discovered: number;
   actionsTriggered: Partial<Record<ActionId, number>>;
+  actionCardsTriggered: Record<string, number>;
   maxPixelLevel: number;
-  winCheck: (WinCheck & { result: 'allowed' | 'denied' }) | null;
+  detours: number;
+  detourConversions: number;
+  revisitConversions: number;
+  goalDrifts: number;
+  forcedReversals: number;
+  strokeTiers: SessionStats['strokeTiers'];
+  winCheck: (ReleaseChance & { result: 'allowed' | 'denied' }) | null;
   outcome: EndReason;
   progressionChange: ProgressionChange;
 }
@@ -31,6 +42,7 @@ export function toSessionRecord(
   endedAt: Date,
   change: ProgressionChange,
 ): SessionRecord {
+  const { stats } = session;
   return {
     id: session.id,
     sessionIndex: session.sessionIndex,
@@ -40,14 +52,25 @@ export function toSessionRecord(
     seed: session.seed,
     goalValue: session.goalValue,
     categories: session.categories,
+    performerFolderId: session.performerFolderId,
+    collected: session.collected,
+    reachedTiers: session.reachedTiers,
+    actionPool: session.actionPool,
     rounds: session.round,
-    rolls: session.stats.rolls,
-    tasksPerformed: session.stats.tasksPerformed,
-    holdTasks: session.stats.holdTasks,
-    holdSeconds: session.stats.holdSeconds,
+    rolls: stats.rolls,
+    tasksPerformed: stats.tasksPerformed,
+    holdTasks: stats.holdTasks,
+    holdSeconds: stats.holdSeconds,
     discovered: session.cards.filter((card) => card.discovered).length,
-    actionsTriggered: session.stats.actionsTriggered,
-    maxPixelLevel: session.stats.maxPixelLevel,
+    actionsTriggered: stats.actionsTriggered,
+    actionCardsTriggered: stats.actionCardsTriggered,
+    maxPixelLevel: stats.maxPixelLevel,
+    detours: stats.detours,
+    detourConversions: stats.detourConversions,
+    revisitConversions: stats.revisitConversions,
+    goalDrifts: stats.goalDrifts,
+    forcedReversals: stats.forcedReversals,
+    strokeTiers: stats.strokeTiers,
     winCheck:
       session.winCheck && session.finalWheel
         ? { ...session.winCheck, result: session.finalWheel.result }

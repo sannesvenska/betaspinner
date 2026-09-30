@@ -1,98 +1,90 @@
 import type { Group } from '../../game';
 import { randInt, shuffle, type Rng } from '../rng';
-import type { SessionState, SwitcherooPool } from '../types';
+import type { SessionState } from '../types';
 import { sessionBag } from './cardImages';
-import { mediaOf, numberParam, type EngineContext } from './context';
+import { mediaOf, type EngineContext } from './context';
 
-const DEFAULT_ALTERNATIVES = 3;
+export function categoryGroup(
+  draft: Pick<SessionState, 'categories'>,
+  categoryId: string,
+): Group | undefined {
+  if (draft.categories.good.includes(categoryId)) return 'good';
+  if (draft.categories.bad.includes(categoryId)) return 'bad';
+  return undefined;
+}
 
-const poolGroup = (pool: SwitcherooPool): Group => (pool.startsWith('good') ? 'good' : 'bad');
-const isContentPool = (pool: SwitcherooPool): boolean => pool.endsWith('content');
-
-/** game-design §10.3: alternative folders for a pool (cooldown ignored, minImages applies to content). */
+/**
+ * game-design §10.3 v2: alternative folders for an active category – enabled content folders of the same
+ * group that are not active (cooldown ignored, `minImages` applies).
+ */
 export function switcherooCandidates(
   draft: SessionState,
   context: EngineContext,
-  pool: SwitcherooPool,
+  categoryId: string,
 ): string[] {
-  const group = poolGroup(pool);
-  const role = isContentPool(pool) ? 'content' : 'action';
-  const usable = context.folders.filter((folder) => {
-    if (folder.group !== group || folder.role !== role || !folder.enabled) return false;
-    const count = mediaOf(context, folder.id).length;
-    return role === 'content' ? count >= folder.minImages : count > 0;
-  });
-  if (role === 'content') {
-    return usable.filter((folder) => !draft.categories[group].includes(folder.id)).map((folder) => folder.id);
-  }
-  const active = draft.activeActionFolders[group];
-  // null = all action folders are active; narrowing to the only one would change nothing
-  if (active === null && usable.length < 2) return [];
-  return usable.filter((folder) => folder.id !== active).map((folder) => folder.id);
+  const group = categoryGroup(draft, categoryId);
+  if (!group) return [];
+  return context.folders
+    .filter(
+      (folder) =>
+        folder.role === 'content' &&
+        folder.group === group &&
+        folder.enabled &&
+        !draft.categories[group].includes(folder.id) &&
+        mediaOf(context, folder.id).length >= folder.minImages,
+    )
+    .map((folder) => folder.id);
 }
 
-/** Pools with at least one alternative; empty pools are hidden from the choice. */
-export function availableSwitcherooPools(draft: SessionState, context: EngineContext): SwitcherooPool[] {
-  const pools: SwitcherooPool[] = ['good_content', 'bad_content', 'good_action', 'bad_action'];
-  return pools.filter((pool) => switcherooCandidates(draft, context, pool).length > 0);
+/** Active categories (good first) with at least one alternative; the others are hidden. */
+export function availableSwitcherooCategories(draft: SessionState, context: EngineContext): string[] {
+  return [...draft.categories.good, ...draft.categories.bad].filter(
+    (id) => switcherooCandidates(draft, context, id).length > 0,
+  );
 }
 
 export function drawSwitcherooAlternatives(
   draft: SessionState,
   rng: Rng,
   context: EngineContext,
-  pool: SwitcherooPool,
+  categoryId: string,
+  count: number,
 ): string[] {
-  const count = numberParam(context, 'switcheroo', 'alternatives', DEFAULT_ALTERNATIVES);
-  return shuffle(rng, switcherooCandidates(draft, context, pool)).slice(0, count);
+  return shuffle(rng, switcherooCandidates(draft, context, categoryId)).slice(0, count);
 }
 
-/** Applies the swap to all undiscovered cards of the pool. Returns changed / total card counts. */
+/**
+ * Replaces `categoryId` by `folderId`: all undiscovered normal cards of that category get new images and
+ * task counts. Collectibles and action cards are never touched. Returns changed / total card counts.
+ */
 export function applySwitcheroo(
   draft: SessionState,
   rng: Rng,
   context: EngineContext,
-  pool: SwitcherooPool,
+  categoryId: string,
   folderId: string,
 ): { changed: number; total: number } {
-  const group = poolGroup(pool);
+  const group = categoryGroup(draft, categoryId);
   const folder = context.folders.find((candidate) => candidate.id === folderId);
-  if (!folder) return { changed: 0, total: 0 };
+  if (!group || !folder) return { changed: 0, total: 0 };
   const bag = sessionBag(draft, rng, context, folderId);
   let changed = 0;
   let total = 0;
 
-  if (isContentPool(pool)) {
-    draft.stats.switches.push({ pool, from: draft.categories[group][0] ?? null, to: folderId });
-    draft.cards = draft.cards.map((card) => {
-      if (card.kind !== 'normal' || card.group !== group || card.discovered) return card;
-      total++;
-      const entry = bag.draw();
-      if (!entry) return card;
-      changed++;
-      return {
-        ...card,
-        folderId,
-        imageHash: entry.hash,
-        taskCount: randInt(rng, folder.taskRange[0], folder.taskRange[1]),
-      };
-    });
-    draft.categories[group] = [folderId];
-    return { changed, total };
-  }
-
-  draft.stats.switches.push({ pool, from: draft.activeActionFolders[group], to: folderId });
+  draft.stats.switches.push({ group, from: categoryId, to: folderId });
   draft.cards = draft.cards.map((card) => {
-    if (card.kind !== 'action' || card.group !== group || card.discovered || card.actionConsumed) return card;
+    if (card.kind !== 'normal' || card.folderId !== categoryId || card.discovered) return card;
     total++;
-    const action = card.action;
-    const allowed =
-      folder.allowedActions === null || (action !== undefined && folder.allowedActions.includes(action));
-    const entry = allowed ? bag.draw() : undefined;
-    if (!entry) return card; // keeps its current image (§10.3)
+    const entry = bag.draw();
+    if (!entry) return card;
     changed++;
-    return { ...card, folderId, imageHash: entry.hash };
+    return {
+      ...card,
+      folderId,
+      imageHash: entry.hash,
+      taskCount: randInt(rng, folder.taskRange[0], folder.taskRange[1]),
+    };
   });
-  draft.activeActionFolders[group] = folderId;
+  draft.categories[group] = draft.categories[group].map((id) => (id === categoryId ? folderId : id));
   return { changed, total };
 }

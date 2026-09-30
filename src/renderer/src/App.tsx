@@ -6,6 +6,7 @@ import { PauseScreen } from './features/game/PauseScreen';
 import { LibraryScreen } from './features/library/LibraryScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { configureSound, setSoundMuted } from './sound/sound';
+import { useActionCardsStore } from './stores/actionCardsStore';
 import { useLibraryStore } from './stores/libraryStore';
 import { useSessionStore } from './stores/sessionStore';
 import { useUiStore } from './stores/uiStore';
@@ -34,6 +35,11 @@ export function App() {
     void loadLibrary();
     return unsubscribe;
   }, [loadLibrary, subscribeLibrary]);
+
+  const loadActionCards = useActionCardsStore((state) => state.load);
+  useEffect(() => {
+    void loadActionCards();
+  }, [loadActionCards]);
 
   const subscribeSession = useSessionStore((state) => state.subscribe);
   useEffect(() => {

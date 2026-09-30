@@ -11,7 +11,7 @@ import { reduce, type EngineEvent } from './reduce';
 export function contextFor(input: GenerateSessionInput): EngineContext {
   return {
     rules: input.rules,
-    actions: input.actions,
+    actionCards: input.actionCards,
     folders: input.folders,
     media: input.media,
     imageRecency: input.progression.imageRecency,
@@ -53,13 +53,26 @@ export function withCard(state: SessionState, card: Partial<Card> & { field: num
 export function landOnAction(state: SessionState, context: EngineContext, action: ActionId): SessionState {
   const target = wrapField(state.position + 1);
   const prepared = withCard(
-    { ...state, phase: 'roll', chooseNextRoll: true, goalField: wrapField(state.position + 50) },
-    { field: target, kind: 'action', action, group: actionGroup(action), discovered: false },
+    {
+      ...state,
+      phase: 'roll',
+      chooseNextRoll: true,
+      forcedDirection: null,
+      goalField: wrapField(state.position + 50),
+    },
+    {
+      field: target,
+      kind: 'action',
+      action,
+      actionCardId: action,
+      group: actionGroup(action),
+      discovered: false,
+    },
   );
   // Keep the goal card consistent with goalField
   const goalFixed = prepared.cards.map((card) =>
     card.kind === 'goal' && card.field !== prepared.goalField
-      ? { ...card, kind: 'normal' as const, group: 'bad' as const, taskCount: 5 }
+      ? { ...card, kind: 'normal' as const, group: 'good' as const, folderId: 'good-a', taskCount: 5 }
       : card,
   );
   goalFixed[prepared.goalField - 1] = { field: prepared.goalField, kind: 'goal', discovered: false };

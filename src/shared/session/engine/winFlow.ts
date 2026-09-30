@@ -2,30 +2,23 @@ import { BAD_ACTION_IDS } from '../../actions';
 import { randInt, type Rng } from '../rng';
 import type { RewardChoice, SessionState } from '../types';
 import type { EngineContext } from './context';
-import { getSuccessMultiplier } from './effects';
+import { computeReleaseChance } from './releaseChance';
 
-const DIE_SIDES = 6;
 const PERCENT = 100;
 /** Landing spot stays away from the area borders so the result is unambiguous. */
 const LANDING_MARGIN = 0.1;
+const MIN_HOLD_SECONDS = 1;
 
 export type WinFlowEvent =
-  | { type: 'winRoll' }
   | { type: 'startFinalWheel' }
   | { type: 'finishFinalWheel' }
   | { type: 'chooseOutcome'; outcome: 'success' | 'interrupted' | 'no_result'; reward?: RewardChoice }
   | { type: 'confirm' };
 
-/** game-design §14.1: floor(discovered / roll) × multiplier, clamped. Pure for previews. */
-export function computeFinalChance(
-  discovered: number,
-  roll: number,
-  multiplier: number,
-  bounds: readonly [number, number],
-) {
-  const baseChance = Math.floor(discovered / roll);
-  const finalChance = Math.min(bounds[1], Math.max(bounds[0], Math.floor(baseChance * multiplier)));
-  return { baseChance, finalChance };
+/** Landing on the goal (§14.1 v2): no roll – the release chance is fixed and the final wheel starts. */
+export function enterFinalWheel(draft: SessionState, context: EngineContext): void {
+  draft.winCheck = computeReleaseChance(draft, context.rules);
+  draft.phase = 'final_wheel';
 }
 
 /** Handles the phases after the Goal Field was reached (§14). Returns an error code or undefined. */
@@ -36,21 +29,6 @@ export function applyWinFlow(
   context: EngineContext,
 ): 'invalid_event' | 'invalid_value' | undefined {
   switch (draft.phase) {
-    case 'win_check': {
-      if (event.type !== 'winRoll') return 'invalid_event';
-      const discovered = draft.cards.filter((card) => card.discovered).length;
-      const roll = randInt(rng, 1, DIE_SIDES);
-      const multiplier = getSuccessMultiplier(draft.effects);
-      const { baseChance, finalChance } = computeFinalChance(
-        discovered,
-        roll,
-        multiplier,
-        context.rules.winChanceBounds,
-      );
-      draft.winCheck = { discovered, roll, baseChance, multiplier, finalChance };
-      draft.phase = 'final_wheel';
-      return undefined;
-    }
     case 'final_wheel': {
       if (event.type === 'startFinalWheel' && !draft.finalWheel && draft.winCheck) {
         // §14.2 [RULE]: the result is decided when "Start Task" is pressed
@@ -58,7 +36,10 @@ export function applyWinFlow(
         draft.finalWheel = {
           result: allowed ? 'allowed' : 'denied',
           landing: LANDING_MARGIN + (1 - 2 * LANDING_MARGIN) * rng.next(),
-          holdSeconds: Math.max(1, draft.winCheck.discovered),
+          holdSeconds: Math.max(
+            MIN_HOLD_SECONDS,
+            Math.min(draft.winCheck.discovered, context.rules.holdSecondsCap),
+          ),
         };
         return undefined;
       }
@@ -80,14 +61,15 @@ export function applyWinFlow(
       if (event.outcome === 'success') {
         if (!event.reward) return 'invalid_value';
         if (event.reward === 'block_bad_action') {
-          // Random enabled bad action for the next session; never Mistress Says No (it is gated already)
-          const candidates = BAD_ACTION_IDS.filter(
-            (id) =>
-              id !== 'mistress_says_no' &&
-              context.actions.some((config) => config.id === id && config.enabled),
+          // Random enabled bad card for the next session; never Mistress Says No (it is gated already)
+          const candidates = context.actionCards.filter(
+            (card) =>
+              card.enabled &&
+              card.type !== 'mistress_says_no' &&
+              (BAD_ACTION_IDS as readonly string[]).includes(card.type),
           );
-          const action = candidates[randInt(rng, 0, Math.max(0, candidates.length - 1))];
-          draft.reward = action ? { type: 'block_bad_action', action } : null;
+          const card = candidates[randInt(rng, 0, Math.max(0, candidates.length - 1))];
+          draft.reward = card ? { type: 'block_bad_action', actionCardId: card.id, action: card.type } : null;
         } else {
           draft.reward = { type: event.reward };
         }

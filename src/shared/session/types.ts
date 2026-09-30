@@ -1,35 +1,56 @@
 import type { ActionId } from '../actions';
+import type { ActionArtImage } from '../content';
 import type { Group } from '../game';
 
 /** Inclusive integer or float range. */
 export type Range = readonly [number, number];
 
-/** game-design §6.4 – configurable per action (admin, AP9). Group is derived from the id. */
-export interface ActionConfig {
-  id: ActionId;
+/**
+ * game-design §10.4 – one uniquely defined action card (admin-configurable, AP10).
+ * `type` selects the resolver; the group is derived from it. Built-ins use their type as id.
+ */
+export interface ActionCardDefinition {
+  id: string;
+  type: ActionId;
+  builtIn: boolean;
+  /** null = i18n `action.<type>.name` */
+  name: string | null;
+  /** null = i18n `action.<type>.description` */
+  description: string | null;
+  /** null = built-in neutral action design */
+  image: ActionArtImage | null;
   enabled: boolean;
   weight: number;
   minPerSession: number;
   /** null = unlimited */
   maxPerSession: number | null;
-  /** Rolled once per session; failing excludes the action (rare actions). */
+  /** Rolled once per session; failing excludes the card (rare actions). */
   sessionChance?: number;
-  /** Any-of dependency: only eligible if one of these is present in the session. */
+  /** Any-of dependency on resolver types that must be in the session's action pool. */
   requires?: readonly ActionId[];
-  /** Action-specific values, rolled when the action triggers (AP4). */
+  /** Type-specific values, rolled when the card triggers. */
   params: Readonly<Record<string, number | Range>>;
 }
 
 export type ActionRetrigger = 'always' | 'once';
 export type ActionHintMode = 'off' | 'total' | 'split' | 'split_by_side';
 
+/** game-design §9.4 bonus tier of the performer collection; each tier triggers once. */
+export type CollectibleBonus =
+  { type: 'convert_bad'; count: number } | { type: 'release_chance'; percent: number };
+
+export interface CollectibleTier {
+  collected: number;
+  bonus: CollectibleBonus;
+}
+
 /** game-design §6 session generation rules. All values are admin-configurable. */
 export interface SessionRules {
   wheelRange: Range;
-  initialTaskRange: Range;
   startJitter: number;
   minGoalDistance: number;
-  categoriesPerSession: Readonly<Record<Group, number>>;
+  /** Rolled per session and group (§6.2 v2) */
+  categoriesPerSession: Readonly<Record<Group, Range>>;
   cooldownSessions: number;
   freshnessBonus: number;
   freshnessCap: number;
@@ -37,6 +58,8 @@ export interface SessionRules {
   actionCardCount: Range;
   /** 'linked' = use progression.goodChance */
   actionGoodShare: 'linked' | number;
+  /** Distinct action card definitions per session (§6.4 v2) */
+  actionPoolSize: Range;
   startProtection: number;
   goalProtection: number;
   minActionGap: number;
@@ -46,9 +69,29 @@ export interface SessionRules {
   actionHint: ActionHintMode;
   /** game-design §14.1 clamp for the final chance in percent */
   winChanceBounds: Range;
+  /** Release chance in percent per discovered card (§14.1 v2) */
+  chancePerDiscovered: number;
+  /** Final wheel Hold Position countdown cap in seconds (§14.2 v2) */
+  holdSecondsCap: number;
+  /** Bad → good conversions per detour (§8.4) */
+  detourConversion: number;
+  /** null = unlimited converted cards per session */
+  maxDetourConversions: number | null;
+  /** Goal drift on overshoot: target distance from the current goal (§8.8) */
+  goalDriftRange: Range;
+  goalDriftWidenStep: number;
+  goalDriftMaxDistance: number;
+  /** Stroke tiers on normal cards (§8.6); max 1 disables them */
+  strokeTierMax: number;
+  /** Chance per roll that only the reverse direction is allowed (§8.7) */
+  forcedReversalChance: number;
+  /** Performer collectibles (§6.3, §9.4) */
+  collectibleCount: Range;
+  collectibleRevisitTaskRange: Range;
+  collectibleTiers: readonly CollectibleTier[];
 }
 
-/** game-design §13 / §14.3 – admin-configurable (AP9). */
+/** game-design §13 / §14.3 – admin-configurable (AP10). */
 export interface PenaltyRules {
   lockoutMinutes: number;
   /** Fields added per loss = step × loss streak */
@@ -69,7 +112,9 @@ export interface Progression {
   lastDecayAt: string | null;
   lossStreak: number;
   lockoutUntil: string | null;
-  blockedActionsNextSession: ActionId[];
+  /** Action card definition ids */
+  blockedActionsNextSession: string[];
+  /** Content and performer folders */
   categoryUsage: Record<string, { lastUsedSessionIndex: number; timesUsed: number }>;
   /** image hash → index of the last session it was shown in */
   imageRecency: Record<string, number>;
@@ -79,20 +124,26 @@ export interface Progression {
   lastAppliedSessionId: string | null;
 }
 
-export type CardKind = 'normal' | 'action' | 'goal';
+export type CardKind = 'normal' | 'action' | 'goal' | 'collectible';
 
 /** game-design §20 */
 export interface Card {
   /** 1..100 */
   field: number;
   kind: CardKind;
+  /** normal and action cards; collectibles have no group */
   group?: Group;
   folderId?: string;
   /** undefined on action cards = built-in neutral action design */
   imageHash?: string;
   taskCount?: number;
+  /** Resolver type of an action card (denormalized from its definition) */
   action?: ActionId;
+  /** Action card definition id (§10.4) */
+  actionCardId?: string;
   actionConsumed?: boolean;
+  /** Collectible already collected (first landing) */
+  collected?: boolean;
   discovered: boolean;
   splatterSeed?: number;
 }
@@ -103,7 +154,6 @@ export type SessionPhase =
   | 'roll'
   | 'choose_direction'
   | 'moving'
-  | 'win_check'
   | 'final_wheel'
   | 'outcome'
   | 'ended';
@@ -132,7 +182,8 @@ export interface ActiveEffect {
 /** left = counter-clockwise (-1), right = clockwise (+1) */
 export type Direction = 'left' | 'right';
 export type Pace = 'slow' | 'fast';
-export type SwitcherooPool = 'good_content' | 'bad_content' | 'good_action' | 'bad_action';
+export type StrokeTier = 1 | 2 | 3;
+export type ConversionSource = 'detour' | 'redemption' | 'collectible';
 
 /** Acknowledge-only messages shown in the task bar. */
 export type Notice =
@@ -140,30 +191,43 @@ export type Notice =
   | { type: 'effects_cleared'; effects: EffectType[] }
   | { type: 'effect_removed'; effect: EffectType }
   | { type: 'nothing_to_remove' }
-  | { type: 'shield_blocked'; action: ActionId }
+  | { type: 'shield_blocked'; action: ActionId; actionCardId: string }
   | { type: 'decision_maker' }
   | { type: 'guess_result'; numbers: readonly [number, number]; roll: number; match: boolean }
   | { type: 'goal_moved'; from: number; to: number }
+  | { type: 'goal_drifted'; from: number; to: number }
   | { type: 'player_moved'; from: number; to: number }
   | { type: 'relocation_skipped' }
-  | { type: 'switcheroo_done'; pool: SwitcherooPool; folderId: string; changed: number; total: number }
+  | { type: 'cards_converted'; count: number; source: ConversionSource }
+  | { type: 'nothing_to_convert' }
+  | { type: 'collectible_tier'; collected: number; bonus: CollectibleBonus }
+  | { type: 'switcheroo_done'; categoryId: string; folderId: string; changed: number; total: number }
   | { type: 'switcheroo_unavailable' }
   | { type: 'penalty_fields_removed'; count: number };
 
-/** Follow-up executed automatically when a task step is confirmed. */
-export type TaskFollowUp = 'teleport_goal' | 'move_player';
+/** Follow-up executed automatically when a task step is confirmed (safety zone rolled at trigger). */
+export type TaskFollowUp = { kind: 'teleport_goal' | 'move_player'; safetyZone: number };
 
 /** One unit of card resolution; the head of `pending` is what the player sees now. */
 export type ResolutionStep =
-  | { kind: 'task'; count: number; pace: Pace | null; followUp?: TaskFollowUp }
+  | {
+      kind: 'task';
+      count: number;
+      pace: Pace | null;
+      followUp?: TaskFollowUp;
+      /** Normal cards: the player picks a stroke tier (§8.6) */
+      tierable?: boolean;
+      /** Revisit: the field turned into a bad card (§8.5) or a collected card shows a plain task (§9.4) */
+      revisit?: 'converted' | 'collectible';
+    }
   | { kind: 'hold'; seconds: number; thenPickEffect: boolean }
   | { kind: 'timed_task'; seconds: number; pace: Pace | null }
   | { kind: 'pick_effect'; options: EffectType[] }
   | { kind: 'notice'; notice: Notice }
   | { kind: 'guess' }
   | { kind: 'choose_reward'; canRemoveEffect: boolean }
-  | { kind: 'switcheroo_pool'; pools: SwitcherooPool[] }
-  | { kind: 'switcheroo_folder'; pool: SwitcherooPool; folderIds: string[] };
+  | { kind: 'switcheroo_pool'; categoryIds: string[]; alternatives: number }
+  | { kind: 'switcheroo_folder'; categoryId: string; folderIds: string[] };
 
 /** Why a session ended – also the outcome recorded in history (game-design §17). */
 export type EndReason =
@@ -173,13 +237,17 @@ export type RewardChoice = 'remove_penalty_fields' | 'increase_good_chance' | 'b
 export type Reward =
   | { type: 'remove_penalty_fields' }
   | { type: 'increase_good_chance' }
-  | { type: 'block_bad_action'; action: ActionId };
+  | { type: 'block_bad_action'; actionCardId: string; action: ActionId };
 
-/** game-design §14.1 */
-export interface WinCheck {
+/** game-design §14.1 v2 – deterministic release chance, shown live during the session. */
+export interface ReleaseChance {
   discovered: number;
-  roll: number;
-  baseChance: number;
+  /** Percent per discovered card */
+  rate: number;
+  /** discovered × rate, percent (unrounded) */
+  base: number;
+  /** Collectible tier bonus in percent */
+  bonus: number;
   multiplier: number;
   finalChance: number;
 }
@@ -198,9 +266,21 @@ export interface SessionStats {
   tasksPerformed: number;
   holdTasks: number;
   holdSeconds: number;
+  /** Per resolver type */
   actionsTriggered: Partial<Record<ActionId, number>>;
+  /** Per action card definition id */
+  actionCardsTriggered: Record<string, number>;
   maxPixelLevel: number;
-  switches: { pool: SwitcherooPool; from: string | null; to: string }[];
+  switches: { group: Group; from: string; to: string }[];
+  /** Cards converted bad → good by detours (§8.4) */
+  detourConversions: number;
+  detours: number;
+  /** Revisited fields turned bad (§8.5) */
+  revisitConversions: number;
+  goalDrifts: number;
+  forcedReversals: number;
+  /** Confirmed normal-card tasks per stroke tier, index 0 = ×1 */
+  strokeTiers: number[];
 }
 
 /** Session state as created by the generator and evolved by the engine (`reduce`). */
@@ -217,8 +297,10 @@ export interface SessionState {
   position: number;
   initialTaskCount: number;
   categories: Record<Group, string[]>;
-  /** null = all eligible action folders of the group */
-  activeActionFolders: Record<Group, string | null>;
+  /** Performer folder of this session (§6.2.1); null = no collectibles */
+  performerFolderId: string | null;
+  /** Action card definition ids that can appear in this session (§6.4 v2) */
+  actionPool: string[];
   cards: Card[];
   effects: ActiveEffect[];
   round: number;
@@ -227,14 +309,27 @@ export interface SessionState {
   pending: ResolutionStep[];
   /** Snapshot of the card being resolved (before a consumed action card is converted). */
   reveal: Card | null;
+  /** Sum of the last roll (or the chosen value) */
   lastRoll: number | null;
+  /** Individual dice of the last roll; empty for a chosen value */
+  lastDice: number[];
+  /** Dice for the next roll, set by the stroke tier (§8.6) */
+  nextDice: number;
   /** Decision Maker: the next move uses a chosen value instead of a roll. */
   chooseNextRoll: boolean;
+  /** Forced reversal (§8.7): the only allowed direction for the current move */
+  forcedDirection: Direction | null;
+  /** Round of the last forced reversal – never two in a row */
+  lastForcedRound: number | null;
   lastMove: { from: number; to: number; direction: Direction; steps: number } | null;
+  /** Collectibles collected (first landings) */
+  collected: number;
+  /** `collected` thresholds of the tiers already granted */
+  reachedTiers: number[];
   endReason: EndReason | null;
   /** Progression changes earned during the session, applied at session end (AP6). */
   penaltyFieldsRemoved: number;
-  winCheck: WinCheck | null;
+  winCheck: ReleaseChance | null;
   finalWheel: FinalWheel | null;
   reward: Reward | null;
   stats: SessionStats;

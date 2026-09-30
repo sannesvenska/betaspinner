@@ -1,26 +1,27 @@
-import { createRng, randInt, type Rng } from '../rng';
+import { chance, createRng, randInt, type Rng } from '../rng';
 import { wrapField } from '../track';
-import type { Direction, EffectType, ResolutionStep, SessionState, SwitcherooPool } from '../types';
-import { rangeParam, type EngineContext } from './context';
-import { activeNegativeEffects, directionSign, getBlockedDirection, tickRound } from './effects';
+import type { Direction, EffectType, ResolutionStep, SessionState, StrokeTier, TaskFollowUp } from '../types';
+import { applyDetour, applyGoalDrift, isDetour, passesOver } from './boardChanges';
+import type { EngineContext } from './context';
+import { activeNegativeEffects, directionSign, getBlockedDirection, hasEffect, tickRound } from './effects';
 import { findRelocationTarget, swapGoal } from './relocation';
-import { afterClearingEdges, landOn, removeChosenEffect } from './resolveCard';
+import { afterClearingEdges, landOn, normalTask, removeChosenEffect } from './resolveCard';
 import { applySwitcheroo, drawSwitcherooAlternatives } from './switcheroo';
 import { applyWinFlow, type WinFlowEvent } from './winFlow';
 
 const DIE_SIDES = 6;
 const GUESS_PENALTY_FIELDS = 2;
-const DEFAULT_SAFETY_ZONE = 12;
 
 export type EngineEvent =
-  | { type: 'confirm' }
+  /** `tier` only on a tierable task (normal card, §8.6); defaults to ×1 */
+  | { type: 'confirm'; tier?: StrokeTier }
   | { type: 'roll' }
   | { type: 'chooseRoll'; value: number }
   | { type: 'chooseDirection'; direction: Direction }
   | { type: 'pickEffect'; effect: EffectType }
   | { type: 'guess'; numbers: readonly [number, number] }
   | { type: 'chooseReward'; reward: 'remove_effect' | 'remove_penalty_fields' }
-  | { type: 'switcherooPool'; pool: SwitcherooPool }
+  | { type: 'switcherooPool'; categoryId: string }
   | { type: 'switcherooFolder'; folderId: string }
   | { type: 'endEarly' }
   | Exclude<WinFlowEvent, { type: 'confirm' }>;
@@ -35,6 +36,17 @@ export interface EngineResult {
 
 const isDieValue = (value: number): boolean => Number.isInteger(value) && value >= 1 && value <= DIE_SIDES;
 
+const opposite = (direction: Direction): Direction => (direction === 'left' ? 'right' : 'left');
+
+/** Directions the player may not choose now: U Turn (§11) or the forced reversal (§8.7). */
+export function isDirectionBlocked(
+  state: Pick<SessionState, 'effects' | 'forcedDirection'>,
+  direction: Direction,
+): boolean {
+  if (getBlockedDirection(state.effects) === direction) return true;
+  return state.forcedDirection !== null && state.forcedDirection !== direction;
+}
+
 /**
  * The game engine: a pure reducer over the session (game-design §8). Invalid events never throw –
  * they return the unchanged state with an error code, so the UI can't corrupt a session.
@@ -43,7 +55,7 @@ export function reduce(state: SessionState, event: EngineEvent, context: EngineC
   if (state.phase === 'ended') return { state, error: 'invalid_event' };
   const draft = structuredClone(state);
   const rng = createRng(draft.rngState);
-  const afterGoal = state.phase === 'win_check' || state.phase === 'final_wheel' || state.phase === 'outcome';
+  const afterGoal = state.phase === 'final_wheel' || state.phase === 'outcome';
   // End Early is only available until the Goal Field is reached (§7.2)
   const error = afterGoal
     ? event.type === 'endEarly'
@@ -65,6 +77,7 @@ function apply(
     draft.phase = 'ended';
     draft.endReason = 'ended_early';
     draft.pending = [];
+    draft.forcedDirection = null;
     return undefined;
   }
 
@@ -75,37 +88,28 @@ function apply(
       // The start card is already discovered; resolve it like a landing without re-rolling
       draft.reveal = draft.cards[draft.startField - 1] ?? null;
       draft.phase = 'resolve_card';
-      draft.pending = [
-        {
-          kind: 'task',
-          count: draft.reveal?.taskCount ?? 0,
-          pace: null,
-        },
-      ];
+      draft.pending = [normalTask(draft, context, draft.reveal?.taskCount ?? 0)];
       return undefined;
 
     case 'roll':
       if (event.type === 'roll' && !draft.chooseNextRoll) {
-        startMove(draft, randInt(rng, 1, DIE_SIDES));
+        const dice = Array.from({ length: Math.max(1, draft.nextDice) }, () => randInt(rng, 1, DIE_SIDES));
+        startMove(draft, dice);
         return undefined;
       }
       if (event.type === 'chooseRoll' && draft.chooseNextRoll) {
         if (!isDieValue(event.value)) return 'invalid_value';
         draft.chooseNextRoll = false;
-        startMove(draft, event.value);
+        startMove(draft, [], event.value);
         return undefined;
       }
       return 'invalid_event';
 
     case 'choose_direction': {
       if (event.type !== 'chooseDirection') return 'invalid_event';
-      if (getBlockedDirection(draft.effects) === event.direction) return 'direction_blocked';
-      const steps = draft.lastRoll ?? 0;
-      const from = draft.position;
-      const to = wrapField(from + directionSign(event.direction) * steps);
-      draft.lastMove = { from, to, direction: event.direction, steps };
-      draft.pending = landOn(draft, rng, context, to);
-      finishIfResolved(draft);
+      if (isDirectionBlocked(draft, event.direction)) return 'direction_blocked';
+      move(draft, rng, context, event.direction);
+      finishIfResolved(draft, rng, context);
       return undefined;
     }
 
@@ -116,19 +120,52 @@ function apply(
   return 'invalid_event';
 }
 
-function startMove(draft: SessionState, value: number): void {
-  draft.lastRoll = value;
+/** `dice` = rolled dice; a chosen value (Decision Maker) has no dice. */
+function startMove(draft: SessionState, dice: number[], chosen?: number): void {
+  draft.lastDice = dice;
+  draft.lastRoll = chosen ?? dice.reduce((sum, die) => sum + die, 0);
+  draft.nextDice = 1;
   draft.stats.rolls++;
   draft.round++;
   draft.phase = 'choose_direction';
 }
 
-/** Ends the round once the queue is empty: effects tick (§8.2), then the next roll. */
-function finishIfResolved(draft: SessionState): void {
+/** §8.2 v2 order after the move: overshoot → detour → landing. */
+function move(draft: SessionState, rng: Rng, context: EngineContext, direction: Direction): void {
+  const steps = draft.lastRoll ?? 0;
+  const from = draft.position;
+  const goalBefore = draft.goalField;
+  const to = wrapField(from + directionSign(direction) * steps);
+  draft.lastMove = { from, to, direction, steps };
+  if (draft.forcedDirection) draft.stats.forcedReversals++;
+  draft.forcedDirection = null;
+  draft.position = to;
+
+  const moveSteps: ResolutionStep[] = [];
+  if (passesOver(from, direction, steps, goalBefore)) moveSteps.push(...applyGoalDrift(draft, rng, context));
+  if (isDetour(from, to, goalBefore)) moveSteps.push(...applyDetour(draft, rng, context));
+  const landing = landOn(draft, rng, context, to);
+  draft.pending = draft.phase === 'resolve_card' ? [...moveSteps, ...landing] : [];
+}
+
+/**
+ * Ends the round once the queue is empty: effects tick (§8.2), then the next roll.
+ * Before that roll a forced reversal may trigger (§8.7).
+ */
+function finishIfResolved(draft: SessionState, rng: Rng, context: EngineContext): void {
   if (draft.phase !== 'resolve_card' || draft.pending.length > 0) return;
   draft.effects = tickRound(draft.effects, draft.round);
   draft.phase = 'roll';
+  const eligible =
+    draft.lastMove !== null && !hasEffect(draft.effects, 'u_turn') && draft.lastForcedRound !== draft.round;
+  if (eligible && chance(rng, context.rules.forcedReversalChance) && draft.lastMove) {
+    draft.forcedDirection = opposite(draft.lastMove.direction);
+    draft.lastForcedRound = draft.round + 1;
+  }
 }
+
+const validTier = (tier: number | undefined, max: number): tier is StrokeTier =>
+  tier !== undefined && Number.isInteger(tier) && tier >= 1 && tier <= max;
 
 function resolveStep(
   draft: SessionState,
@@ -141,12 +178,23 @@ function resolveStep(
   let next: ResolutionStep[] = [];
 
   switch (head.kind) {
-    case 'task':
+    case 'task': {
       if (event.type !== 'confirm') return 'invalid_event';
-      draft.stats.tasksPerformed += head.count;
+      let tier: StrokeTier = 1;
+      if (event.tier !== undefined) {
+        if (!head.tierable || !validTier(event.tier, context.rules.strokeTierMax)) return 'invalid_value';
+        tier = event.tier;
+      }
+      draft.stats.tasksPerformed += head.count * tier;
+      if (head.tierable) {
+        // §8.6: ×n strokes → n dice on the next roll
+        draft.nextDice = tier;
+        draft.stats.strokeTiers[tier - 1] = (draft.stats.strokeTiers[tier - 1] ?? 0) + 1;
+      }
       draft.pending = rest;
       if (head.followUp) next = runFollowUp(draft, rng, context, head.followUp);
       break;
+    }
     case 'timed_task':
       if (event.type !== 'confirm') return 'invalid_event';
       break;
@@ -195,23 +243,29 @@ function resolveStep(
       break;
     case 'switcheroo_pool':
       if (event.type !== 'switcherooPool') return 'invalid_event';
-      if (!head.pools.includes(event.pool)) return 'invalid_value';
+      if (!head.categoryIds.includes(event.categoryId)) return 'invalid_value';
       next = [
         {
           kind: 'switcheroo_folder',
-          pool: event.pool,
-          folderIds: drawSwitcherooAlternatives(draft, rng, context, event.pool),
+          categoryId: event.categoryId,
+          folderIds: drawSwitcherooAlternatives(draft, rng, context, event.categoryId, head.alternatives),
         },
       ];
       break;
     case 'switcheroo_folder': {
       if (event.type !== 'switcherooFolder') return 'invalid_event';
       if (!head.folderIds.includes(event.folderId)) return 'invalid_value';
-      const { changed, total } = applySwitcheroo(draft, rng, context, head.pool, event.folderId);
+      const { changed, total } = applySwitcheroo(draft, rng, context, head.categoryId, event.folderId);
       next = [
         {
           kind: 'notice',
-          notice: { type: 'switcheroo_done', pool: head.pool, folderId: event.folderId, changed, total },
+          notice: {
+            type: 'switcheroo_done',
+            categoryId: head.categoryId,
+            folderId: event.folderId,
+            changed,
+            total,
+          },
         },
       ];
       break;
@@ -222,7 +276,7 @@ function resolveStep(
   // Follow-up steps run before the remaining queue (e.g. the card landed on by Moving Day)
   if (draft.phase === 'resolve_card') draft.pending = [...next, ...draft.pending];
   else draft.pending = [];
-  finishIfResolved(draft);
+  finishIfResolved(draft, rng, context);
   return undefined;
 }
 
@@ -230,14 +284,12 @@ function runFollowUp(
   draft: SessionState,
   rng: Rng,
   context: EngineContext,
-  followUp: 'teleport_goal' | 'move_player',
+  followUp: TaskFollowUp,
 ): ResolutionStep[] {
-  const action = followUp === 'teleport_goal' ? 'goal_teleport' : 'moving_day';
-  const [zone] = rangeParam(context, action, 'safetyZone', [DEFAULT_SAFETY_ZONE, DEFAULT_SAFETY_ZONE]);
-  const target = findRelocationTarget(draft, rng, zone);
+  const target = findRelocationTarget(draft, rng, followUp.safetyZone);
   if (target === undefined) return [{ kind: 'notice', notice: { type: 'relocation_skipped' } }];
 
-  if (followUp === 'teleport_goal') {
+  if (followUp.kind === 'teleport_goal') {
     const from = draft.goalField;
     swapGoal(draft, target);
     return [{ kind: 'notice', notice: { type: 'goal_moved', from, to: target } }];

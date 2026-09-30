@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_PENALTY_RULES, DEFAULT_PROGRESSION } from './defaults';
 import { readyToRoll, run, withCard } from './engine/engineTestKit';
 import { reduce } from './engine/reduce';
-import { computeFinalChance } from './engine/winFlow';
+import { computeReleaseChance } from './engine/releaseChance';
+import { applyEffect } from './engine/effects';
 import { applyDecay, applySessionOutcome, nextDecayAt } from './progressionRules';
 import { createRng } from './rng';
 import { wrapField } from './track';
@@ -28,20 +29,46 @@ function reachGoal(seed = 1): { state: SessionState; context: ReturnType<typeof 
 }
 
 describe('win flow (§14)', () => {
-  it('computes the chance: floor(discovered / roll) × multiplier, clamped to 1..95', () => {
-    expect(computeFinalChance(41, 3, 2, [1, 95])).toEqual({ baseChance: 13, finalChance: 26 });
-    expect(computeFinalChance(2, 6, 1, [1, 95])).toEqual({ baseChance: 0, finalChance: 1 });
-    expect(computeFinalChance(99, 1, 3, [1, 95]).finalChance).toBe(95);
+  it('computes the release chance: floor((discovered × 0.4 + bonus) × multiplier), clamped to 1..95', () => {
+    const { state } = reachGoal();
+    const rules = {
+      chancePerDiscovered: 0.4,
+      winChanceBounds: [1, 95] as const,
+      collectibleTiers: [{ collected: 4, bonus: { type: 'release_chance' as const, percent: 5 } }],
+    };
+    const discoveredCards = (count: number) =>
+      state.cards.map((card, index) => ({ ...card, discovered: index < count }));
+    expect(
+      computeReleaseChance({ cards: discoveredCards(35), effects: [], reachedTiers: [] }, rules),
+    ).toEqual({
+      discovered: 35,
+      rate: 0.4,
+      base: 35 * 0.4,
+      bonus: 0,
+      multiplier: 1,
+      finalChance: 14,
+    });
+    const multiplied = applyEffect([], { type: 'success_multiplier', value: 2 }, 0);
+    expect(
+      computeReleaseChance({ cards: discoveredCards(41), effects: multiplied, reachedTiers: [4] }, rules)
+        .finalChance,
+    ).toBe(Math.floor((41 * 0.4 + 5) * 2));
+    expect(
+      computeReleaseChance({ cards: discoveredCards(1), effects: [], reachedTiers: [] }, rules).finalChance,
+    ).toBe(1);
+    const tripled = applyEffect([], { type: 'success_multiplier', value: 3 }, 0);
+    expect(
+      computeReleaseChance({ cards: discoveredCards(99), effects: tripled, reachedTiers: [] }, rules)
+        .finalChance,
+    ).toBe(95);
   });
 
-  it('runs win check → final wheel → outcome → ended', () => {
+  it('runs goal → final wheel → outcome → ended (no win-check roll)', () => {
     const { state: atGoal, context } = reachGoal();
-    expect(atGoal.phase).toBe('win_check');
+    expect(atGoal.phase).toBe('final_wheel');
     expect(reduce(atGoal, { type: 'endEarly' }, context).error).toBe('invalid_event');
-
-    let state = run(atGoal, context, { type: 'winRoll' });
-    expect(state.phase).toBe('final_wheel');
-    expect(state.winCheck?.discovered).toBe(1); // only the start card
+    expect(atGoal.winCheck).toMatchObject({ discovered: 1, finalChance: 1 }); // only the start card
+    let state = atGoal;
     expect(reduce(state, { type: 'finishFinalWheel' }, context).error).toBe('invalid_event');
 
     state = run(state, context, { type: 'startFinalWheel' });
@@ -60,6 +87,15 @@ describe('win flow (§14)', () => {
     expect(ended.endReason).toBe(state.finalWheel?.result === 'denied' ? 'denied' : 'interrupted');
   });
 
+  it('caps the Hold Position countdown (§14.2 v2)', () => {
+    const { state, context } = reachGoal();
+    const many = {
+      ...state,
+      winCheck: { ...(state.winCheck as NonNullable<SessionState['winCheck']>), discovered: 80 },
+    };
+    expect(run(many, context, { type: 'startFinalWheel' }).finalWheel?.holdSeconds).toBe(60);
+  });
+
   it('allows success in about finalChance % of wheels', () => {
     let allowed = 0;
     const runs = 400;
@@ -69,7 +105,7 @@ describe('win flow (§14)', () => {
         {
           ...state,
           phase: 'final_wheel',
-          winCheck: { discovered: 30, roll: 1, baseChance: 30, multiplier: 1, finalChance: 30 },
+          winCheck: { discovered: 30, rate: 1, base: 30, bonus: 0, multiplier: 1, finalChance: 30 },
         },
         context,
         {
@@ -98,7 +134,10 @@ describe('win flow (§14)', () => {
       reward: 'block_bad_action',
     });
     expect(ended.reward?.type).toBe('block_bad_action');
-    if (ended.reward?.type === 'block_bad_action') expect(ended.reward.action).not.toBe('mistress_says_no');
+    if (ended.reward?.type === 'block_bad_action') {
+      expect(ended.reward.action).not.toBe('mistress_says_no');
+      expect(context.actionCards.map((card) => card.id)).toContain(ended.reward.actionCardId);
+    }
   });
 });
 
@@ -147,7 +186,9 @@ describe('progression rules (§13, §14.3)', () => {
 
     const blocked = applySessionOutcome(
       base,
-      finished('success', { reward: { type: 'block_bad_action', action: 'pixelate' } }),
+      finished('success', {
+        reward: { type: 'block_bad_action', actionCardId: 'pixelate', action: 'pixelate' },
+      }),
       DEFAULT_PENALTY_RULES,
       rng(),
     );

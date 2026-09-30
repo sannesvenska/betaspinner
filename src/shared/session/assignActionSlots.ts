@@ -1,92 +1,82 @@
-import { actionGroup, type ActionId } from '../actions';
+import type { ActionId } from '../actions';
 import type { Group } from '../game';
-import { chance, pickWeighted, type Rng } from './rng';
-import type { ActionConfig } from './types';
+import { pickWeighted, type Rng } from './rng';
+import { cardGroup, requirementMet } from './selectActionPool';
+import type { ActionCardDefinition } from './types';
 
 const REQUIRE_REROLL_ATTEMPTS = 10;
 
-export type ActionSlots = Record<Group, ActionId[]>;
+/** Action card definition ids per group. */
+export type ActionSlots = Record<Group, string[]>;
 
 interface AssignActionSlotsInput {
   slotCounts: Readonly<Record<Group, number>>;
-  actions: readonly ActionConfig[];
-  /** Progression reward "block a bad action for the next session". */
-  blocked: readonly ActionId[];
+  /** The session's action pool (gates and blocks already applied). */
+  pool: readonly ActionCardDefinition[];
 }
 
-const countOf = (slots: readonly ActionId[], id: ActionId): number =>
-  slots.filter((slot) => slot === id).length;
+const countOf = (slots: readonly string[], id: string): number => slots.filter((slot) => slot === id).length;
 
-const hasCapacity = (config: ActionConfig, slots: readonly ActionId[]): boolean =>
-  config.maxPerSession === null || countOf(slots, config.id) < config.maxPerSession;
-
-const requirementMet = (config: ActionConfig, present: ReadonlySet<ActionId>): boolean =>
-  !config.requires || config.requires.length === 0 || config.requires.some((id) => present.has(id));
+const hasCapacity = (card: ActionCardDefinition, slots: readonly string[]): boolean =>
+  card.maxPerSession === null || countOf(slots, card.id) < card.maxPerSession;
 
 /**
- * game-design §6.4. Slots that cannot be filled (everything disabled or at its max) are dropped –
- * the caller turns them into normal cards.
+ * game-design §6.4 steps 3–5 on the session's action pool. Slots that cannot be filled (everything at
+ * its max) are dropped – the caller turns them into normal cards.
  */
-export function assignActionSlots(
-  rng: Rng,
-  { slotCounts, actions, blocked }: AssignActionSlotsInput,
-): ActionSlots {
-  // 1 + 2: session gates and progression blocks
-  const eligible = actions.filter(
-    (config) =>
-      config.enabled &&
-      config.weight > 0 &&
-      !blocked.includes(config.id) &&
-      (config.sessionChance === undefined || chance(rng, config.sessionChance)),
-  );
-
+export function assignActionSlots(rng: Rng, { slotCounts, pool }: AssignActionSlotsInput): ActionSlots {
   const slots: ActionSlots = { good: [], bad: [] };
   for (const group of ['good', 'bad'] as const) {
-    const groupActions = eligible.filter((config) => actionGroup(config.id) === group);
+    const groupCards = pool.filter((card) => cardGroup(card) === group);
     const target = slotCounts[group];
     const filled = slots[group];
 
     // 3: guaranteed minimums
-    for (const config of groupActions) {
-      const minimum = Math.min(config.minPerSession, config.maxPerSession ?? config.minPerSession);
-      for (let i = 0; i < minimum && filled.length < target; i++) filled.push(config.id);
+    for (const card of groupCards) {
+      const minimum = Math.min(card.minPerSession, card.maxPerSession ?? card.minPerSession);
+      for (let i = 0; i < minimum && filled.length < target; i++) filled.push(card.id);
     }
     // 4: weighted fill within max
     while (filled.length < target) {
       const next = pickWeighted(
         rng,
-        groupActions.filter((config) => hasCapacity(config, filled)),
-        (config) => config.weight,
+        groupCards.filter((card) => hasCapacity(card, filled)),
+        (card) => card.weight,
       );
       if (!next) break;
       filled.push(next.id);
     }
   }
 
-  // 5: resolve `requires` across both groups
-  const byId = new Map(eligible.map((config) => [config.id, config]));
-  const present = () => new Set<ActionId>([...slots.good, ...slots.bad]);
+  // 5: `requires` against the types actually on the board
+  const byId = new Map(pool.map((card) => [card.id, card]));
+  const presentTypes = () =>
+    new Set<ActionId>(
+      [...slots.good, ...slots.bad].flatMap((id) => {
+        const type = byId.get(id)?.type;
+        return type ? [type] : [];
+      }),
+    );
   for (const group of ['good', 'bad'] as const) {
     const filled = slots[group];
     for (let index = 0; index < filled.length; index++) {
-      const current = byId.get(filled[index] as ActionId);
-      if (!current || requirementMet(current, present())) continue;
+      const current = byId.get(filled[index] as string);
+      if (!current || requirementMet(current, presentTypes())) continue;
 
       const others = filled.filter((_, i) => i !== index);
-      const replaceable = eligible.filter(
-        (config) =>
-          actionGroup(config.id) === group && config.id !== current.id && hasCapacity(config, others),
+      const replaceable = pool.filter(
+        (card) => cardGroup(card) === group && card.id !== current.id && hasCapacity(card, others),
       );
-      let replacement: ActionConfig | undefined;
+      let replacement: ActionCardDefinition | undefined;
       for (let attempt = 0; attempt < REQUIRE_REROLL_ATTEMPTS && !replacement; attempt++) {
-        const candidate = pickWeighted(rng, replaceable, (config) => config.weight);
-        if (candidate && requirementMet(candidate, new Set([...present(), candidate.id])))
+        const candidate = pickWeighted(rng, replaceable, (card) => card.weight);
+        if (candidate && requirementMet(candidate, new Set([...presentTypes(), candidate.type])))
           replacement = candidate;
       }
-      // Fallback: highest-weight action without unmet requirements
+      // Fallback: highest-weight card without unmet requirements
       replacement ??= [...replaceable]
         .sort((a, b) => b.weight - a.weight)
-        .find((config) => requirementMet(config, present()));
+        .find((card) => requirementMet(card, presentTypes()));
 
       if (replacement) filled[index] = replacement.id;
       else filled.splice(index--, 1);

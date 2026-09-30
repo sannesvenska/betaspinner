@@ -112,15 +112,17 @@ export function Showcase() {
 
         <Section title={t('showcase.stats')}>
           <div className="grid grid-cols-2 gap-x-16 gap-y-5">
-            <Stat label={t('console.round')}>18</Stat>
+            <Stat label={t('console.releaseChance')}>
+              18<span className="text-ink-muted"> %</span>
+            </Stat>
             <Stat label={t('console.discovered')}>
               23<span className="text-ink-muted"> / 100</span>
             </Stat>
             <Stat label={t('console.actionsLeft')}>
               <GroupCount good={4} bad={8} />
             </Stat>
-            <Stat label={t('console.winMultiplier')} className="text-good">
-              ×2.0
+            <Stat label={t('console.undiscovered')}>
+              <GroupCount good={31} bad={40} />
             </Stat>
           </div>
         </Section>

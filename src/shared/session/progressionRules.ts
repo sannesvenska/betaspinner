@@ -1,4 +1,3 @@
-import type { ActionId } from '../actions';
 import { shuffle, type Rng } from './rng';
 import { ALL_FIELDS } from './track';
 import type { EndReason, PenaltyRules, Progression, SessionState } from './types';
@@ -15,7 +14,8 @@ export interface ProgressionChange {
   penaltyFieldsRemoved: number;
   goodChanceDelta: number;
   lossStreak: number;
-  blockedAction: ActionId | null;
+  /** Action card definition id */
+  blockedAction: string | null;
 }
 
 const clampChance = (value: number, rules: PenaltyRules): number =>
@@ -66,7 +66,7 @@ export function applySessionOutcome(
       if (reward?.type === 'remove_penalty_fields') removeCount += rules.successRemoveFields;
       if (reward?.type === 'increase_good_chance')
         goodChance = clampChance(goodChance + rules.goodChanceStep, rules);
-      if (reward?.type === 'block_bad_action') blockedActionsNextSession = [reward.action];
+      if (reward?.type === 'block_bad_action') blockedActionsNextSession = [reward.actionCardId];
     } else {
       removeCount += rules.partialRemoveFields;
       if (outcome === 'no_result') goodChance = clampChance(goodChance - rules.goodChanceStep / 2, rules);

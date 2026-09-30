@@ -7,6 +7,7 @@ export const GOOD_ACTION_IDS = [
   'cleaning_lady',
   'hail_mary',
   'switcheroo',
+  'redemption',
 ] as const;
 
 export const BAD_ACTION_IDS = [
@@ -26,6 +27,7 @@ export const BAD_ACTION_IDS = [
   'speed_it_up',
 ] as const;
 
+/** Resolver type of an action card (game-design §10). Several card definitions may share one type (§10.4). */
 export type ActionId = (typeof GOOD_ACTION_IDS)[number] | (typeof BAD_ACTION_IDS)[number];
 
 export const ACTION_IDS: readonly ActionId[] = [...GOOD_ACTION_IDS, ...BAD_ACTION_IDS];

@@ -1,5 +1,5 @@
 /**
- * App-level settings (subset of config.json that exists before the admin area, AP9).
+ * App-level settings (subset of config.json that exists before the admin area, AP10).
  * Game rules config is added in later work packages.
  */
 export interface AppSettings {

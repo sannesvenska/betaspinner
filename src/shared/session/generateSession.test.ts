@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { actionGroup } from '../actions';
 import { DEFAULT_PROGRESSION, DEFAULT_SESSION_RULES } from './defaults';
 import { allocateByWeight, generateSession, GenerationError } from './generateSession';
-import { folder, mediaFor, standardInput } from './testFixtures';
+import { DEFAULT_ACTION_CARDS } from './defaults';
+import { mediaFor, standardInput } from './testFixtures';
 import { shortDistance } from './track';
 
 const SEEDS = Array.from({ length: 1000 }, (_, index) => index + 1);
@@ -25,6 +26,7 @@ describe('generateSession – invariants over 1,000 seeds', () => {
       const { cards, goalField, startField } = session;
       const actions = cards.filter((card) => card.kind === 'action');
       const normals = cards.filter((card) => card.kind === 'normal');
+      const collectibles = cards.filter((card) => card.kind === 'collectible');
 
       expect(cards).toHaveLength(100);
       cards.forEach((card, index) => {
@@ -38,13 +40,33 @@ describe('generateSession – invariants over 1,000 seeds', () => {
       expect(shortDistance(startField, goalField)).toBeGreaterThanOrEqual(
         DEFAULT_SESSION_RULES.minGoalDistance,
       );
-      expect(session.initialTaskCount).toBeGreaterThanOrEqual(10);
-      expect(session.initialTaskCount).toBeLessThanOrEqual(40);
+      // §6.1 v2: the initial task count is the wheel value
+      expect(session.initialTaskCount).toBe(goalValue);
 
-      // §6.3 action count range, groups match action ids
+      // §6.2 v2: 2–3 categories per group
+      for (const group of ['good', 'bad'] as const) {
+        expect(session.categories[group].length).toBeGreaterThanOrEqual(2);
+        expect(session.categories[group].length).toBeLessThanOrEqual(3);
+      }
+
+      // §6.3 action count range; only cards of the pool, groups match their type
       expect(actions.length).toBeGreaterThanOrEqual(14);
       expect(actions.length).toBeLessThanOrEqual(22);
-      for (const card of actions) expect(card.group).toBe(card.action && actionGroup(card.action));
+      for (const card of actions) {
+        expect(card.group).toBe(card.action && actionGroup(card.action));
+        expect(session.actionPool).toContain(card.actionCardId);
+      }
+
+      // §6.3 / §9.4 collectibles from the performer
+      expect(session.performerFolderId).toBe('perf-a');
+      expect(collectibles.length).toBeGreaterThanOrEqual(6);
+      expect(collectibles.length).toBeLessThanOrEqual(8);
+      for (const card of collectibles) {
+        expect(card).toMatchObject({ folderId: 'perf-a', discovered: false });
+        expect(card.group).toBeUndefined();
+        expect(card.imageHash).toBeDefined();
+      }
+      expect(normals.length).toBe(99 - actions.length - collectibles.length);
 
       // §6.6 every normal card has an image from one of the session's categories and a task count in range
       for (const card of normals) {
@@ -94,8 +116,8 @@ describe('generateSession – categories and images', () => {
     );
     const { session } = generateSession({
       ...base,
-      folders,
-      rules: { ...DEFAULT_SESSION_RULES, categoriesPerSession: { good: 1, bad: 2 } },
+      folders: folders.filter((entry) => entry.id !== 'bad-c'),
+      rules: { ...DEFAULT_SESSION_RULES, categoriesPerSession: { good: [1, 1], bad: [2, 2] } },
     });
     const badCards = session.cards.filter((card) => card.kind === 'normal' && card.group === 'bad');
     const fromA = badCards.filter((card) => card.folderId === 'bad-a').length;
@@ -103,12 +125,12 @@ describe('generateSession – categories and images', () => {
     expect(fromA / badCards.length).toBeCloseTo(0.75, 1);
   });
 
-  it('updates category usage for the picked categories', () => {
+  it('updates category usage for the picked categories and the performer', () => {
     const { session, categoryUsage } = generateSession(
       standardInput({ progression: { ...DEFAULT_PROGRESSION, sessionCounter: 4 } }),
     );
     expect(session.sessionIndex).toBe(5);
-    for (const id of [...session.categories.good, ...session.categories.bad]) {
+    for (const id of [...session.categories.good, ...session.categories.bad, 'perf-a']) {
       expect(categoryUsage[id]).toEqual({ lastUsedSessionIndex: 5, timesUsed: 1 });
     }
   });
@@ -121,7 +143,8 @@ describe('generateSession – categories and images', () => {
     const media = base.media.filter((entry) => entry.folderId !== 'bad-b').concat(mediaFor('bad-b', 3));
     for (const seed of SEEDS.slice(0, 50)) {
       const { session } = generateSession({ ...base, seed, folders, media });
-      expect(session.categories).toEqual({ good: ['good-b'], bad: ['bad-a'] });
+      expect([...session.categories.good].sort()).toEqual(['good-b', 'good-c']);
+      expect([...session.categories.bad].sort()).toEqual(['bad-a', 'bad-c']);
     }
   });
 
@@ -137,25 +160,33 @@ describe('generateSession – categories and images', () => {
     }
   });
 
-  it('uses the neutral action design without action images and honors allowedActions', () => {
+  it('uses the neutral design without an image and the definition image otherwise (§10.4)', () => {
     const base = standardInput();
-    const withoutActionFolders = base.folders.filter((entry) => entry.role !== 'action');
-    const neutral = generateSession({ ...base, folders: withoutActionFolders }).session.cards.filter(
-      (card) => card.kind === 'action',
-    );
+    const neutral = generateSession(base).session.cards.filter((card) => card.kind === 'action');
     expect(neutral.every((card) => card.imageHash === undefined)).toBe(true);
 
-    const restricted = [
-      ...withoutActionFolders,
-      folder('only-pixelate', 'bad', 'action', { allowedActions: ['pixelate'] }),
-    ];
-    const media = [...base.media, ...mediaFor('only-pixelate', 50)];
+    const image = {
+      hash: 'a'.repeat(40),
+      fileName: `${'a'.repeat(40)}.png`,
+      mimeType: 'image/png',
+      kind: 'image' as const,
+    };
+    const actionCards = DEFAULT_ACTION_CARDS.map((card) =>
+      card.id === 'pixelate' ? { ...card, image } : card,
+    );
     for (const seed of SEEDS.slice(0, 100)) {
-      const cards = generateSession({ ...base, seed, folders: restricted, media }).session.cards;
-      for (const card of cards.filter((entry) => entry.kind === 'action' && entry.imageHash)) {
-        expect(card.action).toBe('pixelate');
-      }
+      const cards = generateSession({ ...base, seed, actionCards }).session.cards;
+      for (const card of cards.filter((entry) => entry.kind === 'action'))
+        expect(card.imageHash).toBe(card.action === 'pixelate' ? image.hash : undefined);
     }
+  });
+
+  it('skips collectibles without an eligible performer gallery', () => {
+    const base = standardInput();
+    const media = base.media.filter((entry) => entry.folderId !== 'perf-a').concat(mediaFor('perf-a', 7));
+    const { session } = generateSession({ ...base, media });
+    expect(session.performerFolderId).toBeNull();
+    expect(session.cards.some((card) => card.kind === 'collectible')).toBe(false);
   });
 
   it('prefers images not shown in recent sessions', () => {
@@ -166,7 +197,7 @@ describe('generateSession – categories and images', () => {
       ...base,
       progression: { ...DEFAULT_PROGRESSION, sessionCounter: 1, imageRecency },
     }).session;
-    // 2 good categories × 80 images, one category per session → 40 good cards fit into fresh images
+    // 40 fresh images per good category are more than the ~30 good cards of a session
     const reused = cards.filter((card) => card.imageHash && card.imageHash in imageRecency);
     expect(reused).toHaveLength(0);
   });
@@ -177,5 +208,7 @@ describe('allocateByWeight', () => {
     expect(allocateByWeight(10, [1, 1, 1])).toEqual([4, 3, 3]);
     expect(allocateByWeight(59, [75, 25])).toEqual([44, 15]);
     expect(allocateByWeight(5, [0, 0])).toEqual([5, 0]);
+    // Regression: a remainder of two with three categories is fully distributed
+    expect(allocateByWeight(11, [1, 1, 1])).toEqual([4, 4, 3]);
   });
 });

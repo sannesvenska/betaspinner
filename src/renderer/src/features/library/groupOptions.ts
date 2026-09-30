@@ -11,5 +11,5 @@ export const groupOptions = (t: TFunction) =>
 export const roleOptions = (t: TFunction) =>
   [
     { value: 'content', label: t('library.role.content') },
-    { value: 'action', label: t('library.role.action') },
+    { value: 'performer', label: t('library.role.performer') },
   ] as const satisfies readonly { value: FolderRole; label: string }[];

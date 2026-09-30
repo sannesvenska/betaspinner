@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import type { ActionId } from '../actions';
 import { assignActionSlots } from './assignActionSlots';
-import { DEFAULT_ACTIONS, DEFAULT_SESSION_RULES } from './defaults';
+import { DEFAULT_ACTION_CARDS, DEFAULT_SESSION_RULES } from './defaults';
 import { placeStart, spinStartWheel } from './goalAndStart';
 import { createImageBag } from './imageBags';
 import { eligibleActionFields, placeActions } from './placeActions';
 import { createRng } from './rng';
+import { cardGroup, selectActionPool } from './selectActionPool';
 import { selectCategories } from './selectCategories';
 import { mediaFor } from './testFixtures';
 import { shortDistance } from './track';
-import type { ActionConfig } from './types';
+import type { ActionCardDefinition } from './types';
 
 const SEEDS = Array.from({ length: 1000 }, (_, index) => index + 1);
 
@@ -85,51 +85,100 @@ describe('selectCategories (§6.2)', () => {
   });
 });
 
-describe('assignActionSlots (§6.4)', () => {
-  const run = (seed: number, actions: readonly ActionConfig[] = DEFAULT_ACTIONS, blocked: ActionId[] = []) =>
-    assignActionSlots(createRng(seed), { slotCounts: { good: 7, bad: 11 }, actions, blocked });
+describe('selectActionPool (§6.4 v2)', () => {
+  const pool = (
+    seed: number,
+    cards: readonly ActionCardDefinition[] = DEFAULT_ACTION_CARDS,
+    blocked: string[] = [],
+  ) => selectActionPool(createRng(seed), { cards, blocked, size: DEFAULT_SESSION_RULES.actionPoolSize });
 
-  it('fills slots with actions of the right group and never violates requires or max', () => {
+  it('draws 8–10 distinct cards with both groups and met requirements', () => {
     for (const seed of SEEDS) {
-      const slots = run(seed);
-      const present = new Set([...slots.good, ...slots.bad]);
-      expect(slots.good).toHaveLength(7);
-      expect(slots.bad).toHaveLength(11);
-      if (present.has('cleaning_lady')) expect(present.has('pixelate') || present.has('splatter')).toBe(true);
-      if (present.has('bad_luck')) expect(present.has('hail_mary')).toBe(true);
-      expect(slots.bad.filter((id) => id === 'mistress_says_no').length).toBeLessThanOrEqual(1);
+      const picked = pool(seed);
+      const types = new Set(picked.map((card) => card.type));
+      expect(new Set(picked.map((card) => card.id)).size).toBe(picked.length);
+      expect(picked.length).toBeGreaterThanOrEqual(7);
+      expect(picked.length).toBeLessThanOrEqual(10);
+      expect(picked.some((card) => cardGroup(card) === 'good')).toBe(true);
+      expect(picked.some((card) => cardGroup(card) === 'bad')).toBe(true);
+      if (types.has('cleaning_lady')) expect(types.has('pixelate') || types.has('splatter')).toBe(true);
+      if (types.has('bad_luck')) expect(types.has('hail_mary')).toBe(true);
     }
   });
 
   it('includes mistress_says_no in about 5 % of sessions (sessionChance gate)', () => {
-    const withMistress = SEEDS.filter((seed) => run(seed).bad.includes('mistress_says_no')).length;
+    const withMistress = SEEDS.filter((seed) =>
+      pool(seed).some((card) => card.type === 'mistress_says_no'),
+    ).length;
     expect(withMistress).toBeGreaterThan(25);
     expect(withMistress).toBeLessThan(80);
   });
 
-  it('respects blocked, disabled and minimum settings', () => {
-    const actions = DEFAULT_ACTIONS.map((config) => {
-      if (config.id === 'pixelate') return { ...config, enabled: false };
-      if (config.id === 'u_turn') return { ...config, minPerSession: 3 };
-      return config;
+  it('respects blocked, disabled and guaranteed cards', () => {
+    const cards = DEFAULT_ACTION_CARDS.map((card) => {
+      if (card.id === 'pixelate') return { ...card, enabled: false };
+      if (card.id === 'u_turn') return { ...card, minPerSession: 1 };
+      return card;
     });
-    for (const seed of SEEDS.slice(0, 100)) {
-      const slots = run(seed, actions, ['splatter']);
-      expect(slots.bad).not.toContain('pixelate');
-      expect(slots.bad).not.toContain('splatter');
-      expect(slots.bad.filter((id) => id === 'u_turn').length).toBeGreaterThanOrEqual(3);
+    for (const seed of SEEDS.slice(0, 200)) {
+      const ids = pool(seed, cards, ['splatter']).map((card) => card.id);
+      expect(ids).not.toContain('pixelate');
+      expect(ids).not.toContain('splatter');
+      expect(ids).toContain('u_turn');
       // cleaning_lady's requirements are gone, so it can never appear
-      expect(slots.good).not.toContain('cleaning_lady');
+      expect(ids).not.toContain('cleaning_lady');
     }
   });
 
-  it('drops slots that cannot be filled', () => {
-    const onlyOne = DEFAULT_ACTIONS.map((config) =>
-      config.id === 'good_fairy'
-        ? { ...config, maxPerSession: 2 }
-        : { ...config, enabled: config.id === 'pixelate' },
+  it('treats user variants as separate cards of the same type', () => {
+    const variant: ActionCardDefinition = {
+      ...(DEFAULT_ACTION_CARDS.find((card) => card.id === 'squeeze_task') as ActionCardDefinition),
+      id: 'squeeze-hard',
+      builtIn: false,
+      name: 'Squeeze – hard',
+      weight: 1000,
+    };
+    const withVariant = SEEDS.slice(0, 50).filter((seed) =>
+      pool(seed, [...DEFAULT_ACTION_CARDS, variant]).some((card) => card.id === 'squeeze-hard'),
+    ).length;
+    expect(withVariant).toBe(50);
+  });
+});
+
+describe('assignActionSlots (§6.4)', () => {
+  const run = (seed: number, pool: readonly ActionCardDefinition[] = DEFAULT_ACTION_CARDS) =>
+    assignActionSlots(createRng(seed), { slotCounts: { good: 7, bad: 11 }, pool });
+
+  it('fills slots with cards of the right group and never violates requires or max', () => {
+    const byId = new Map(DEFAULT_ACTION_CARDS.map((card) => [card.id, card]));
+    for (const seed of SEEDS) {
+      const slots = run(seed);
+      const types = new Set([...slots.good, ...slots.bad].map((id) => byId.get(id)?.type));
+      expect(slots.good).toHaveLength(7);
+      expect(slots.bad).toHaveLength(11);
+      expect(
+        slots.good.every((id) => byId.get(id) && cardGroup(byId.get(id) as ActionCardDefinition) === 'good'),
+      ).toBe(true);
+      if (types.has('cleaning_lady')) expect(types.has('pixelate') || types.has('splatter')).toBe(true);
+      if (types.has('bad_luck')) expect(types.has('hail_mary')).toBe(true);
+      expect(slots.bad.filter((id) => id === 'mistress_says_no').length).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('fills minimums first', () => {
+    const pool = DEFAULT_ACTION_CARDS.map((card) =>
+      card.id === 'u_turn' ? { ...card, minPerSession: 3 } : card,
     );
-    const slots = run(1, onlyOne);
+    for (const seed of SEEDS.slice(0, 100))
+      expect(run(seed, pool).bad.filter((id) => id === 'u_turn').length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('drops slots that cannot be filled', () => {
+    const onlyTwo = DEFAULT_ACTION_CARDS.flatMap((card) => {
+      if (card.id === 'good_fairy') return [{ ...card, maxPerSession: 2 }];
+      return card.id === 'pixelate' ? [card] : [];
+    });
+    const slots = run(1, onlyTwo);
     expect(slots.good).toEqual(['good_fairy', 'good_fairy']);
     expect(slots.bad.every((id) => id === 'pixelate')).toBe(true);
   });

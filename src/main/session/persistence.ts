@@ -1,12 +1,25 @@
-import { ACTION_IDS, type ActionId } from '@shared/actions';
 import { DEFAULT_PROGRESSION, GOOD_CHANCE_BOUNDS } from '@shared/session/defaults';
 import { TRACK_LENGTH } from '@shared/session/track';
 import type { SessionRecord } from '@shared/session/history';
 import type { Progression, SessionState } from '@shared/session/types';
 
 export const PROGRESSION_SCHEMA_VERSION = 1;
-export const SESSION_SCHEMA_VERSION = 1;
+/** v2 = game-design Revision 3 (gameplay v2); older sessions cannot be resumed. */
+export const SESSION_SCHEMA_VERSION = 2;
 export const HISTORY_SCHEMA_VERSION = 1;
+
+/** Marker for a session of an older schema: discarded without scoring on load (§8.3 v2). */
+export interface LegacySessionMarker {
+  legacyDiscarded: true;
+}
+export type StoredSession = SessionState | LegacySessionMarker | null;
+
+export const SESSION_MIGRATIONS: Readonly<Record<number, (data: unknown) => unknown>> = {
+  1: (data) => (data === null ? null : { legacyDiscarded: true }),
+};
+
+export const isLegacySessionMarker = (value: StoredSession): value is LegacySessionMarker =>
+  value !== null && 'legacyDiscarded' in value;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -44,8 +57,9 @@ export function normalizeProgression(data: unknown): Progression {
     lastDecayAt: stringOrNull(data.lastDecayAt),
     lossStreak: Math.max(0, Math.round(numberOr(data.lossStreak, 0))),
     lockoutUntil: stringOrNull(data.lockoutUntil),
+    // Action card definition ids (built-ins use their type as id, so v1 values stay valid)
     blockedActionsNextSession: Array.isArray(data.blockedActionsNextSession)
-      ? ACTION_IDS.filter((id: ActionId) => (data.blockedActionsNextSession as unknown[]).includes(id))
+      ? data.blockedActionsNextSession.filter((id): id is string => typeof id === 'string')
       : [],
     categoryUsage: Object.fromEntries(
       Object.entries(usage).flatMap(([id, entry]) =>
@@ -69,8 +83,9 @@ export function normalizeProgression(data: unknown): Progression {
  * The current session is written by this app only; a structurally broken file is quarantined by the store.
  * `null` = no active session.
  */
-export function normalizeSessionFile(data: unknown): SessionState | null {
+export function normalizeSessionFile(data: unknown): StoredSession {
   if (data === null) return null;
+  if (isRecord(data) && data.legacyDiscarded === true) return { legacyDiscarded: true };
   if (
     !isRecord(data) ||
     typeof data.id !== 'string' ||

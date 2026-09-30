@@ -37,7 +37,11 @@ export function GalleryDrawer({ open, onClose, cards, mediaKinds, effects, folde
                   <div
                     className={classNames(
                       'aspect-square overflow-hidden border-l-3 bg-stage',
-                      card.group === 'good' ? 'border-good' : 'border-bad',
+                      card.kind === 'collectible'
+                        ? 'border-collectible'
+                        : card.group === 'good'
+                          ? 'border-good'
+                          : 'border-bad',
                     )}
                   >
                     {card.imageHash && kind ? (
@@ -56,6 +60,9 @@ export function GalleryDrawer({ open, onClose, cards, mediaKinds, effects, folde
                   <span className="flex items-center gap-1.5 font-label text-key uppercase tracking-label text-ink-muted">
                     {t('game.fieldLabel', { field: card.field })}
                     {card.action && !card.actionConsumed && <Icon name={card.action} size={12} />}
+                    {card.kind === 'collectible' && (
+                      <Icon name="star" size={12} className="text-collectible" />
+                    )}
                   </span>
                 </li>
               );

@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, globalShortcut } from 'electron';
 import type { LibraryIndex } from '@shared/content';
 import { DEFAULT_PROGRESSION } from '@shared/session/defaults';
 import type { SessionRecord } from '@shared/session/history';
-import type { Progression, SessionState } from '@shared/session/types';
+import type { Progression } from '@shared/session/types';
 import type { IpcEvent, IpcEventContract } from '@shared/ipc';
 import {
   CONFIG_MIGRATIONS,
@@ -11,9 +11,12 @@ import {
   normalizeConfig,
   type AppConfig,
 } from './config/appConfig';
+import { createActionCardService } from './config/actionCardService';
 import { createConfigService } from './config/configService';
+import { createActionArtStore } from './content/actionArtStore';
 import { EMPTY_INDEX, INDEX_MIGRATIONS, INDEX_SCHEMA_VERSION, normalizeIndex } from './content/libraryIndex';
 import { createLibraryService } from './content/libraryService';
+import { MEDIA_EXTENSIONS } from './content/mediaFormats';
 import { handleMediaProtocol, registerMediaScheme } from './content/mediaProtocol';
 import { runScanInWorker } from './content/runScanInWorker';
 import { registerIpcHandlers } from './ipc/registerIpcHandlers';
@@ -23,7 +26,9 @@ import {
   normalizeProgression,
   normalizeSessionFile,
   PROGRESSION_SCHEMA_VERSION,
+  SESSION_MIGRATIONS,
   SESSION_SCHEMA_VERSION,
+  type StoredSession,
 } from './session/persistence';
 import { createSessionService } from './session/sessionService';
 import { normalizeSettings } from './settings/normalizeSettings';
@@ -31,7 +36,7 @@ import { createJsonStore } from './storage/jsonStore';
 import { createMainWindow } from './window';
 
 const isDev = !app.isPackaged;
-/** Default from game-design §19; configurable in AP9. */
+/** Default from game-design §19; configurable in AP10. */
 const PAUSE_HOTKEY = 'CommandOrControl+Shift+Space';
 const DECAY_CHECK_INTERVAL_MS = 60_000;
 
@@ -84,7 +89,10 @@ async function startApp(): Promise<void> {
     },
   });
 
-  handleMediaProtocol(library.resolveMedia);
+  const actionArt = createActionArtStore(userData);
+  const actionCards = createActionCardService(config, actionArt);
+  // Library media first; action card images are served from the app-owned action-art store
+  handleMediaProtocol((hash) => library.resolveMedia(hash) ?? actionArt.resolve(hash, actionCards.list()));
 
   const sessions = await createSessionService({
     progressionStore: createJsonStore<Progression>({
@@ -94,11 +102,12 @@ async function startApp(): Promise<void> {
       defaults: DEFAULT_PROGRESSION,
       normalize: normalizeProgression,
     }),
-    sessionStore: createJsonStore<SessionState | null>({
+    sessionStore: createJsonStore<StoredSession>({
       directory: userData,
       fileName: 'session-current.json',
       schemaVersion: SESSION_SCHEMA_VERSION,
       defaults: null,
+      migrations: SESSION_MIGRATIONS,
       normalize: normalizeSessionFile,
     }),
     historyStore: createJsonStore<SessionRecord[]>({
@@ -110,6 +119,7 @@ async function startApp(): Promise<void> {
     }),
     folders: () => config.get().folders,
     media: library.mediaEntries,
+    actionCards: actionCards.list,
     onProgressionChanged: (progression) => {
       broadcast('session:progression', progression);
     },
@@ -157,6 +167,24 @@ async function startApp(): Promise<void> {
     'session:spin': () => sessions.spin(),
     'session:dispatch': (event) => sessions.dispatch(event),
     'session:close': () => sessions.close(),
+    'actionCards:list': () => actionCards.list(),
+    'actionCards:update': ({ id, patch }) => actionCards.update(id, patch),
+    'actionCards:duplicate': ({ id, name }) => actionCards.duplicate(id, name),
+    'actionCards:remove': ({ id }) => actionCards.remove(id),
+    'actionCards:reset': ({ id }) => actionCards.reset(id),
+    'actionCards:pickImage': async ({ id }, event) => {
+      const window = BrowserWindow.fromWebContents(event.sender);
+      const options: Electron.OpenDialogOptions = {
+        properties: ['openFile'],
+        filters: [{ name: 'Media', extensions: [...MEDIA_EXTENSIONS] }],
+      };
+      const result = window
+        ? await dialog.showOpenDialog(window, options)
+        : await dialog.showOpenDialog(options);
+      const [path] = result.filePaths;
+      return result.canceled || !path ? actionCards.list() : actionCards.assignImage(id, path);
+    },
+    'actionCards:clearImage': ({ id }) => actionCards.clearImage(id),
     'dev:placeAction': ({ action }) => {
       // Never available in packaged builds
       if (!isDev) throw new Error('Not available');

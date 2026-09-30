@@ -37,6 +37,7 @@ Defined once as CSS variables and exposed to Tailwind v4 via `@theme`. Component
 | `ink-muted`   | `#8E857A`                                    | Labels, meta, disabled, path preview outline                         | 5.3:1               |
 | `good`        | `#E3A64A`                                    | Good group                                                           | 9.0:1               |
 | `bad`         | `#E0442F`                                    | Bad group                                                            | 4.6:1               |
+| `collectible` | `#8FB3C4`                                    | Performer collectibles (ring segment, star marker, progress) – v2    | 8.7:1               |
 | `penalty`     | → `bad`                                      | Penalty fields on the start wheel (own name so it can diverge later) | 4.6:1               |
 | `danger`      | → `bad`                                      | Destructive controls (End Early hold progress)                       | 4.6:1               |
 | `ring-empty`  | `#3A332D`                                    | Undiscovered segment                                                 | 1.55:1 ¹            |
@@ -224,3 +225,22 @@ Short (< 400 ms), synthesized with Web Audio (no files, offline) – `src/render
 | Admin: Folders, Actions (+ simulation), Session Rules, Visual Effects, Penalties, Sound/Controls, Backup                                                                                     | ⬜                                   |
 | History                                                                                                                                                                                      | ⬜                                   |
 | Media Library + Mask Editor                                                                                                                                                                  | ⬜ (own milestone)                   |
+
+---
+
+## 10. Gameplay v2 components (game-design Revision 3)
+
+Designed in code like the rest of the screens (AP0.5); these are the binding rules.
+
+| Element                 | Rule                                                                                                                                                                                                  |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Release chance stat     | First stat in the console, spans both columns, `text-stat` in `ink`; label shows the tooltip trigger. Tooltip (hover + focus) lists: discovered × rate, performer bonus, multiplier, cap.             |
+| Undiscovered counter    | `GroupCount` (triangle up/down + color) of undiscovered **normal** cards; sits next to "Actions left".                                                                                                |
+| Performer progress      | Performer name + one pip per collected card (`collectible` fill) up to the highest tier; tier thresholds are marked by a taller pip. Hidden without a performer.                                      |
+| Collectible on the ring | Discovered segment filled with `collectible`, plus a 4-point **star** marker inside the ring (shape ≠ circle/diamond, never color-only).                                                              |
+| Detour badge            | On a direction button: `ink` outline chip "Detour · +2 good" below the goal distance. Only shown when the move would convert cards.                                                                   |
+| Forced reversal         | Roll phase: one `ink-2` line "Only backwards this round" with the reverse icon. The blocked direction button is disabled with the reverse icon (U Turn keeps its own icon); ring uses the dashed arc. |
+| Stroke tier picker      | Three outline tiles `×1 / ×2 / ×3` (keys `1`–`3`) left of the primary "Done"; the selected tile is filled `ink`. Each tile shows the resulting count and "n dice". The title shows the chosen count.  |
+| Multi-dice              | Ring center shows the sum large and the single dice as small `DiceFace`s below it.                                                                                                                    |
+| Session briefing        | Replaces the category reveal: columns Good / Bad categories, Performer (with tier list), and the action pool as icon + name rows (good first).                                                        |
+| Board notices           | Detour conversion, goal drift and collectible tiers use the notice step; their title is always the notice text (never the action name).                                                               |

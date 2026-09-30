@@ -7,7 +7,7 @@ export const NO_EFFECTS: EffectOptions = { pixelLevel: 0, splatterSeed: null };
 
 /**
  * Visual effects for one card (game-design §12). Folders with `unmaskedEffectBehavior: 'none'` stay
- * untouched until region masks exist (AP10); `full` applies to the whole image.
+ * untouched until region masks exist (AP11); `full` applies to the whole image.
  */
 export function cardEffectOptions(
   card: Card | null | undefined,

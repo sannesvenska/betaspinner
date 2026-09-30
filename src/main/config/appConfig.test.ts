@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FOLDER_DEFAULTS } from '@shared/content';
+import { DEFAULT_ACTION_CARDS } from '@shared/session/defaults';
 import { DEFAULT_SETTINGS } from '@shared/settings';
 import { migrate } from '../storage/jsonStore';
 import { CONFIG_MIGRATIONS, CONFIG_SCHEMA_VERSION, normalizeConfig, normalizeFolder } from './appConfig';
@@ -12,7 +13,82 @@ describe('config migration', () => {
     expect(normalizeConfig(migrated)).toEqual({
       settings: { ...DEFAULT_SETTINGS, startFullscreen: false },
       folders: [],
+      actionCards: DEFAULT_ACTION_CARDS,
     });
+  });
+
+  it('v2 to v3: action folders become disabled content folders and lose allowedActions', () => {
+    const v2 = {
+      schemaVersion: 2,
+      data: {
+        settings: DEFAULT_SETTINGS,
+        folders: [
+          {
+            id: 'a',
+            path: 'p1',
+            group: 'good',
+            role: 'action',
+            enabled: true,
+            allowedActions: ['good_fairy'],
+          },
+          { id: 'b', path: 'p2', group: 'bad', role: 'content', enabled: true, allowedActions: null },
+        ],
+      },
+    };
+    const config = normalizeConfig(migrate(v2, CONFIG_SCHEMA_VERSION, CONFIG_MIGRATIONS));
+    expect(config.folders.map(({ id, role, enabled }) => ({ id, role, enabled }))).toEqual([
+      { id: 'a', role: 'content', enabled: false },
+      { id: 'b', role: 'content', enabled: true },
+    ]);
+    expect(config.folders.every((folder) => !('allowedActions' in folder))).toBe(true);
+    expect(config.actionCards).toEqual(DEFAULT_ACTION_CARDS);
+  });
+});
+
+describe('normalizeActionCards (10.4)', () => {
+  const image = {
+    hash: 'a'.repeat(40),
+    fileName: `${'a'.repeat(40)}.png`,
+    mimeType: 'image/png',
+    kind: 'image',
+  };
+
+  it('keeps every built-in, merges saved overrides and accepts user variants', () => {
+    const { actionCards } = normalizeConfig({
+      actionCards: [
+        { id: 'pixelate', builtIn: true, weight: 500, enabled: false, image },
+        { id: 'squeeze-hard', type: 'squeeze_task', name: '  Squeeze hard ', params: { count: [30, 15] } },
+        { id: 'broken', type: 'nope' },
+        { id: 'pixelate', type: 'pixelate' }, // duplicate id of a built-in
+      ],
+    });
+    expect(actionCards).toHaveLength(DEFAULT_ACTION_CARDS.length + 1);
+    expect(actionCards.find((card) => card.id === 'pixelate')).toMatchObject({
+      builtIn: true,
+      weight: 100,
+      enabled: false,
+      image,
+    });
+    expect(actionCards.find((card) => card.id === 'squeeze-hard')).toMatchObject({
+      type: 'squeeze_task',
+      builtIn: false,
+      name: 'Squeeze hard',
+      params: { count: [15, 30] },
+    });
+  });
+
+  it('assigns an image to one card only and rejects malformed images', () => {
+    const { actionCards } = normalizeConfig({
+      actionCards: [
+        { id: 'pixelate', image },
+        { id: 'splatter', image },
+        { id: 'u_turn', image: { ...image, fileName: '../evil.png' } },
+      ],
+    });
+    const byId = (id: string) => actionCards.find((card) => card.id === id);
+    expect(byId('pixelate')?.image).toEqual(image);
+    expect(byId('splatter')?.image).toBeNull();
+    expect(byId('u_turn')?.image).toBeNull();
   });
 });
 
@@ -29,7 +105,7 @@ describe('normalizeFolder', () => {
     });
   });
 
-  it('clamps weights, orders the task range and filters unknown actions', () => {
+  it('clamps weights, orders the task range and maps unknown roles to content', () => {
     const folder = normalizeFolder({
       id: 'a',
       path: 'p',
@@ -37,15 +113,10 @@ describe('normalizeFolder', () => {
       role: 'action',
       selectionWeight: 500,
       taskRange: [30, 10],
-      allowedActions: ['good_fairy', 'nope'],
     });
 
-    expect(folder).toMatchObject({
-      role: 'action',
-      selectionWeight: 100,
-      taskRange: [10, 30],
-      allowedActions: ['good_fairy'],
-    });
+    expect(folder).toMatchObject({ role: 'content', selectionWeight: 100, taskRange: [10, 30] });
+    expect(normalizeFolder({ id: 'b', path: 'p', group: 'good', role: 'performer' })?.role).toBe('performer');
   });
 
   it('rejects folders without id, path or valid group', () => {
