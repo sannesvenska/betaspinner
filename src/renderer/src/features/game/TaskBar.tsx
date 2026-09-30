@@ -2,15 +2,17 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { FolderConfig } from '@shared/content';
 import type { ActionHint } from '@shared/session/engine/actionHint';
-import { NEGATIVE_EFFECTS } from '@shared/session/engine/effects';
 import { wrapField } from '@shared/session/track';
-import type { Direction, EffectType, SessionState } from '@shared/session/types';
+import type { Direction, EffectType, SessionState, SwitcherooPool } from '@shared/session/types';
 import { Button } from '@renderer/ui/Button';
 import { classNames } from '@renderer/ui/classNames';
 import { Countdown } from '@renderer/ui/Countdown';
 import { GroupCount } from '@renderer/ui/GroupCount';
 import { Icon } from '@renderer/ui/icons/Icon';
 import { KeyHint } from '@renderer/ui/KeyHint';
+import { DiceFace } from '@renderer/ui/DiceFace';
+import { EFFECT_ICONS, GOOD_EFFECTS } from './effectIcons';
+import { FolderPreview } from './FolderPreview';
 import { noticeText } from './noticeText';
 import { PickTile } from './PickTile';
 
@@ -81,7 +83,9 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
     if (reveal.kind === 'action' && reveal.action) {
       return (
         <Eyebrow tone={tone}>
-          <Icon name={reveal.action} size={16} />
+          <span className="flex size-6 items-center justify-center rounded-full bg-bg">
+            <Icon name={reveal.action} size={14} />
+          </span>
           {t(reveal.group === 'good' ? 'game.goodAction' : 'game.badAction')} ·{' '}
           {t('game.fieldLabel', { field: reveal.field })}
         </Eyebrow>
@@ -96,6 +100,27 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
   const actionTitle = reveal?.kind === 'action' && reveal.action ? t(`action.${reveal.action}.name`) : null;
   const actionDescription =
     reveal?.kind === 'action' && reveal.action ? t(`action.${reveal.action}.description`) : null;
+
+  const effectMeta = (type: EffectType): string => {
+    const effect = session.effects.find((candidate) => candidate.type === type);
+    if (!effect) return '';
+    if (type === 'pixelate') return t('common.level', { level: effect.value ?? 1 });
+    if (effect.remainingRounds !== undefined)
+      return t('common.roundsShort', { count: effect.remainingRounds });
+    return '';
+  };
+  /** Undiscovered cards a Switcheroo pool would change (§10.3). */
+  const poolCardCount = (pool: SwitcherooPool): number => {
+    const group = pool.startsWith('good') ? 'good' : 'bad';
+    const kind = pool.endsWith('content') ? 'normal' : 'action';
+    return session.cards.filter(
+      (card) =>
+        card.kind === kind &&
+        card.group === group &&
+        !card.discovered &&
+        !(kind === 'action' && card.actionConsumed),
+    ).length;
+  };
 
   let content: ReactNode;
   let controls: ReactNode = null;
@@ -227,20 +252,42 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
         );
         break;
       }
-      case 'notice':
+      case 'notice': {
+        const notice = step.notice;
+        const guessResult = notice.type === 'guess_result' ? notice : null;
         content = (
           <>
             {cardEyebrow()}
-            <Title>{actionTitle ?? noticeText(t, step.notice)}</Title>
-            <div className="text-body text-ink-2">{actionTitle ? noticeText(t, step.notice) : null}</div>
+            <Title>{actionTitle ?? noticeText(t, notice)}</Title>
+            <div className="flex items-center gap-2 text-body text-ink-2">
+              {notice.type === 'shield_blocked' && <Icon name="shield" size={18} className="text-good" />}
+              {actionTitle ? noticeText(t, notice) : null}
+            </div>
           </>
         );
         controls = (
-          <Button variant="primary" size="primary" keyHint="Space" onClick={handlers.confirm}>
-            {t('game.ok')}
-          </Button>
+          <div className="flex items-center gap-6">
+            {guessResult && (
+              <div className="flex items-center gap-3" aria-hidden>
+                {guessResult.numbers.map((value) => (
+                  <DiceFace
+                    key={value}
+                    value={value}
+                    size={44}
+                    tone={value === guessResult.roll ? 'good' : 'muted'}
+                  />
+                ))}
+                <span className="font-label text-label text-ink-muted">→</span>
+                <DiceFace value={guessResult.roll} size={72} tone={guessResult.match ? 'good' : 'bad'} />
+              </div>
+            )}
+            <Button variant="primary" size="primary" keyHint="Space" onClick={handlers.confirm}>
+              {t('game.ok')}
+            </Button>
+          </div>
         );
         break;
+      }
       case 'pick_effect':
         content = (
           <>
@@ -255,7 +302,9 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
               <PickTile
                 key={effect}
                 title={t(`effect.${effect}.name`)}
-                tone={NEGATIVE_EFFECTS.includes(effect) ? 'bad' : 'good'}
+                icon={<Icon name={EFFECT_ICONS[effect]} size={20} />}
+                meta={effectMeta(effect)}
+                tone={GOOD_EFFECTS.includes(effect) ? 'good' : 'bad'}
                 keyHint={String(index + 1)}
                 onClick={() => {
                   handlers.pickEffect(effect);
@@ -282,11 +331,13 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
                 size="primary"
                 keyHint={String(value)}
                 aria-pressed={guess.includes(value)}
+                aria-label={String(value)}
+                className="px-4"
                 onClick={() => {
                   handlers.toggleGuess(value);
                 }}
               >
-                {value}
+                <DiceFace value={value} size={36} tone={guess.includes(value) ? 'muted' : 'ink'} />
               </Button>
             ))}
             <Button
@@ -344,6 +395,8 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
               <PickTile
                 key={pool}
                 title={t(`step.pool.${pool}`)}
+                icon={<Icon name="switcheroo" size={20} />}
+                meta={t('step.poolCards', { count: poolCardCount(pool) })}
                 tone={pool.startsWith('good') ? 'good' : 'bad'}
                 keyHint={String(index + 1)}
                 onClick={() => {
@@ -368,6 +421,7 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
               <PickTile
                 key={id}
                 title={folderName(id)}
+                preview={<FolderPreview folderId={id} />}
                 tone={step.pool.startsWith('good') ? 'good' : 'bad'}
                 keyHint={String(index + 1)}
                 onClick={() => {
@@ -381,15 +435,27 @@ export function TaskBar({ session, folders, hint, countdown, guess, animating, h
     }
   }
 
-  const isBadAction = reveal?.kind === 'action' && reveal.group === 'bad' && session.phase === 'resolve_card';
+  const resolving = session.phase === 'resolve_card' && animating !== 'moving';
+  const isAction = resolving && reveal?.kind === 'action';
+  const isBadAction = isAction && reveal.group === 'bad';
+  // Re-mount per revealed card so the banner animation replays (design-system §7 "Action reveal")
+  const revealKey = resolving && reveal ? `${session.round}-${reveal.field}` : session.phase;
   return (
     <div
+      key={revealKey}
       className={classNames(
         'flex items-center gap-8 border-t bg-overlay px-12 backdrop-blur-overlay',
-        isBadAction ? 'border-bad' : 'border-line',
+        isBadAction ? 'animate-[cr-flash_600ms_ease-out] border-bad' : 'border-line',
       )}
     >
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">{content}</div>
+      <div
+        className={classNames(
+          'flex min-w-0 flex-1 flex-col gap-1.5',
+          isAction && 'origin-left animate-[cr-banner_320ms_ease-out]',
+        )}
+      >
+        {content}
+      </div>
       {controls}
     </div>
   );

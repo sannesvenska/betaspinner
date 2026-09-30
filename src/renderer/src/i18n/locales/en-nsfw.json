@@ -359,7 +359,9 @@
       "bad_content": "Bad category",
       "good_action": "Good action images",
       "bad_action": "Bad action images"
-    }
+    },
+    "poolCards_one": "{{count}} card",
+    "poolCards_other": "{{count}} cards"
   },
   "notice": {
     "effectApplied": {
@@ -432,5 +434,26 @@
     "back": "Back",
     "deniedTitle": "Denied",
     "deniedBody": "Not this time. Denied is neutral: no penalty fields, no changes to your chances."
+  },
+  "settings": {
+    "open": "Settings",
+    "title": "Settings",
+    "sound": "Sound cues",
+    "volume": "Volume",
+    "volumeLevel": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "animationSpeed": "Animation speed",
+    "speed": {
+      "fast": "Fast",
+      "normal": "Normal",
+      "slow": "Slow"
+    },
+    "reducedMotion": "Reduced motion",
+    "reducedMotionHint": "Replaces movement with short fades; wheels and dice jump to their result.",
+    "startFullscreen": "Start in fullscreen",
+    "testSound": "Test sound"
   }
 }

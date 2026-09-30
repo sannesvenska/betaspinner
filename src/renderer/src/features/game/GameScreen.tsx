@@ -11,6 +11,8 @@ import { Alert } from '@renderer/ui/Alert';
 import { HOLD_TO_CONFIRM_MS } from '@renderer/ui/HoldToConfirm';
 import { Media } from '@renderer/ui/Media';
 import { useCountdown } from '@renderer/ui/useCountdown';
+import { playCue } from '@renderer/sound/sound';
+import { getBlockedDirection } from '@shared/session/engine/effects';
 import { GalleryDrawer } from './GalleryDrawer';
 import { GameConsole } from './GameConsole';
 import { GameStage } from './GameStage';
@@ -23,6 +25,7 @@ const DICE_ROLL_MS = 900;
 const DICE_TICK_MS = 75;
 const SEGMENT_DEG = 360 / TRACK_LENGTH;
 const PREVIEW_SIZE = 'h-[45%] w-[45%]';
+const COUNTDOWN_TICK_SECONDS = 3;
 
 const rotationFor = (position: number): number => -(position - 0.5) * SEGMENT_DEG;
 
@@ -112,13 +115,18 @@ export function GameScreen({ session }: GameScreenProps) {
   const roll = useCallback(async () => {
     const next = await dispatch({ type: 'roll' });
     const duration = DICE_ROLL_MS * scale;
-    if (!next || duration === 0) return;
+    if (!next) return;
+    if (duration === 0) {
+      playCue('dice');
+      return;
+    }
     // Result is decided; the animation only shows it (cycling faces, decelerating)
     setAnimating('rolling');
     const started = performance.now();
     const tick = () => {
       if (performance.now() - started >= duration) {
         finishAnimation();
+        playCue('dice');
         return;
       }
       setDiceFace(1 + Math.floor(Math.random() * 6));
@@ -126,6 +134,25 @@ export function GameScreen({ session }: GameScreenProps) {
     };
     tick();
   }, [dispatch, scale, finishAnimation]);
+
+  // Sound cues (design-system §8): card reveal after the move, last-seconds ticks, countdown end
+  const revealKey =
+    session.phase === 'resolve_card' && session.reveal && animating !== 'moving'
+      ? `${session.round}-${session.reveal.field}`
+      : null;
+  const revealGroup = session.reveal?.group;
+  const playedReveal = useRef<string | null>(revealKey);
+  useEffect(() => {
+    if (!revealKey || playedReveal.current === revealKey) return;
+    playedReveal.current = revealKey;
+    playCue(revealGroup === 'good' ? 'reveal-good' : 'reveal-bad');
+  }, [revealKey, revealGroup]);
+
+  useEffect(() => {
+    if (timedSeconds === 0 || paused) return;
+    if (countdown.finished) playCue('countdown-end');
+    else if (countdown.secondsRemaining <= COUNTDOWN_TICK_SECONDS) playCue('tick');
+  }, [countdown.secondsRemaining, countdown.finished, timedSeconds, paused]);
 
   const handlers: TaskBarHandlers = useMemo(
     () => ({
@@ -305,6 +332,8 @@ export function GameScreen({ session }: GameScreenProps) {
             targets={targets}
             previewField={previewField}
             onPreview={setPreviewField}
+            blocked={getBlockedDirection(session.effects)}
+            goalPulse={step?.kind === 'notice' && step.notice.type === 'goal_moved'}
             center={ringCenter}
           />
         }

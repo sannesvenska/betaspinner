@@ -7,6 +7,7 @@ import { useSessionStore } from '@renderer/stores/sessionStore';
 import { useAnimationScale, useUiStore } from '@renderer/stores/uiStore';
 import { Button } from '@renderer/ui/Button';
 import { classNames } from '@renderer/ui/classNames';
+import { playCue } from '@renderer/sound/sound';
 import { FinalWheel, type FinalWheelHandle } from './FinalWheel';
 import {
   landingAngle,
@@ -144,6 +145,7 @@ export function FinalWheelScreen({ session }: { session: SessionState }) {
   const rotation = useRef(0);
   const plan = useRef<Deceleration | null>(null);
   const elapsed = useRef(0);
+  const lastSecond = useRef(-1);
   const [stage, setStage] = useState<WheelStage>(session.finalWheel ? 'spinning' : 'ready');
   const [secondsLeft, setSecondsLeft] = useState(session.finalWheel?.holdSeconds ?? 0);
   const check = session.winCheck;
@@ -164,9 +166,15 @@ export function FinalWheelScreen({ session }: { session: SessionState }) {
           elapsed.current += dt;
           const done = elapsed.current >= plan.current.durationMs;
           rotation.current = rotationAt(plan.current, elapsed.current);
-          setSecondsLeft(Math.max(0, Math.ceil((plan.current.durationMs - elapsed.current) / MS_PER_SECOND)));
+          const left = Math.max(0, Math.ceil((plan.current.durationMs - elapsed.current) / MS_PER_SECOND));
+          if (left !== lastSecond.current) {
+            lastSecond.current = left;
+            if (left > 0 && left <= WARNING_SECONDS) playCue('tick');
+            setSecondsLeft(left);
+          }
           if (done) {
             wheelRef.current?.setRotation(rotation.current);
+            playCue('wheel-stop');
             setStage('stopped');
             return;
           }

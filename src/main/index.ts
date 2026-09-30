@@ -157,6 +157,11 @@ async function startApp(): Promise<void> {
     'session:spin': () => sessions.spin(),
     'session:dispatch': (event) => sessions.dispatch(event),
     'session:close': () => sessions.close(),
+    'dev:placeAction': ({ action }) => {
+      // Never available in packaged builds
+      if (!isDev) throw new Error('Not available');
+      return sessions.devPlaceAction(action);
+    },
   });
 
   // Fullscreen by default, but not while developing

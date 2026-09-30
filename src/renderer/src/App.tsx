@@ -5,6 +5,7 @@ import { GameFlow } from './features/game/GameFlow';
 import { PauseScreen } from './features/game/PauseScreen';
 import { LibraryScreen } from './features/library/LibraryScreen';
 import { HomeScreen } from './screens/HomeScreen';
+import { configureSound, setSoundMuted } from './sound/sound';
 import { useLibraryStore } from './stores/libraryStore';
 import { useSessionStore } from './stores/sessionStore';
 import { useUiStore } from './stores/uiStore';
@@ -50,6 +51,14 @@ export function App() {
 
   // Global pause hotkey from main + in-app key (instant, game-design §19)
   useEffect(() => window.api.on('app:togglePause', togglePause), [togglePause]);
+
+  const soundSettings = settingsState.status === 'ready' ? settingsState.settings.sound : null;
+  useEffect(() => {
+    if (soundSettings) configureSound(soundSettings);
+  }, [soundSettings]);
+  useEffect(() => {
+    setSoundMuted(paused);
+  }, [paused]);
 
   const reducedMotion = settingsState.status === 'ready' && settingsState.settings.reducedMotion;
   useEffect(() => {

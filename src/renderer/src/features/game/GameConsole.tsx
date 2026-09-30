@@ -2,8 +2,7 @@ import { useId, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ActionHint } from '@shared/session/engine/actionHint';
 import { getSuccessMultiplier } from '@shared/session/engine/effects';
-import type { ActiveEffect, EffectType, SessionState } from '@shared/session/types';
-import type { ActionId } from '@shared/actions';
+import type { ActiveEffect, SessionState } from '@shared/session/types';
 import { Button } from '@renderer/ui/Button';
 import { Chip } from '@renderer/ui/Chip';
 import { GroupCount } from '@renderer/ui/GroupCount';
@@ -11,20 +10,7 @@ import { HoldToConfirm } from '@renderer/ui/HoldToConfirm';
 import { Icon } from '@renderer/ui/icons/Icon';
 import { Stat } from '@renderer/ui/Stat';
 import { Tooltip } from '@renderer/ui/Tooltip';
-
-/** Chip icon per effect type (action icons, design-system §6). */
-const EFFECT_ICONS: Record<EffectType, ActionId> = {
-  double_trouble: 'double_trouble',
-  pace_slow: 'take_it_slow',
-  pace_fast: 'speed_it_up',
-  u_turn: 'u_turn',
-  pixelate: 'pixelate',
-  splatter: 'splatter',
-  success_multiplier: 'hail_mary',
-  shield: 'good_fairy',
-};
-
-const GOOD_EFFECTS: readonly EffectType[] = ['success_multiplier', 'shield'];
+import { EFFECT_ICONS, GOOD_EFFECTS } from './effectIcons';
 
 interface GameConsoleProps {
   session: SessionState;

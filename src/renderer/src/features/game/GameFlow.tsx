@@ -12,6 +12,7 @@ import { Button } from '@renderer/ui/Button';
 import { Dialog } from '@renderer/ui/Dialog';
 import { DIALOG_AUTOFOCUS } from '@renderer/ui/dialogAutofocus';
 import { GameScreen } from './GameScreen';
+import { GameStage } from './GameStage';
 
 function useSpaceToConfirm(action: () => void) {
   useEffect(() => {
@@ -33,19 +34,24 @@ function CenteredScreen({
   eyebrow,
   title,
   body,
+  aside,
   children,
 }: {
   eyebrow: string;
   title: string;
   body?: string;
+  aside?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <main className="flex h-full flex-col justify-center gap-6 px-24">
-      <div className="font-label text-label uppercase tracking-label text-ink-muted">{eyebrow}</div>
-      <h1 className="font-display text-display font-bold uppercase">{title}</h1>
-      {body && <p className="max-w-2xl text-body text-ink-2">{body}</p>}
-      {children}
+    <main className="grid h-full grid-cols-[minmax(0,1fr)_auto] items-center gap-12 px-24">
+      <div className="flex flex-col gap-6">
+        <div className="font-label text-label uppercase tracking-label text-ink-muted">{eyebrow}</div>
+        <h1 className="font-display text-display font-bold uppercase">{title}</h1>
+        {body && <p className="max-w-2xl text-body text-ink-2">{body}</p>}
+        {children}
+      </div>
+      {aside && <div className="h-[70vh]">{aside}</div>}
     </main>
   );
 }
@@ -116,6 +122,7 @@ function SessionEnd({ session }: { session: SessionState }) {
   const { t } = useTranslation();
   const close = useSessionStore((state) => state.close);
   const progression = useSessionStore((state) => state.snapshot?.progression);
+  const mediaKinds = useSessionStore((state) => state.snapshot?.mediaKinds ?? {});
   const outcome = session.endReason ?? 'ended_early';
   const discovered = session.cards.filter((card) => card.discovered).length;
   const onClose = useCallback(() => void close(), [close]);
@@ -144,6 +151,13 @@ function SessionEnd({ session }: { session: SessionState }) {
     <CenteredScreen
       eyebrow={t('game.fieldLabel', { field: session.position })}
       title={t(`end.outcome.${outcome}`)}
+      aside={
+        outcome === 'mistress_says_no' ? (
+          <div className="aspect-[3/4] h-full">
+            <GameStage card={session.reveal} mediaKinds={mediaKinds} dimmed={false} paused={false} />
+          </div>
+        ) : undefined
+      }
     >
       <dl className="flex gap-12">
         {[

@@ -10,6 +10,8 @@ import { useAnimationScale, useUiStore } from '@renderer/stores/uiStore';
 import { Alert } from '@renderer/ui/Alert';
 import { Button } from '@renderer/ui/Button';
 import { KeyHint } from '@renderer/ui/KeyHint';
+import { SettingsDialog } from '@renderer/features/settings/SettingsDialog';
+import { playCue } from '@renderer/sound/sound';
 import { StartWheel, type StartWheelHandle } from './StartWheel';
 
 const RESULT_PAUSE_MS = 1200;
@@ -49,6 +51,7 @@ export function StartScreen() {
   const wheelRef = useRef<StartWheelHandle>(null);
   const [spinning, setSpinning] = useState(false);
   const [result, setResult] = useState<SpinResult | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const lockoutUntil = progression?.lockoutUntil ? new Date(progression.lockoutUntil).getTime() : 0;
   const decayAt = progression ? nextDecayAt(progression)?.getTime() : undefined;
@@ -73,6 +76,7 @@ export function StartScreen() {
       return;
     }
     await wheelRef.current?.spinTo(spun.wheel.value, scale);
+    playCue(spun.wheel.penalty ? 'reveal-bad' : 'wheel-stop');
     setResult(spun);
     await new Promise((done) => setTimeout(done, RESULT_PAUSE_MS * scale));
     setSpinning(false);
@@ -82,7 +86,12 @@ export function StartScreen() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (useUiStore.getState().paused || event.target instanceof HTMLButtonElement) return;
+      if (
+        useUiStore.getState().paused ||
+        event.target instanceof HTMLButtonElement ||
+        document.querySelector('dialog[open]')
+      )
+        return;
       if (event.key !== ' ' && event.key !== 'Enter') return;
       event.preventDefault();
       if (spinning) wheelRef.current?.skip();
@@ -133,6 +142,14 @@ export function StartScreen() {
             }}
           >
             {t('library.title')}
+          </Button>
+          <Button
+            variant="text"
+            onClick={() => {
+              setSettingsOpen(true);
+            }}
+          >
+            {t('settings.open')}
           </Button>
         </nav>
       </header>
@@ -216,6 +233,12 @@ export function StartScreen() {
           <div className="font-display text-title font-bold">{progression?.sessionCounter ?? 0}</div>
         </div>
       </aside>
+      <SettingsDialog
+        open={settingsOpen}
+        onClose={() => {
+          setSettingsOpen(false);
+        }}
+      />
     </main>
   );
 }

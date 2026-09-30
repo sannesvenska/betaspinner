@@ -2,7 +2,7 @@ import { useId, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { TRACK_LENGTH, wrapField } from '@shared/session/track';
 import type { Card, Direction } from '@shared/session/types';
-import { UI_ICON_PATHS } from '@renderer/ui/icons/iconPaths';
+import { ACTION_ICON_PATHS, UI_ICON_PATHS } from '@renderer/ui/icons/iconPaths';
 
 /** Geometry from design-system §5 (viewBox units). */
 const VIEW = 520;
@@ -17,6 +17,9 @@ const MARKER_RADIUS = R_INNER - 14;
 const LABEL_RADIUS = R_OUTER + 30;
 const GOAL_ICON_RADIUS = R_OUTER + 26;
 const GOAL_ICON_SIZE = 20;
+const BLOCK_ARC_RADIUS = R_INNER - 30;
+const BLOCK_ARC_MARGIN_DEG = 6;
+const BLOCK_ICON_SIZE = 22;
 
 interface RingProps {
   cards: readonly Card[];
@@ -29,6 +32,10 @@ interface RingProps {
   targets?: { left: number; right: number; blocked: Direction | null } | null;
   previewField: number | null;
   onPreview: (field: number | null) => void;
+  /** U Turn: the blocked half of the ring gets a dashed inner arc (design-system §5). */
+  blocked: Direction | null;
+  /** Goal Teleport just happened – the goal segment pulses. */
+  goalPulse: boolean;
   center: ReactNode;
 }
 
@@ -69,6 +76,8 @@ export function Ring({
   previewField,
   onPreview,
   center,
+  blocked,
+  goalPulse,
 }: RingProps) {
   const { t } = useTranslation();
   const hatchId = useId();
@@ -150,6 +159,7 @@ export function Ring({
                 fill={fill}
                 stroke={stroke}
                 strokeWidth={stroke === 'none' ? 0 : 2}
+                className={isGoal && goalPulse ? 'animate-[cr-pulse_800ms_ease-in-out_infinite]' : undefined}
                 onPointerEnter={
                   previewable
                     ? () => {
@@ -243,10 +253,49 @@ export function Ring({
               );
             })}
         </g>
+        {blocked && <BlockedArc side={blocked} />}
       </svg>
       <div className="pointer-events-none absolute inset-[22%] flex flex-col items-center justify-center gap-1 text-center">
         {center}
       </div>
     </div>
+  );
+}
+
+/** Screen-space arc on the blocked side (the ring keeps the current field at 12 o'clock). */
+function BlockedArc({ side }: { side: Direction }) {
+  const sign = side === 'right' ? 1 : -1;
+  const start = sign * BLOCK_ARC_MARGIN_DEG;
+  const end = sign * (180 - BLOCK_ARC_MARGIN_DEG);
+  const [x0, y0] = polar(BLOCK_ARC_RADIUS, start);
+  const [x1, y1] = polar(BLOCK_ARC_RADIUS, end);
+  const [iconX, iconY] = polar(BLOCK_ARC_RADIUS, sign * 90);
+  return (
+    <g>
+      <path
+        d={`M${x0} ${y0} A${BLOCK_ARC_RADIUS} ${BLOCK_ARC_RADIUS} 0 0 ${side === 'right' ? 1 : 0} ${x1} ${y1}`}
+        fill="none"
+        stroke="var(--color-bad)"
+        strokeWidth={2}
+        strokeDasharray="6 6"
+      />
+      <svg
+        x={iconX - BLOCK_ICON_SIZE / 2}
+        y={iconY - BLOCK_ICON_SIZE / 2}
+        width={BLOCK_ICON_SIZE}
+        height={BLOCK_ICON_SIZE}
+        viewBox="0 0 24 24"
+      >
+        <rect width="24" height="24" fill="var(--color-panel)" />
+        <path
+          d={ACTION_ICON_PATHS.u_turn}
+          fill="none"
+          stroke="var(--color-bad)"
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </g>
   );
 }

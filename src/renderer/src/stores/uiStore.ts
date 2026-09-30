@@ -17,6 +17,8 @@ interface UiState {
   resumeAnswered: boolean;
   navigate: (screen: Screen) => void;
   loadSettings: () => Promise<void>;
+  /** Persists settings in main; returns an error message or null. */
+  saveSettings: (settings: AppSettings) => Promise<string | null>;
   togglePause: () => void;
   markRevealed: (sessionId: string) => void;
   answerResume: () => void;
@@ -38,6 +40,12 @@ export const useUiStore = create<UiState>()((set) => ({
         ? { status: 'ready', settings: result.data }
         : { status: 'error', error: result.error },
     });
+  },
+  saveSettings: async (settings) => {
+    const result = await window.api.invoke('settings:save', settings);
+    if (!result.ok) return result.error;
+    set({ settingsState: { status: 'ready', settings: result.data } });
+    return null;
   },
   togglePause: () => {
     set((state) => ({ paused: !state.paused }));

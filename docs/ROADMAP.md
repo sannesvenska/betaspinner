@@ -119,14 +119,18 @@ Order note: win flow (AP6) comes **before** actions (AP7) so a complete session 
 
 **Verified:** 116 tests; e2e in the running app for Denied (neutral, history written) and Allowed → Success → reward (good chance 0.40 → 0.43, streak reset).
 
-## AP7 – Actions & effects UI · L · ⬜
+## AP7 – Actions & effects UI · L · ✅
 
-1. Action banner + action-specific UIs for all 20 actions (pickers, timers, number choice, Switcheroo 2-step, teleport/moving animations).
-2. Effect chips with tooltips; shield indicator; U Turn on ring + button.
-3. Neutral action card design.
-4. Sound cues (optional, off by default) + settings.
+| #   | Task                                                                                                                                                                                                                                                | Status |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 7.1 | Action reveal: banner animation (scale 0.96 → 1), icon in a dark circle, one-time red top-border flash for bad actions                                                                                                                              | ✅     |
+| 7.2 | Action-specific UI: effect picker tiles with icon + remaining rounds, die faces for Guessing Game (picks + roll result), Switcheroo pool tiles with affected card count and folder previews, shield notice, Mistress Says No card on the end screen | ✅     |
+| 7.3 | Ring: dashed U Turn arc + icon on the blocked half, pulsing goal after Goal Teleport; chips animate in; shield chip uses the shield icon                                                                                                            | ✅     |
+| 7.4 | Sound cues synthesized with Web Audio (dice, reveal good/bad, last-3-seconds ticks, countdown end, wheel stop) – off by default, silenced by Pause                                                                                                  | ✅     |
+| 7.5 | Settings dialog on the start screen: sound on/off + volume, animation speed, reduced motion, start in fullscreen                                                                                                                                    | ✅     |
+| 7.6 | Dev-only QA hook `dev:placeAction` (not registered in packaged builds)                                                                                                                                                                              | ✅     |
 
-**Result:** all actions playable.
+**Verified:** 116 tests; visual e2e of every action screen in the running app via the QA hook.
 
 ## AP8 – Canvas effect renderer · M · ⬜
 

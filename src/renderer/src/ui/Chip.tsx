@@ -2,13 +2,14 @@ import type { Group } from '@shared/game';
 import type { ActionId } from '@shared/actions';
 import { classNames } from './classNames';
 import { Icon } from './icons/Icon';
+import type { UiIconName } from './icons/iconPaths';
 import { Tooltip } from './Tooltip';
 
 const CHIP_ICON_SIZE = 16;
 
 interface ChipProps {
   group: Group;
-  icon: ActionId;
+  icon: ActionId | UiIconName;
   name: string;
   /** Remaining rounds, level, multiplier … */
   meta: string;
@@ -24,7 +25,7 @@ export function Chip({ group, icon, name, meta, description }: ChipProps) {
           tabIndex={0}
           aria-describedby={describedById}
           className={classNames(
-            'flex h-10 items-center gap-2.5 rounded-panel border-l-3 bg-surface px-3 font-display text-chip font-semibold uppercase tracking-chip',
+            'flex h-10 animate-[cr-chip-in_200ms_ease-out] items-center gap-2.5 rounded-panel border-l-3 bg-surface px-3 font-display text-chip font-semibold uppercase tracking-chip',
             group === 'good' ? 'border-good text-good' : 'border-bad text-ink',
           )}
         >

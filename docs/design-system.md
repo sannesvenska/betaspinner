@@ -189,7 +189,7 @@ Framer Motion. Every animation is skippable (`Space`/click → end state), every
 | `countdown-end`              | Countdown reaches 0                  |
 | `wheel-stop`                 | Start/final wheel stops              |
 
-Short (< 400 ms), bundled `.ogg` placeholders, one master volume.
+Short (< 400 ms), synthesized with Web Audio (no files, offline) – `src/renderer/src/sound/sound.ts`. Can be swapped for bundled samples without changing callers. One master volume (Low / Medium / High).
 
 ---
 

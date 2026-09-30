@@ -6,6 +6,7 @@ import type {
   NewFolderInput,
   ScanProgress,
 } from './content';
+import type { ActionId } from './actions';
 import type { Result } from './result';
 import type { EngineEvent } from './session/engine/reduce';
 import type { GenerationErrorCode } from './session/generateSession';
@@ -72,6 +73,8 @@ export interface IpcInvokeContract {
   /** Runs one engine event; the new state is saved before it is returned. */
   'session:dispatch': { request: EngineEvent; response: SessionView };
   'session:close': { request: undefined; response: SessionSnapshot };
+  /** Dev builds only (QA): puts an action card on both neighbour fields and enables a chosen roll. */
+  'dev:placeAction': { request: { action: ActionId }; response: SessionView };
 }
 
 /** main → renderer push events */
@@ -112,6 +115,7 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'session:spin',
   'session:dispatch',
   'session:close',
+  'dev:placeAction',
 ];
 
 export const IPC_EVENTS: readonly IpcEvent[] = [

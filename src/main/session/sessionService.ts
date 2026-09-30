@@ -1,4 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto';
+import { actionGroup, type ActionId } from '@shared/actions';
 import type { FolderConfig, MediaEntry } from '@shared/content';
 import type { SessionMediaKinds, SessionSnapshot, SessionView, SpinResult } from '@shared/ipc';
 import {
@@ -49,6 +50,8 @@ export interface SessionService {
   close: () => Promise<SessionSnapshot>;
   /** §13.3 lazy decay – call on start and periodically. */
   tickDecay: () => Promise<void>;
+  /** QA helper for dev builds: next field becomes `action`, the next roll can be chosen. */
+  devPlaceAction: (action: ActionId) => Promise<SessionView>;
 }
 
 const isActive = (session: SessionState | null): session is SessionState =>
@@ -186,5 +189,27 @@ export async function createSessionService(options: SessionServiceOptions): Prom
     options.onProgressionChanged?.(next);
   }
 
-  return { snapshot, spin, dispatch, close, tickDecay };
+  async function devPlaceAction(action: ActionId): Promise<SessionView> {
+    if (session?.phase !== 'roll') throw new SessionServiceError('rejected');
+    const length = session.cards.length;
+    // Both neighbours, so the test works even while U Turn blocks one direction
+    const fields = new Set([(session.position % length) + 1, ((session.position - 2 + length) % length) + 1]);
+    fields.delete(session.goalField);
+    const cards = session.cards.map((card) =>
+      fields.has(card.field)
+        ? {
+            field: card.field,
+            kind: 'action' as const,
+            action,
+            group: actionGroup(action),
+            discovered: false,
+          }
+        : card,
+    );
+    const next: SessionState = { ...session, cards, chooseNextRoll: true };
+    await saveSession(next);
+    return { session: next, mediaKinds: mediaKindsFor(next) };
+  }
+
+  return { snapshot, spin, dispatch, close, tickDecay, devPlaceAction };
 }
