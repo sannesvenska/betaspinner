@@ -80,6 +80,8 @@ export interface IpcEventContract {
   'library:changed': LibrarySnapshot;
   /** Global pause hotkey pressed (game-design §19) */
   'app:togglePause': null;
+  /** Progression changed without a request (hourly decay) */
+  'session:progression': Progression;
 }
 
 export type IpcChannel = keyof IpcInvokeContract;
@@ -112,4 +114,9 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'session:close',
 ];
 
-export const IPC_EVENTS: readonly IpcEvent[] = ['library:scanProgress', 'library:changed', 'app:togglePause'];
+export const IPC_EVENTS: readonly IpcEvent[] = [
+  'library:scanProgress',
+  'library:changed',
+  'app:togglePause',
+  'session:progression',
+];

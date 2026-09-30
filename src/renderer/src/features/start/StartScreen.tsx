@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isFolderEligible } from '@shared/content';
 import type { SpinResult } from '@shared/ipc';
+import { DEFAULT_PENALTY_RULES } from '@shared/session/defaults';
+import { nextDecayAt } from '@shared/session/progressionRules';
 import { useLibraryStore } from '@renderer/stores/libraryStore';
 import { useSessionStore } from '@renderer/stores/sessionStore';
 import { useAnimationScale, useUiStore } from '@renderer/stores/uiStore';
@@ -10,7 +12,6 @@ import { Button } from '@renderer/ui/Button';
 import { KeyHint } from '@renderer/ui/KeyHint';
 import { StartWheel, type StartWheelHandle } from './StartWheel';
 
-const PENALTY_LOCKOUT_MINUTES = 15;
 const RESULT_PAUSE_MS = 1200;
 const CLOCK_TICK_MS = 1000;
 const MS_PER_SECOND = 1000;
@@ -50,7 +51,9 @@ export function StartScreen() {
   const [result, setResult] = useState<SpinResult | null>(null);
 
   const lockoutUntil = progression?.lockoutUntil ? new Date(progression.lockoutUntil).getTime() : 0;
-  const now = useNow(lockoutUntil > 0);
+  const decayAt = progression ? nextDecayAt(progression)?.getTime() : undefined;
+  const now = useNow(lockoutUntil > 0 || decayAt !== undefined);
+  const nextLossAdds = DEFAULT_PENALTY_RULES.penaltyStep * ((progression?.lossStreak ?? 0) + 1);
   const lockedMs = lockoutUntil - now;
   const locked = lockedMs > 0;
 
@@ -183,14 +186,28 @@ export function StartScreen() {
             {progression?.penaltyFields.length ?? 0}
           </div>
           <div className="text-body-sm text-ink-2">
-            {t('start.penaltyHint', { minutes: PENALTY_LOCKOUT_MINUTES })}
+            {t('start.penaltyHint', { minutes: DEFAULT_PENALTY_RULES.lockoutMinutes })}
           </div>
         </div>
+        {decayAt !== undefined && (
+          <div className="flex flex-col gap-0.5 border-l-3 border-ring-empty pl-4">
+            <div className="font-label text-label uppercase tracking-label text-ink-muted">
+              {t('start.nextDecay')}
+            </div>
+            <div className="font-display text-title font-bold tabular-nums">
+              {formatRemaining(decayAt - now)}
+            </div>
+            <div className="text-body-sm text-ink-2">
+              {t('start.decayHint', { count: DEFAULT_PENALTY_RULES.decayAmount })}
+            </div>
+          </div>
+        )}
         <div className="flex flex-col gap-0.5 border-l-3 border-ring-empty pl-4">
           <div className="font-label text-label uppercase tracking-label text-ink-muted">
             {t('start.lossStreak')}
           </div>
           <div className="font-display text-title font-bold">{progression?.lossStreak ?? 0}</div>
+          <div className="text-body-sm text-ink-2">{t('start.lossHint', { count: nextLossAdds })}</div>
         </div>
         <div className="flex flex-col gap-0.5 border-l-3 border-ring-empty pl-4">
           <div className="font-label text-label uppercase tracking-label text-ink-muted">

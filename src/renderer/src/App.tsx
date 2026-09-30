@@ -34,9 +34,12 @@ export function App() {
     return unsubscribe;
   }, [loadLibrary, subscribeLibrary]);
 
+  const subscribeSession = useSessionStore((state) => state.subscribe);
   useEffect(() => {
+    const unsubscribe = subscribeSession();
     void loadSession();
-  }, [loadSession]);
+    return unsubscribe;
+  }, [loadSession, subscribeSession]);
 
   // Nothing to resume when the app starts without a session
   const hasLoadedSession = sessionSnapshot !== null;

@@ -1,10 +1,12 @@
 import { ACTION_IDS, type ActionId } from '@shared/actions';
 import { DEFAULT_PROGRESSION, GOOD_CHANCE_BOUNDS } from '@shared/session/defaults';
 import { TRACK_LENGTH } from '@shared/session/track';
+import type { SessionRecord } from '@shared/session/history';
 import type { Progression, SessionState } from '@shared/session/types';
 
 export const PROGRESSION_SCHEMA_VERSION = 1;
 export const SESSION_SCHEMA_VERSION = 1;
+export const HISTORY_SCHEMA_VERSION = 1;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -59,6 +61,7 @@ export function normalizeProgression(data: unknown): Progression {
     ),
     imageRecency: numberRecord(data.imageRecency),
     sessionCounter: Math.max(0, Math.round(numberOr(data.sessionCounter, 0))),
+    lastAppliedSessionId: stringOrNull(data.lastAppliedSessionId),
   };
 }
 
@@ -77,4 +80,10 @@ export function normalizeSessionFile(data: unknown): SessionState | null {
     throw new Error('Invalid session file');
   }
   return data as unknown as SessionState;
+}
+
+/** history.json is append-only data written by this app; non-array roots are quarantined. */
+export function normalizeHistory(data: unknown): SessionRecord[] {
+  if (!Array.isArray(data)) throw new Error('History root must be an array');
+  return data.filter((entry): entry is SessionRecord => isRecord(entry) && typeof entry.id === 'string');
 }

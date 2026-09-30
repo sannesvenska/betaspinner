@@ -44,6 +44,22 @@ export interface SessionRules {
   actionRetrigger: ActionRetrigger;
   consumedTaskRange: Range;
   actionHint: ActionHintMode;
+  /** game-design §14.1 clamp for the final chance in percent */
+  winChanceBounds: Range;
+}
+
+/** game-design §13 / §14.3 – admin-configurable (AP9). */
+export interface PenaltyRules {
+  lockoutMinutes: number;
+  /** Fields added per loss = step × loss streak */
+  penaltyStep: number;
+  maxPenaltyFields: number;
+  /** Fields removed per full hour */
+  decayAmount: number;
+  goodChanceStep: number;
+  goodChanceBounds: Range;
+  successRemoveFields: number;
+  partialRemoveFields: number;
 }
 
 /** game-design §15 – persisted between sessions. */
@@ -59,6 +75,8 @@ export interface Progression {
   imageRecency: Record<string, number>;
   /** Number of sessions started so far; the next session gets index sessionCounter + 1. */
   sessionCounter: number;
+  /** Written together with the outcome, so closing a session twice never applies it twice. */
+  lastAppliedSessionId: string | null;
 }
 
 export type CardKind = 'normal' | 'action' | 'goal';
@@ -147,7 +165,32 @@ export type ResolutionStep =
   | { kind: 'switcheroo_pool'; pools: SwitcherooPool[] }
   | { kind: 'switcheroo_folder'; pool: SwitcherooPool; folderIds: string[] };
 
-export type EndReason = 'ended_early' | 'mistress_says_no';
+/** Why a session ended – also the outcome recorded in history (game-design §17). */
+export type EndReason =
+  'success' | 'interrupted' | 'no_result' | 'denied' | 'ended_early' | 'mistress_says_no';
+
+export type RewardChoice = 'remove_penalty_fields' | 'increase_good_chance' | 'block_bad_action';
+export type Reward =
+  | { type: 'remove_penalty_fields' }
+  | { type: 'increase_good_chance' }
+  | { type: 'block_bad_action'; action: ActionId };
+
+/** game-design §14.1 */
+export interface WinCheck {
+  discovered: number;
+  roll: number;
+  baseChance: number;
+  multiplier: number;
+  finalChance: number;
+}
+
+/** Decided when the wheel starts (§14.2); the animation is choreographed to it. */
+export interface FinalWheel {
+  result: 'allowed' | 'denied';
+  /** 0..1 position inside the winning area where the pointer stops */
+  landing: number;
+  holdSeconds: number;
+}
 
 export interface SessionStats {
   rolls: number;
@@ -191,5 +234,8 @@ export interface SessionState {
   endReason: EndReason | null;
   /** Progression changes earned during the session, applied at session end (AP6). */
   penaltyFieldsRemoved: number;
+  winCheck: WinCheck | null;
+  finalWheel: FinalWheel | null;
+  reward: Reward | null;
   stats: SessionStats;
 }

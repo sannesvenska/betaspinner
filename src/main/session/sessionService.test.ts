@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_PROGRESSION } from '@shared/session/defaults';
 import { standardInput } from '@shared/session/testFixtures';
+import type { SessionRecord } from '@shared/session/history';
 import type { Progression, SessionState } from '@shared/session/types';
 import type { JsonStore } from '../storage/jsonStore';
 import { createSessionService, SessionServiceError } from './sessionService';
@@ -25,17 +26,19 @@ async function setup(progression: Progression = DEFAULT_PROGRESSION) {
   const fixture = standardInput();
   const progressionStore = memoryStore(progression);
   const sessionStore = memoryStore<SessionState | null>(null);
+  const historyStore = memoryStore<SessionRecord[]>([]);
   let seed = 100;
   const service = await createSessionService({
     progressionStore,
     sessionStore,
+    historyStore,
     folders: () => fixture.folders,
     media: () => fixture.media,
     now: () => new Date('2026-09-29T20:00:00.000Z'),
     randomSeed: () => seed++,
     newId: () => 'session-id',
   });
-  return { service, progressionStore, sessionStore };
+  return { service, progressionStore, sessionStore, historyStore };
 }
 
 describe('sessionService', () => {
@@ -80,8 +83,8 @@ describe('sessionService', () => {
     expect(sessionStore.writes()).toBe(writesBefore + 1);
   });
 
-  it('closes only finished sessions and records shown images', async () => {
-    const { service, progressionStore, sessionStore } = await setup();
+  it('closes only finished sessions, applies the loss once, records history and shown images', async () => {
+    const { service, progressionStore, sessionStore, historyStore } = await setup();
     const { session } = await service.spin();
     await expect(service.close()).rejects.toMatchObject({ code: 'not_finished' });
 
@@ -90,5 +93,61 @@ describe('sessionService', () => {
     expect(sessionStore.current()).toBeNull();
     const startHash = session ? (session.cards[session.startField - 1]?.imageHash ?? '') : '';
     expect(progressionStore.current().imageRecency[startHash]).toBe(1);
+    // Loss: streak 1 → 2 penalty fields
+    expect(progressionStore.current()).toMatchObject({ lossStreak: 1, lastAppliedSessionId: 'session-id' });
+    expect(progressionStore.current().penaltyFields).toHaveLength(2);
+    expect(historyStore.current()).toHaveLength(1);
+    expect(historyStore.current()[0]).toMatchObject({ id: 'session-id', outcome: 'ended_early' });
+  });
+});
+
+describe('sessionService idempotency and decay', () => {
+  it('never applies the same session twice (crash between writes)', async () => {
+    const { service, progressionStore, sessionStore, historyStore } = await setup();
+    const { session } = await service.spin();
+    const ended = {
+      ...(session as SessionState),
+      phase: 'ended' as const,
+      endReason: 'ended_early' as const,
+    };
+    // Simulate: progression already applied, then crash before the session was cleared
+    await progressionStore.write({
+      ...progressionStore.current(),
+      lossStreak: 1,
+      penaltyFields: [5, 6],
+      lastAppliedSessionId: ended.id,
+    });
+    await sessionStore.write(ended);
+    const restarted = await createSessionService({
+      progressionStore,
+      sessionStore,
+      historyStore,
+      folders: () => [],
+      media: () => [],
+    });
+    await restarted.close();
+    expect(progressionStore.current()).toMatchObject({ lossStreak: 1, penaltyFields: [5, 6] });
+    expect(historyStore.current()).toHaveLength(1);
+  });
+
+  it('decays penalty fields and reports the change', async () => {
+    const progression = {
+      ...DEFAULT_PROGRESSION,
+      penaltyFields: [1, 2, 3, 4],
+      lastDecayAt: '2026-09-29T18:00:00.000Z',
+    };
+    const changes: Progression[] = [];
+    const service = await createSessionService({
+      progressionStore: memoryStore<Progression>(progression),
+      sessionStore: memoryStore<SessionState | null>(null),
+      historyStore: memoryStore<SessionRecord[]>([]),
+      folders: () => [],
+      media: () => [],
+      now: () => new Date('2026-09-29T20:00:00.000Z'),
+      onProgressionChanged: (next) => changes.push(next),
+    });
+    await service.tickDecay();
+    expect(service.snapshot().progression.penaltyFields).toEqual([]);
+    expect(changes).toHaveLength(1);
   });
 });

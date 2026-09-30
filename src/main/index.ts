@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, globalShortcut } from 'electron';
 import type { LibraryIndex } from '@shared/content';
 import { DEFAULT_PROGRESSION } from '@shared/session/defaults';
+import type { SessionRecord } from '@shared/session/history';
 import type { Progression, SessionState } from '@shared/session/types';
 import type { IpcEvent, IpcEventContract } from '@shared/ipc';
 import {
@@ -17,6 +18,8 @@ import { handleMediaProtocol, registerMediaScheme } from './content/mediaProtoco
 import { runScanInWorker } from './content/runScanInWorker';
 import { registerIpcHandlers } from './ipc/registerIpcHandlers';
 import {
+  HISTORY_SCHEMA_VERSION,
+  normalizeHistory,
   normalizeProgression,
   normalizeSessionFile,
   PROGRESSION_SCHEMA_VERSION,
@@ -30,6 +33,7 @@ import { createMainWindow } from './window';
 const isDev = !app.isPackaged;
 /** Default from game-design §19; configurable in AP9. */
 const PAUSE_HOTKEY = 'CommandOrControl+Shift+Space';
+const DECAY_CHECK_INTERVAL_MS = 60_000;
 
 // Dev/test only: isolate app data (config, index) from the real profile
 const userDataOverride = process.env.CHANCE_RUNNER_USER_DATA;
@@ -97,9 +101,28 @@ async function startApp(): Promise<void> {
       defaults: null,
       normalize: normalizeSessionFile,
     }),
+    historyStore: createJsonStore<SessionRecord[]>({
+      directory: userData,
+      fileName: 'history.json',
+      schemaVersion: HISTORY_SCHEMA_VERSION,
+      defaults: [],
+      normalize: normalizeHistory,
+    }),
     folders: () => config.get().folders,
     media: library.mediaEntries,
+    onProgressionChanged: (progression) => {
+      broadcast('session:progression', progression);
+    },
   });
+
+  // game-design §13.3: decay lazily on start and every minute while running
+  const runDecay = () => {
+    sessions.tickDecay().catch((error: unknown) => {
+      console.error('[progression] decay failed', error);
+    });
+  };
+  runDecay();
+  const decayTimer = setInterval(runDecay, DECAY_CHECK_INTERVAL_MS);
 
   const getMainWindow = (): BrowserWindow | undefined => BrowserWindow.getAllWindows()[0];
 
@@ -160,6 +183,7 @@ async function startApp(): Promise<void> {
     console.error(`[pause] could not register global hotkey ${PAUSE_HOTKEY}`);
   }
   app.on('will-quit', () => {
+    clearInterval(decayTimer);
     globalShortcut.unregisterAll();
   });
 

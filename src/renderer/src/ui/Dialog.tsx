@@ -8,9 +8,6 @@ interface ModalProps {
   children: ReactNode;
 }
 
-/** Mark the safe default action with this attribute; it gets focus when the dialog opens. */
-export const DIALOG_AUTOFOCUS = { 'data-autofocus': true } as const;
-
 /**
  * Native <dialog> modal: focus trap, Esc handling and inert background come from the platform.
  * React's `autoFocus` runs before `showModal()` and would be overridden (the first button wins),

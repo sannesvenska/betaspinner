@@ -256,7 +256,10 @@
     "generation": {
       "no_good_category": "No usable good content folder. Check the library.",
       "no_bad_category": "No usable bad content folder. Check the library."
-    }
+    },
+    "nextDecay": "Next decay",
+    "decayHint": "−{{count}} fields every hour",
+    "lossHint": "Next loss adds {{count}} fields"
   },
   "initial": {
     "eyebrow": "Goal field {{goal}}",
@@ -278,16 +281,29 @@
     "endEarlyHint": "Ending early counts as a loss."
   },
   "end": {
-    "endedEarly": "Session ended early",
-    "mistress": "Mistress says no",
-    "mistressBody": "The session is over. It counts as a loss.",
-    "endedBody": "It counts as a loss.",
-    "goalReached": "Goal reached",
-    "goalBody": "The win check and final wheel arrive in the next build.",
     "discovered": "Discovered",
     "rounds": "Rounds",
     "tasks": "Tasks",
-    "backToStart": "Back to start"
+    "backToStart": "Back to start",
+    "outcome": {
+      "success": "Success",
+      "interrupted": "Interrupted",
+      "no_result": "No result",
+      "denied": "Denied",
+      "ended_early": "Session ended early",
+      "mistress_says_no": "Mistress says no"
+    },
+    "changesTitle": "What changes",
+    "change": {
+      "added_one": "+{{count}} penalty field",
+      "added_other": "+{{count}} penalty fields",
+      "removed_one": "−{{count}} penalty field",
+      "removed_other": "−{{count}} penalty fields",
+      "goodChance": "Good chance {{delta}} %",
+      "lossStreak": "Loss streak {{count}}",
+      "blocked": "Blocked next session: {{action}}",
+      "nothing": "Nothing changes."
+    }
   },
   "game": {
     "field": "Field",
@@ -373,5 +389,48 @@
   "pause": {
     "title": "Paused",
     "body": "Click anywhere or press"
+  },
+  "win": {
+    "eyebrow": "Session {{number}} · Goal reached",
+    "checkTitle": "Goal reached",
+    "checkBody": "You discovered {{discovered}} of 100 cards. Roll to set your chance: discovered ÷ roll.",
+    "roll": "Roll",
+    "wheelTitle": "Final wheel",
+    "wheelBody": "Stay right at the edge. The wheel stops when the countdown hits zero. White: you may finish. Red: denied.",
+    "startTask": "Start task",
+    "holdPosition": "Hold position",
+    "holding": "Holding position…",
+    "continue": "Continue",
+    "hold": "Hold",
+    "ofSeconds": "of {{seconds}} s",
+    "baseChance": "Base chance",
+    "baseDetail": "{{discovered}} discovered ÷ roll {{roll}}",
+    "multiplier": "Hail Mary",
+    "multiplierDetail": "Success multiplier",
+    "finalChance": "Final chance",
+    "finalDetail": "White {{chance}} % · red {{rest}} %",
+    "allowed": "Allowed",
+    "denied": "Denied",
+    "areaAllowed": "Allowed",
+    "areaDenied": "Denied"
+  },
+  "outcome": {
+    "allowedTitle": "Success allowed",
+    "allowedBody": "How did it end?",
+    "succeeded": "I succeeded",
+    "succeededHint": "Choose a reward",
+    "interrupted": "Interrupted",
+    "interruptedHint": "−{{count}} penalty fields",
+    "noResult": "No result",
+    "noResultHint": "−{{count}} penalty fields · good chance −{{percent}} %",
+    "rewardTitle": "Choose your reward",
+    "reward": {
+      "remove_penalty_fields": "Remove {{count}} penalty fields",
+      "increase_good_chance": "Good chance +{{percent}} %",
+      "block_bad_action": "Block a random bad action next session"
+    },
+    "back": "Back",
+    "deniedTitle": "Denied",
+    "deniedBody": "Not this time. Denied is neutral: no penalty fields, no changes to your chances."
   }
 }

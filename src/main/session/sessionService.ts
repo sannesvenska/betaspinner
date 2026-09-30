@@ -1,17 +1,22 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import type { FolderConfig, MediaEntry } from '@shared/content';
 import type { SessionMediaKinds, SessionSnapshot, SessionView, SpinResult } from '@shared/ipc';
-import { DEFAULT_ACTIONS, DEFAULT_PIXELATE_MAX_LEVEL, DEFAULT_SESSION_RULES } from '@shared/session/defaults';
+import {
+  DEFAULT_ACTIONS,
+  DEFAULT_PENALTY_RULES,
+  DEFAULT_PIXELATE_MAX_LEVEL,
+  DEFAULT_SESSION_RULES,
+} from '@shared/session/defaults';
 import type { EngineContext } from '@shared/session/engine/context';
 import { reduce, type EngineEvent } from '@shared/session/engine/reduce';
 import { generateSession, GenerationError } from '@shared/session/generateSession';
 import { spinStartWheel } from '@shared/session/goalAndStart';
+import { toSessionRecord, type SessionRecord } from '@shared/session/history';
+import { applyDecay, applySessionOutcome } from '@shared/session/progressionRules';
 import { createRng } from '@shared/session/rng';
 import type { Progression, SessionState } from '@shared/session/types';
 import type { JsonStore } from '../storage/jsonStore';
 
-/** game-design §13.1 – configurable with penalties in AP6/AP9. */
-const PENALTY_LOCKOUT_MINUTES = 15;
 const MS_PER_MINUTE = 60_000;
 /** Seeds stay within int32 so they round-trip through JSON and the PRNG unchanged. */
 const MAX_SEED = 2 ** 31 - 1;
@@ -26,6 +31,9 @@ export class SessionServiceError extends Error {
 interface SessionServiceOptions {
   progressionStore: JsonStore<Progression>;
   sessionStore: JsonStore<SessionState | null>;
+  historyStore: JsonStore<SessionRecord[]>;
+  /** Progression changed outside a request (decay timer) – push it to the UI. */
+  onProgressionChanged?: (progression: Progression) => void;
   folders: () => readonly FolderConfig[];
   media: () => readonly MediaEntry[];
   now?: () => Date;
@@ -37,8 +45,10 @@ export interface SessionService {
   snapshot: () => SessionSnapshot;
   spin: () => Promise<SpinResult>;
   dispatch: (event: EngineEvent) => Promise<SessionView>;
-  /** Clears a finished session (ended / goal reached) and records image recency. */
+  /** Applies a finished session to progression, writes history and clears it (idempotent). */
   close: () => Promise<SessionSnapshot>;
+  /** §13.3 lazy decay – call on start and periodically. */
+  tickDecay: () => Promise<void>;
 }
 
 const isActive = (session: SessionState | null): session is SessionState =>
@@ -91,7 +101,7 @@ export async function createSessionService(options: SessionServiceOptions): Prom
     const wheel = spinStartWheel(createRng(randomSeed()), DEFAULT_SESSION_RULES, progression.penaltyFields);
     if (wheel.penalty) {
       const lockoutUntil = new Date(
-        current.getTime() + PENALTY_LOCKOUT_MINUTES * MS_PER_MINUTE,
+        current.getTime() + DEFAULT_PENALTY_RULES.lockoutMinutes * MS_PER_MINUTE,
       ).toISOString();
       await saveProgression({ ...progression, lockoutUntil });
       return { wheel, session: null, mediaKinds: {}, lockoutUntil };
@@ -137,22 +147,44 @@ export async function createSessionService(options: SessionServiceOptions): Prom
 
   async function close(): Promise<SessionSnapshot> {
     if (!session) return snapshot();
-    if (session.phase !== 'ended' && session.phase !== 'win_check')
-      throw new SessionServiceError('not_finished');
-    const index = session.sessionIndex;
-    const shown = session.cards
-      .filter((card) => card.discovered && card.imageHash)
-      .map((card) => card.imageHash as string);
-    await saveProgression({
-      ...progression,
-      imageRecency: {
-        ...progression.imageRecency,
-        ...Object.fromEntries(shown.map((hash) => [hash, index])),
-      },
-    });
+    const finished = session;
+    if (finished.phase !== 'ended') throw new SessionServiceError('not_finished');
+    const endedAt = now();
+
+    const { progression: applied, change } = applySessionOutcome(
+      progression,
+      finished,
+      DEFAULT_PENALTY_RULES,
+      createRng(randomSeed()),
+    );
+    if (progression.lastAppliedSessionId !== finished.id) {
+      const shown = finished.cards.flatMap((card) =>
+        card.discovered && card.imageHash ? [card.imageHash] : [],
+      );
+      await saveProgression({
+        ...applied,
+        imageRecency: {
+          ...progression.imageRecency,
+          ...Object.fromEntries(shown.map((hash) => [hash, finished.sessionIndex])),
+        },
+        lastAppliedSessionId: finished.id,
+      });
+    }
+
+    const history = await options.historyStore.read();
+    if (!history.some((record) => record.id === finished.id)) {
+      await options.historyStore.write([...history, toSessionRecord(finished, endedAt, change)]);
+    }
     await saveSession(null);
     return snapshot();
   }
 
-  return { snapshot, spin, dispatch, close };
+  async function tickDecay(): Promise<void> {
+    const next = applyDecay(progression, now(), DEFAULT_PENALTY_RULES, createRng(randomSeed()));
+    if (next === progression) return;
+    await saveProgression(next);
+    options.onProgressionChanged?.(next);
+  }
+
+  return { snapshot, spin, dispatch, close, tickDecay };
 }

@@ -6,6 +6,7 @@ import { activeNegativeEffects, directionSign, getBlockedDirection, tickRound } 
 import { findRelocationTarget, swapGoal } from './relocation';
 import { afterClearingEdges, landOn, removeChosenEffect } from './resolveCard';
 import { applySwitcheroo, drawSwitcherooAlternatives } from './switcheroo';
+import { applyWinFlow, type WinFlowEvent } from './winFlow';
 
 const DIE_SIDES = 6;
 const GUESS_PENALTY_FIELDS = 2;
@@ -21,7 +22,8 @@ export type EngineEvent =
   | { type: 'chooseReward'; reward: 'remove_effect' | 'remove_penalty_fields' }
   | { type: 'switcherooPool'; pool: SwitcherooPool }
   | { type: 'switcherooFolder'; folderId: string }
-  | { type: 'endEarly' };
+  | { type: 'endEarly' }
+  | Exclude<WinFlowEvent, { type: 'confirm' }>;
 
 export type EngineErrorCode = 'invalid_event' | 'invalid_value' | 'direction_blocked';
 
@@ -38,17 +40,16 @@ const isDieValue = (value: number): boolean => Number.isInteger(value) && value 
  * they return the unchanged state with an error code, so the UI can't corrupt a session.
  */
 export function reduce(state: SessionState, event: EngineEvent, context: EngineContext): EngineResult {
-  if (
-    state.phase === 'ended' ||
-    state.phase === 'win_check' ||
-    state.phase === 'final_wheel' ||
-    state.phase === 'outcome'
-  ) {
-    return { state, error: 'invalid_event' };
-  }
+  if (state.phase === 'ended') return { state, error: 'invalid_event' };
   const draft = structuredClone(state);
   const rng = createRng(draft.rngState);
-  const error = apply(draft, rng, event, context);
+  const afterGoal = state.phase === 'win_check' || state.phase === 'final_wheel' || state.phase === 'outcome';
+  // End Early is only available until the Goal Field is reached (§7.2)
+  const error = afterGoal
+    ? event.type === 'endEarly'
+      ? 'invalid_event'
+      : applyWinFlow(draft, rng, event as WinFlowEvent, context)
+    : apply(draft, rng, event, context);
   if (error) return { state, error };
   draft.rngState = rng.state;
   return { state: draft };

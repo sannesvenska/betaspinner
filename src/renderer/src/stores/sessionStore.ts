@@ -15,6 +15,8 @@ interface SessionStoreState {
   dispatch: (event: EngineEvent) => Promise<SessionState | null>;
   close: () => Promise<void>;
   dismissError: () => void;
+  /** Receives progression pushed by main (hourly decay); returns the unsubscribe function. */
+  subscribe: () => () => void;
 }
 
 export const useSessionStore = create<SessionStoreState>()((set, get) => ({
@@ -71,6 +73,11 @@ export const useSessionStore = create<SessionStoreState>()((set, get) => ({
   dismissError: () => {
     set({ error: null });
   },
+  subscribe: () =>
+    window.api.on('session:progression', (progression) => {
+      const snapshot = get().snapshot;
+      if (snapshot) set({ snapshot: { ...snapshot, progression } });
+    }),
 }));
 
 export const useSession = (): SessionState | null =>

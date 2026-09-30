@@ -36,7 +36,7 @@ export function Button({
     <button
       type={type}
       className={classNames(
-        'inline-flex min-w-11 items-center justify-center gap-3 rounded-panel font-display font-semibold uppercase tracking-button transition-colors duration-150',
+        'inline-flex min-w-11 items-center justify-center gap-3 whitespace-nowrap rounded-panel font-display font-semibold uppercase tracking-button transition-colors duration-150',
         VARIANT_CLASSES[variant],
         SIZE_CLASSES[size],
         className,

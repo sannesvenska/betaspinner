@@ -1,5 +1,5 @@
 import type { ActionId } from '../actions';
-import type { ActionConfig, Progression, SessionRules } from './types';
+import type { ActionConfig, PenaltyRules, Progression, SessionRules } from './types';
 
 /** game-design §6 defaults. */
 export const DEFAULT_SESSION_RULES: SessionRules = {
@@ -21,6 +21,19 @@ export const DEFAULT_SESSION_RULES: SessionRules = {
   actionRetrigger: 'once',
   consumedTaskRange: [6, 20],
   actionHint: 'split_by_side',
+  winChanceBounds: [1, 95],
+};
+
+/** game-design §13, §14.3 defaults. */
+export const DEFAULT_PENALTY_RULES: PenaltyRules = {
+  lockoutMinutes: 15,
+  penaltyStep: 2,
+  maxPenaltyFields: 40,
+  decayAmount: 2,
+  goodChanceStep: 0.03,
+  goodChanceBounds: [0.2, 0.7],
+  successRemoveFields: 4,
+  partialRemoveFields: 2,
 };
 
 /** game-design §12.4: blockSizes has 6 entries → levels 0..5. Configurable with visual effects (AP8/AP9). */
@@ -39,6 +52,7 @@ export const DEFAULT_PROGRESSION: Progression = {
   categoryUsage: {},
   imageRecency: {},
   sessionCounter: 0,
+  lastAppliedSessionId: null,
 };
 
 const action = (

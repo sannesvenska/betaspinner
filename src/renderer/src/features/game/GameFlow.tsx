@@ -1,11 +1,16 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { DEFAULT_PENALTY_RULES } from '@shared/session/defaults';
+import { applySessionOutcome, LOSS_OUTCOMES } from '@shared/session/progressionRules';
+import { createRng } from '@shared/session/rng';
 import type { SessionState } from '@shared/session/types';
+import { FinalWheelScreen, OutcomeScreen, WinCheckScreen } from '@renderer/features/win/WinScreens';
 import { useLibraryStore } from '@renderer/stores/libraryStore';
 import { useSessionStore } from '@renderer/stores/sessionStore';
 import { useUiStore } from '@renderer/stores/uiStore';
 import { Button } from '@renderer/ui/Button';
-import { Dialog, DIALOG_AUTOFOCUS } from '@renderer/ui/Dialog';
+import { Dialog } from '@renderer/ui/Dialog';
+import { DIALOG_AUTOFOCUS } from '@renderer/ui/dialogAutofocus';
 import { GameScreen } from './GameScreen';
 
 function useSpaceToConfirm(action: () => void) {
@@ -110,20 +115,36 @@ function CategoryReveal({ session }: { session: SessionState }) {
 function SessionEnd({ session }: { session: SessionState }) {
   const { t } = useTranslation();
   const close = useSessionStore((state) => state.close);
-  const goal = session.phase === 'win_check';
-  const title = goal
-    ? t('end.goalReached')
-    : session.endReason === 'mistress_says_no'
-      ? t('end.mistress')
-      : t('end.endedEarly');
-  const body = goal
-    ? t('end.goalBody')
-    : session.endReason === 'mistress_says_no'
-      ? t('end.mistressBody')
-      : t('end.endedBody');
+  const progression = useSessionStore((state) => state.snapshot?.progression);
+  const outcome = session.endReason ?? 'ended_early';
   const discovered = session.cards.filter((card) => card.discovered).length;
+  const onClose = useCallback(() => void close(), [close]);
+  useSpaceToConfirm(onClose);
+
+  // Preview only: counts are deterministic, the random field positions are decided when closing
+  const change = progression
+    ? applySessionOutcome(progression, session, DEFAULT_PENALTY_RULES, createRng(0)).change
+    : null;
+  const changeLines = change
+    ? [
+        change.penaltyFieldsAdded > 0 && t('end.change.added', { count: change.penaltyFieldsAdded }),
+        change.penaltyFieldsRemoved > 0 && t('end.change.removed', { count: change.penaltyFieldsRemoved }),
+        change.goodChanceDelta !== 0 &&
+          t('end.change.goodChance', {
+            delta: `${change.goodChanceDelta > 0 ? '+' : '−'}${Math.abs(Math.round(change.goodChanceDelta * 1000) / 10)}`,
+          }),
+        LOSS_OUTCOMES.includes(outcome) && t('end.change.lossStreak', { count: change.lossStreak }),
+        session.reward?.type === 'block_bad_action' &&
+          t('end.change.blocked', { action: t(`action.${session.reward.action}.name`) }),
+      ].filter((line): line is string => typeof line === 'string')
+    : [];
+  const isLoss = LOSS_OUTCOMES.includes(outcome);
+
   return (
-    <CenteredScreen eyebrow={t('game.fieldLabel', { field: session.position })} title={title} body={body}>
+    <CenteredScreen
+      eyebrow={t('game.fieldLabel', { field: session.position })}
+      title={t(`end.outcome.${outcome}`)}
+    >
       <dl className="flex gap-12">
         {[
           [t('end.discovered'), `${discovered} / 100`],
@@ -136,8 +157,20 @@ function SessionEnd({ session }: { session: SessionState }) {
           </div>
         ))}
       </dl>
+      <section
+        className={`flex max-w-xl flex-col gap-2 border-l-3 pl-4 ${isLoss ? 'border-bad' : 'border-ring-empty'}`}
+      >
+        <h2 className="font-label text-label uppercase tracking-label text-ink-muted">
+          {t('end.changesTitle')}
+        </h2>
+        {(changeLines.length > 0 ? changeLines : [t('end.change.nothing')]).map((line) => (
+          <p key={line} className="text-body text-ink-2">
+            {line}
+          </p>
+        ))}
+      </section>
       <div>
-        <Button variant="primary" size="primary" onClick={() => void close()}>
+        <Button variant="primary" size="primary" keyHint="Space" onClick={onClose}>
           {t('end.backToStart')}
         </Button>
       </div>
@@ -153,16 +186,21 @@ export function GameFlow({ session }: { session: SessionState }) {
   const answerResume = useUiStore((state) => state.answerResume);
   const markRevealed = useUiStore((state) => state.markRevealed);
   const dispatch = useSessionStore((state) => state.dispatch);
-  const finished = session.phase === 'ended' || session.phase === 'win_check';
+  const finished = session.phase === 'ended';
+  const afterGoal =
+    session.phase === 'win_check' || session.phase === 'final_wheel' || session.phase === 'outcome';
 
   let screen;
   if (finished) screen = <SessionEnd session={session} />;
+  else if (session.phase === 'win_check') screen = <WinCheckScreen session={session} />;
+  else if (session.phase === 'final_wheel') screen = <FinalWheelScreen session={session} />;
+  else if (session.phase === 'outcome') screen = <OutcomeScreen session={session} />;
   else if (session.phase === 'initial_task') screen = <InitialTask session={session} />;
   else if (!revealed && session.round === 0) screen = <CategoryReveal session={session} />;
   else screen = <GameScreen session={session} />;
 
   // A session found on app start: resume or end early (§8.3)
-  const askResume = !resumeAnswered && !finished;
+  const askResume = !resumeAnswered && !finished && !afterGoal;
   return (
     <>
       {screen}

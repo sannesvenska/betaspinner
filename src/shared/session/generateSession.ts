@@ -220,6 +220,9 @@ export function generateSession(input: GenerateSessionInput): GenerateSessionRes
       lastMove: null,
       endReason: null,
       penaltyFieldsRemoved: 0,
+      winCheck: null,
+      finalWheel: null,
+      reward: null,
       stats: {
         rolls: 0,
         tasksPerformed: 0,

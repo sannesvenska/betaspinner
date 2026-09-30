@@ -106,15 +106,18 @@ Order note: win flow (AP6) comes **before** actions (AP7) so a complete session 
 
 **Deferred:** U Turn dashed arc on the ring (AP7), win check / final wheel (AP6).
 
-## AP6 – Win flow & progression · M · ⬜
+## AP6 – Win flow & progression · M · ✅
 
-1. Win check screen (discovered, roll, chance calc).
-2. Final wheel with Hold Position choreography.
-3. Outcomes + reward choice; Denied neutral.
-4. Penalty escalation, decay (lazy + every minute), lockout.
-5. `progression.json` updates; history entry.
+| #   | Task                                                                                                                                                                 | Status |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 6.1 | Engine win flow: win check roll + chance (§14.1), final wheel decided on start, outcome choice with rewards, Denied neutral                                          | ✅     |
+| 6.2 | Final wheel UI: constant spin, Hold Position countdown, deceleration planned to stop exactly on the decided spot (unit tested), pause-aware, labeled + hatched areas | ✅     |
+| 6.3 | Outcome screen (I succeeded → reward / Interrupted / No result), Denied screen, end screen with progression preview                                                  | ✅     |
+| 6.4 | Progression rules: loss escalation (step × streak, cap 40), rewards, partial removal, good chance clamp, Guessing Game removals, hourly decay with remainder         | ✅     |
+| 6.5 | Main: idempotent close (`lastAppliedSessionId`), `history.json`, decay on start + every minute with push to the UI, lockout from penalty rules                       | ✅     |
+| 6.6 | Start screen: next decay countdown, next-loss hint                                                                                                                   | ✅     |
 
-**Result:** M2 – full session cycle.
+**Verified:** 116 tests; e2e in the running app for Denied (neutral, history written) and Allowed → Success → reward (good chance 0.40 → 0.43, streak reset).
 
 ## AP7 – Actions & effects UI · L · ⬜
 

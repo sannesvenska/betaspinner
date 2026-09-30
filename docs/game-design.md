@@ -576,6 +576,16 @@ When the player lands on the Goal Field:
 
 ---
 
+### 14.4 Implementation Notes
+
+Engine: `src/shared/session/engine/winFlow.ts`; progression math: `src/shared/session/progressionRules.ts` (both unit tested).
+
+- The final wheel result and the landing spot (10–90 % inside the winning area) are decided by the session RNG on "Start Task". Hold Position runs a countdown of `discovered` seconds; the wheel decelerates from its current speed so it stops exactly at 0 on that spot. Pause freezes the countdown and the wheel.
+- "Block a random bad action" picks an enabled bad action except Mistress Says No (already gated by `sessionChance`).
+- Progression is applied when the finished session is closed ("Back to start"). `lastAppliedSessionId` is written atomically with it, so a crash between writes never applies a session twice; history entries are de-duplicated by session id.
+- Decay keeps the remainder of a started hour (`lastDecayAt` advances by whole hours) and runs on start and every minute.
+- The end screen previews the progression change before it is applied.
+
 ## 15. Persistent Progression
 
 Stored in `progression.json`:
