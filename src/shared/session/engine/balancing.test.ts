@@ -17,8 +17,11 @@ describe(`balancing simulation – ${GAMES} bot games (AP9.9)`, () => {
 
       // Almost every game reaches the goal (the rest ends by Mistress Says No)
       expect(summary.reachedGoal).toBeGreaterThan(GAMES * 0.85);
-      // Guard rail, not a target: measured ≈ 126 rounds with the 2026-09-30 defaults (see ROADMAP AP9.9)
-      expect(summary.avgRounds).toBeLessThan(150);
+      // Product target 80–100 rounds and ≈ 40 % (ROADMAP AP9.9); measured 81 rounds / 41 % with 0.5 % and 1 conversion
+      expect(summary.avgRounds).toBeGreaterThan(70);
+      expect(summary.avgRounds).toBeLessThan(105);
+      expect(summary.avgFinalChance).toBeGreaterThan(35);
+      expect(summary.avgFinalChance).toBeLessThan(47);
       expect(summary.avgFinalChance).toBeGreaterThanOrEqual(TARGET_CHANCE);
       // Detours actually change the board; drifts happen but stay rare
       expect(summary.avgDetourConversions).toBeGreaterThan(2);

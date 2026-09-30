@@ -147,7 +147,7 @@ Order note: win flow (AP6) comes **before** actions (AP7) so a complete session 
 
 **Result:** M3 – feature-complete game.
 
-## AP9 – Gameplay v2 · L · 🟨
+## AP9 – Gameplay v2 · L · ✅
 
 Implements game-design **Revision 3** (all rules marked **[v2]**, decision log §24.1). Order: data model → generator → engine → UI, so every step stays testable.
 
@@ -164,24 +164,40 @@ Implements game-design **Revision 3** (all rules marked **[v2]**, decision log �
 | 9.9  | Tests: unit per rule, fuzz test with the new events, balancing simulation (1,000 bot games: rounds, final chance, share of bad cards seen, conversions, drifts) to verify the defaults                                                     | ✅     |
 | 9.10 | Game UI: session briefing (categories, performer, action pool), console stats, detour badge, forced reversal, stroke tier picker, multi-dice animation, collectible marker + tier notice, goal drift pulse, win check screen without roll  | ✅     |
 | 9.11 | Library screen (minimal until AP10): folder role `performer`; action card list with image assign / duplicate / enable                                                                                                                      | ✅     |
-| 9.12 | Stats + history fields (§17 v2), i18n keys (`pnpm check:i18n`), game-design: remove the `[v2]` markers and superseded rules once implemented                                                                                               | 🟨     |
+| 9.12 | Stats + history fields (§17 v2), i18n keys (`pnpm check:i18n`), game-design: remove the `[v2]` markers and superseded rules once implemented                                                                                               | ✅     |
 
 **Risk:** the defaults (detour conversion 2, rate 0.4 %, tiers, drift range, reversal 10 %) interact – 9.9 decides whether they need tuning before the admin exposes them.
 
 **Verified:** 147 tests (engine rules per mechanic, fuzz test with tiers/drift/reversal, config v2 → v3 migration, action card service, legacy session discard); e2e in the running app with generated media: library action cards tab (image assigned), initial task = N, briefing, stroke tiers + multi-dice, detour badge + conversions, forced reversal, collectibles + tiers, goal drift, final wheel with release chance breakdown. Found and fixed: `allocateByWeight` dropped a card with a remainder of 2 (3 categories → a normal card without folder).
 
-**Balancing (9.9, 200 bot games, bot explores until 25 % then heads for the goal, uses stroke tiers to jump out of explored areas):** 186 / 200 reach the goal (rest: Mistress Says No), Ø 126 rounds, Ø final chance 40 %, Ø 35 cards converted by detours, Ø 98 revisit conversions, Ø 2.4 goal drifts, Ø 4.2 collectibles. Without stroke tiers the bot needs far longer (Ø 162 rounds, 109 / 200 within the event limit). Observation from the e2e run: with the detour rule all undiscovered bad cards were gone after ~50 rounds. **Open decision for the product owner** before AP10: keep 0.4 % / 2 conversions, or tune (e.g. 0.5 % per card, 1 conversion per detour).
+**Balancing (9.9):** simulation with a bot that explores until a target chance, then heads for the goal (`engine/balancingBot.ts`). The first defaults (0.4 % per card, 2 conversions per detour) gave Ø 126 rounds / 40 %; the product target is Ø 80–100 rounds at ≈ 40 %. Parameter grid (100 games each):
 
-**Open (9.12):** the `[v2]` markers stay in game-design until the product owner has confirmed the balancing; superseded rules are marked there.
+| Rate | Conversions | Bot stops at | Ø rounds | Ø final chance |
+| ---- | ----------- | ------------ | -------- | -------------- |
+| 0.4  | 2           | 25 %         | 121      | 38 %           |
+| 0.5  | 1           | 25 %         | 81       | 41 %           |
+| 0.5  | 1           | 30 %         | 102      | 47 %           |
+| 0.6  | 1           | 25 %         | 72       | 42 %           |
 
-**Result:** M4 – Gameplay v2 (after 9.12).
+**Decision (product owner, 2026-09-30):** 0.5 % per discovered card, 1 conversion per detour. The balancing test now guards 70–105 rounds and 35–47 %.
 
-## AP10 – Admin · L · ⬜
+**Result:** M4 – Gameplay v2.
 
-1. Folders (full properties, weights, task ranges) incl. performer folders.
-2. Action cards (§10.4): definitions list with image, create/duplicate/edit/disable/reset, params, `requires`, action pool size + generator simulation (1,000 runs) with distribution preview.
-3. Session Rules (incl. v2 values: category ranges, detour, release chance rate, hold cap, goal drift, stroke tiers, forced reversal), Performers (collectible count, revisit range, tiers), Visual Effects, Penalties & Progression (+ reset), Sound & Controls (hotkey, animation speed, reduced motion).
-4. Validation + inline errors.
+## AP10 – Admin · L · ✅
+
+| #    | Task                                                                                                                                                                                                         | Status |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| 10.1 | `config.json` v4: `game` = session rules, penalties, visual effects; `settings.pauseHotkey`. One declarative field schema (`src/shared/config/gameConfig.ts`) drives validation and normalization            | ✅     |
+| 10.2 | Main: rules come from the config and are **snapshot into each session** (session schema v3), penalties/decay/lockout from the config, pixelate levels from visual effects, hotkey re-registered live         | ✅     |
+| 10.3 | IPC: `config:getGame/updateGame/resetGame` (invalid input rejected, never clamped), `progression:reset`, `session:reroll`, `admin:simulate`; action card edits validated in main                             | ✅     |
+| 10.4 | Admin screen with sections: Folders (+ properties: weights, task range, min files, effects without mask), Action cards, Session rules, Performers, Visual effects, Penalties & progression, Sound & controls | ✅     |
+| 10.5 | Action cards: per-card editor (weight, min/max, session gate, `requires`, params) + generator simulation (1,000 runs: action cards, pool size, collectibles, performer share, pool share per card)           | ✅     |
+| 10.6 | Performers: collectible count, revisit task range, bonus tier editor; Penalties: all values + progression reset (hold to confirm)                                                                            | ✅     |
+| 10.7 | Sound & controls: settings form shared with the start screen dialog + pause hotkey capture (modifier required)                                                                                               | ✅     |
+| 10.8 | Previously fixed defaults now live: `allowReroll` (briefing reroll, once), `actionHint` modes (off / total / split / per direction), configurable pixelate levels                                            | ✅     |
+| 10.9 | Validation + inline errors (bounds, whole numbers, min ≤ max, ascending tiers/levels, action + collectible cards ≤ 45, drift max ≥ drift range); label coverage test for every schema field                  | ✅     |
+
+**Verified:** 166 tests (schema validation/normalization, simulation, config v3 → v4, reroll, progression reset, rules snapshot, card validation, accelerators, label coverage); e2e in the running app: every admin section, invalid value blocked with inline error, saved rule applied to the next session, simulation, card editor, briefing reroll. Found and fixed: the card service threw synchronously instead of rejecting; removing a session gate did not survive a reload (`sessionChance` is now `number | null`, `null` = no gate).
 
 **Result:** M5 – configurable.
 

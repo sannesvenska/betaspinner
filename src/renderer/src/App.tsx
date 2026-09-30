@@ -3,10 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { Showcase } from './dev/Showcase';
 import { GameFlow } from './features/game/GameFlow';
 import { PauseScreen } from './features/game/PauseScreen';
-import { LibraryScreen } from './features/library/LibraryScreen';
+import { AdminScreen } from './features/admin/AdminScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { configureSound, setSoundMuted } from './sound/sound';
 import { useActionCardsStore } from './stores/actionCardsStore';
+import { useGameConfigStore } from './stores/gameConfigStore';
 import { useLibraryStore } from './stores/libraryStore';
 import { useSessionStore } from './stores/sessionStore';
 import { useUiStore } from './stores/uiStore';
@@ -37,9 +38,11 @@ export function App() {
   }, [loadLibrary, subscribeLibrary]);
 
   const loadActionCards = useActionCardsStore((state) => state.load);
+  const loadGameConfig = useGameConfigStore((state) => state.load);
   useEffect(() => {
     void loadActionCards();
-  }, [loadActionCards]);
+    void loadGameConfig();
+  }, [loadActionCards, loadGameConfig]);
 
   const subscribeSession = useSessionStore((state) => state.subscribe);
   useEffect(() => {
@@ -96,7 +99,7 @@ export function App() {
   const session = sessionSnapshot?.session ?? null;
   let content;
   if (screen === 'showcase' && import.meta.env.DEV) content = <Showcase />;
-  else if (screen === 'library') content = <LibraryScreen />;
+  else if (screen === 'admin') content = <AdminScreen />;
   else if (!hasLoadedSession)
     content = <div className="p-12 font-label text-label text-ink-muted">{t('app.loading')}</div>;
   else if (session) content = <GameFlow session={session} />;

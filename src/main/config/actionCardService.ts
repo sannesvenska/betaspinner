@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { hasErrors, validateActionCard } from '@shared/config/gameConfig';
 import type { ActionArtImage } from '@shared/content';
 import type { ActionCardPatch } from '@shared/ipc';
 import { DEFAULT_ACTION_CARDS } from '@shared/session/defaults';
@@ -8,7 +9,7 @@ import { normalizeActionCards } from './actionCardsConfig';
 import type { ConfigService } from './configService';
 
 export class ActionCardError extends Error {
-  constructor(readonly code: 'not_found' | 'built_in' | 'image_in_use') {
+  constructor(readonly code: 'not_found' | 'built_in' | 'image_in_use' | 'invalid_card') {
     super(code);
     this.name = 'ActionCardError';
   }
@@ -56,9 +57,12 @@ export function createActionCardService(config: ConfigService, art: ActionArtSto
 
   return {
     list,
-    update: (id, patch) => {
-      find(id);
-      return save((cards) => cards.map((card) => (card.id === id ? { ...card, ...patch } : card)));
+    update: async (id, patch) => {
+      const card = find(id);
+      const merged = { ...card, ...patch };
+      // Same rules as the admin form – invalid values are rejected, never silently clamped
+      if (hasErrors(validateActionCard(merged))) throw new ActionCardError('invalid_card');
+      return await save((cards) => cards.map((entry) => (entry.id === id ? merged : entry)));
     },
     duplicate: (id, name) => {
       const source = find(id);

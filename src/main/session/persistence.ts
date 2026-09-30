@@ -1,11 +1,11 @@
-import { DEFAULT_PROGRESSION, GOOD_CHANCE_BOUNDS } from '@shared/session/defaults';
+import { DEFAULT_PROGRESSION, DEFAULT_SESSION_RULES, GOOD_CHANCE_BOUNDS } from '@shared/session/defaults';
 import { TRACK_LENGTH } from '@shared/session/track';
 import type { SessionRecord } from '@shared/session/history';
 import type { Progression, SessionState } from '@shared/session/types';
 
 export const PROGRESSION_SCHEMA_VERSION = 1;
-/** v2 = game-design Revision 3 (gameplay v2); older sessions cannot be resumed. */
-export const SESSION_SCHEMA_VERSION = 2;
+/** v2 = game-design Revision 3 (gameplay v2; older sessions cannot be resumed), v3 = rules snapshot (AP10). */
+export const SESSION_SCHEMA_VERSION = 3;
 export const HISTORY_SCHEMA_VERSION = 1;
 
 /** Marker for a session of an older schema: discarded without scoring on load (§8.3 v2). */
@@ -16,6 +16,11 @@ export type StoredSession = SessionState | LegacySessionMarker | null;
 
 export const SESSION_MIGRATIONS: Readonly<Record<number, (data: unknown) => unknown>> = {
   1: (data) => (data === null ? null : { legacyDiscarded: true }),
+  // v3: running v2 sessions keep playing with the rules that were the defaults then
+  2: (data) =>
+    isRecord(data) && data.legacyDiscarded !== true
+      ? { rules: DEFAULT_SESSION_RULES, rerolled: false, ...data }
+      : data,
 };
 
 export const isLegacySessionMarker = (value: StoredSession): value is LegacySessionMarker =>

@@ -9,9 +9,9 @@ import { useAddFolders } from './useAddFolders';
 export function EmptyLibrary() {
   const { t } = useTranslation();
   const setupSteps = [t('library.empty.step1'), t('library.empty.step2'), t('library.empty.step3')];
-  const navigate = useUiStore((state) => state.navigate);
+  const openAdmin = useUiStore((state) => state.openAdmin);
   const addFlow = useAddFolders(() => {
-    navigate('library');
+    openAdmin('folders');
   });
 
   return (

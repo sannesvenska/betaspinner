@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FOLDER_DEFAULTS } from '@shared/content';
+import { DEFAULT_GAME_CONFIG } from '@shared/config/gameConfig';
 import { DEFAULT_ACTION_CARDS } from '@shared/session/defaults';
 import { DEFAULT_SETTINGS } from '@shared/settings';
 import { migrate } from '../storage/jsonStore';
@@ -14,6 +15,7 @@ describe('config migration', () => {
       settings: { ...DEFAULT_SETTINGS, startFullscreen: false },
       folders: [],
       actionCards: DEFAULT_ACTION_CARDS,
+      game: DEFAULT_GAME_CONFIG,
     });
   });
 

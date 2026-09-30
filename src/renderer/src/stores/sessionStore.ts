@@ -14,6 +14,8 @@ interface SessionStoreState {
   adopt: (result: SpinResult) => void;
   dispatch: (event: EngineEvent) => Promise<SessionState | null>;
   close: () => Promise<void>;
+  /** §6.2 `allowReroll` on the briefing */
+  reroll: () => Promise<void>;
   dismissError: () => void;
   /** Receives progression pushed by main (hourly decay); returns the unsubscribe function. */
   subscribe: () => () => void;
@@ -66,6 +68,23 @@ export const useSessionStore = create<SessionStoreState>()((set, get) => ({
       snapshot: { ...snapshot, session: result.data.session, mediaKinds: result.data.mediaKinds },
     });
     return result.data.session;
+  },
+  reroll: async () => {
+    const snapshot = get().snapshot;
+    if (get().busy || !snapshot) return;
+    set({ busy: true });
+    const result = await window.api.invoke('session:reroll', undefined);
+    set(
+      result.ok
+        ? {
+            busy: false,
+            error: null,
+            snapshot: { ...snapshot, session: result.data.session, mediaKinds: result.data.mediaKinds },
+          }
+        : { busy: false, error: result.error },
+    );
+    // Category usage changed in main
+    if (result.ok) void get().load();
   },
   close: async () => {
     const result = await window.api.invoke('session:close', undefined);

@@ -11,6 +11,8 @@ import type { Result } from './result';
 import type { EngineEvent } from './session/engine/reduce';
 import type { GenerationErrorCode } from './session/generateSession';
 import type { WheelResult } from './session/goalAndStart';
+import type { GameConfig } from './config/gameConfig';
+import type { SimulationResult } from './session/simulateSessions';
 import type { ActionCardDefinition, Progression, SessionState } from './session/types';
 import type { AppSettings } from './settings';
 
@@ -42,13 +44,26 @@ export interface SessionSnapshot {
   discardedLegacySession: boolean;
 }
 
-/** Editable fields of an action card definition (the full editor follows with the admin, AP10). */
+/** Editable fields of an action card definition (admin, AP10). `sessionChance: null` = no gate. */
 export type ActionCardPatch = Partial<
   Pick<
     ActionCardDefinition,
-    'name' | 'description' | 'enabled' | 'weight' | 'minPerSession' | 'maxPerSession' | 'params'
+    | 'name'
+    | 'description'
+    | 'enabled'
+    | 'weight'
+    | 'minPerSession'
+    | 'maxPerSession'
+    | 'sessionChance'
+    | 'params'
+    | 'requires'
   >
 >;
+
+export type GameConfigSection = keyof GameConfig;
+export type GameConfigUpdate = {
+  [S in GameConfigSection]: { section: S; value: GameConfig[S] };
+}[GameConfigSection];
 
 export interface SpinResult {
   wheel: WheelResult;
@@ -83,6 +98,15 @@ export interface IpcInvokeContract {
   /** Runs one engine event; the new state is saved before it is returned. */
   'session:dispatch': { request: EngineEvent; response: SessionView };
   'session:close': { request: undefined; response: SessionSnapshot };
+  /** §6.2 `allowReroll`: new board without the current categories, once, on the briefing. */
+  'session:reroll': { request: undefined; response: SessionView };
+  'progression:reset': { request: undefined; response: SessionSnapshot };
+  'config:getGame': { request: undefined; response: GameConfig };
+  /** Rejects invalid values (the renderer validates first with the same field specs). */
+  'config:updateGame': { request: GameConfigUpdate; response: GameConfig };
+  'config:resetGame': { request: { section: GameConfigSection }; response: GameConfig };
+  /** Runs the generator with the saved config (game-design §16 simulation). */
+  'admin:simulate': { request: { runs: number }; response: SimulationResult };
   'actionCards:list': { request: undefined; response: ActionCardDefinition[] };
   'actionCards:update': { request: { id: string; patch: ActionCardPatch }; response: ActionCardDefinition[] };
   'actionCards:duplicate': { request: { id: string; name: string }; response: ActionCardDefinition[] };
@@ -133,6 +157,12 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'session:spin',
   'session:dispatch',
   'session:close',
+  'session:reroll',
+  'progression:reset',
+  'config:getGame',
+  'config:updateGame',
+  'config:resetGame',
+  'admin:simulate',
   'actionCards:list',
   'actionCards:update',
   'actionCards:duplicate',

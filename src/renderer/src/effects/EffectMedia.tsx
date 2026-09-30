@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { mediaUrl, type MediaKind } from '@shared/content';
 import { classNames } from '@renderer/ui/classNames';
 import { Media } from '@renderer/ui/Media';
+import { useGameConfigStore } from '@renderer/stores/gameConfigStore';
 import { drawEffectFrame, hasEffects, type EffectOptions } from './drawEffects';
 import { loadSplatterTextures } from './splatterTextures';
 
@@ -59,6 +60,9 @@ export function EffectMedia(props: EffectMediaProps) {
   const pausedRef = useRef(paused);
   const [failed, setFailed] = useState(false);
   const active = hasEffects({ pixelLevel, splatterSeed });
+  // Admin-configured pixelate levels (§12.4); level 0 = off
+  const configured = useGameConfigStore((state) => state.config.visualEffects.pixelBlockFractions);
+  const blockFractions = useMemo(() => [0, ...configured], [configured]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -68,7 +72,7 @@ export function EffectMedia(props: EffectMediaProps) {
     // Function call so the flag isn't narrowed across awaits
     const isDisposed = (): boolean => disposed;
     const scratch = document.createElement('canvas');
-    const options: EffectOptions = { pixelLevel, splatterSeed };
+    const options: EffectOptions = { pixelLevel, splatterSeed, blockFractions };
     let textures: HTMLImageElement[] = [];
     let redraw: () => void = () => undefined;
     const cleanups: (() => void)[] = [];
@@ -229,7 +233,7 @@ export function EffectMedia(props: EffectMediaProps) {
       disposed = true;
       for (const cleanup of cleanups) cleanup();
     };
-  }, [active, hash, kind, variant, pixelLevel, splatterSeed]);
+  }, [active, hash, kind, variant, pixelLevel, splatterSeed, blockFractions]);
 
   // Pause (§19) stops playback without tearing the pipeline down, so it resumes where it was
   useEffect(() => {

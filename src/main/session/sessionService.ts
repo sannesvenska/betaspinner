@@ -2,11 +2,8 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { actionGroup, type ActionId } from '@shared/actions';
 import type { FolderConfig, MediaEntry } from '@shared/content';
 import type { SessionMediaKinds, SessionSnapshot, SessionView, SpinResult } from '@shared/ipc';
-import {
-  DEFAULT_PENALTY_RULES,
-  DEFAULT_PIXELATE_MAX_LEVEL,
-  DEFAULT_SESSION_RULES,
-} from '@shared/session/defaults';
+import type { GameConfig } from '@shared/config/gameConfig';
+import { DEFAULT_PROGRESSION } from '@shared/session/defaults';
 import type { EngineContext } from '@shared/session/engine/context';
 import { reduce, type EngineEvent } from '@shared/session/engine/reduce';
 import { generateSession, GenerationError } from '@shared/session/generateSession';
@@ -23,7 +20,10 @@ const MS_PER_MINUTE = 60_000;
 const MAX_SEED = 2 ** 31 - 1;
 
 export class SessionServiceError extends Error {
-  constructor(readonly code: 'session_active' | 'locked_out' | 'no_session' | 'not_finished' | 'rejected') {
+  constructor(
+    readonly code:
+      'session_active' | 'locked_out' | 'no_session' | 'not_finished' | 'rejected' | 'reroll_unavailable',
+  ) {
     super(code);
     this.name = 'SessionServiceError';
   }
@@ -38,6 +38,8 @@ interface SessionServiceOptions {
   folders: () => readonly FolderConfig[];
   media: () => readonly MediaEntry[];
   actionCards: () => readonly ActionCardDefinition[];
+  /** Admin-configurable rules (AP10); a running session keeps its own rules snapshot. */
+  game: () => GameConfig;
   now?: () => Date;
   randomSeed?: () => number;
   newId?: () => string;
@@ -51,6 +53,10 @@ export interface SessionService {
   close: () => Promise<SessionSnapshot>;
   /** §13.3 lazy decay – call on start and periodically. */
   tickDecay: () => Promise<void>;
+  /** §6.2 `allowReroll`: once per session on the briefing – a fresh board without the current categories. */
+  reroll: () => Promise<SessionView>;
+  /** Admin (§16): penalty fields, good chance, loss streak, lockout and blocks back to defaults. */
+  resetProgression: () => Promise<SessionSnapshot>;
   /** QA helper for dev builds: next field becomes `action`, the next roll can be chosen. */
   devPlaceAction: (action: ActionId) => Promise<SessionView>;
 }
@@ -70,13 +76,14 @@ export async function createSessionService(options: SessionServiceOptions): Prom
   let discardedLegacySession = isLegacySessionMarker(stored);
   if (discardedLegacySession) await options.sessionStore.write(null);
 
+  const penalties = () => options.game().penalties;
   const context = (): EngineContext => ({
-    rules: DEFAULT_SESSION_RULES,
+    rules: session?.rules ?? options.game().rules,
     actionCards: options.actionCards(),
     folders: options.folders(),
     media: options.media(),
     imageRecency: progression.imageRecency,
-    pixelateMaxLevel: DEFAULT_PIXELATE_MAX_LEVEL,
+    pixelateMaxLevel: options.game().visualEffects.pixelBlockFractions.length,
   });
 
   function mediaKindsFor(state: SessionState | null): SessionMediaKinds {
@@ -113,10 +120,10 @@ export async function createSessionService(options: SessionServiceOptions): Prom
       throw new SessionServiceError('locked_out');
     }
 
-    const wheel = spinStartWheel(createRng(randomSeed()), DEFAULT_SESSION_RULES, progression.penaltyFields);
+    const wheel = spinStartWheel(createRng(randomSeed()), options.game().rules, progression.penaltyFields);
     if (wheel.penalty) {
       const lockoutUntil = new Date(
-        current.getTime() + DEFAULT_PENALTY_RULES.lockoutMinutes * MS_PER_MINUTE,
+        current.getTime() + penalties().lockoutMinutes * MS_PER_MINUTE,
       ).toISOString();
       await saveProgression({ ...progression, lockoutUntil });
       return { wheel, session: null, mediaKinds: {}, lockoutUntil };
@@ -128,7 +135,7 @@ export async function createSessionService(options: SessionServiceOptions): Prom
         sessionId: newId(),
         now: current.toISOString(),
         goalValue: wheel.value,
-        rules: DEFAULT_SESSION_RULES,
+        rules: options.game().rules,
         actionCards: options.actionCards(),
         folders: options.folders(),
         media: options.media(),
@@ -170,7 +177,7 @@ export async function createSessionService(options: SessionServiceOptions): Prom
     const { progression: applied, change } = applySessionOutcome(
       progression,
       finished,
-      DEFAULT_PENALTY_RULES,
+      penalties(),
       createRng(randomSeed()),
     );
     if (progression.lastAppliedSessionId !== finished.id) {
@@ -196,10 +203,55 @@ export async function createSessionService(options: SessionServiceOptions): Prom
   }
 
   async function tickDecay(): Promise<void> {
-    const next = applyDecay(progression, now(), DEFAULT_PENALTY_RULES, createRng(randomSeed()));
+    const next = applyDecay(progression, now(), penalties(), createRng(randomSeed()));
     if (next === progression) return;
     await saveProgression(next);
     options.onProgressionChanged?.(next);
+  }
+
+  async function reroll(): Promise<SessionView> {
+    const current = session;
+    if (
+      current?.phase !== 'resolve_card' ||
+      current.round !== 0 ||
+      current.rerolled ||
+      !current.rules.allowReroll
+    ) {
+      throw new SessionServiceError('reroll_unavailable');
+    }
+    // The current categories count as used in this session → cooldown excludes them where possible
+    const { session: generated, categoryUsage } = generateSession({
+      seed: randomSeed(),
+      sessionId: current.id,
+      now: current.startedAt,
+      goalValue: current.goalValue,
+      rules: current.rules,
+      actionCards: options.actionCards(),
+      folders: options.folders(),
+      media: options.media(),
+      progression: { ...progression, sessionCounter: current.sessionIndex - 1 },
+    });
+    // The initial task was already done – continue on the new start card
+    const started = reduce(generated, { type: 'confirm' }, context());
+    if (started.error) throw new SessionServiceError('rejected');
+    const next: SessionState = { ...started.state, rerolled: true };
+    await saveSession(next);
+    await saveProgression({ ...progression, categoryUsage });
+    return { session: next, mediaKinds: mediaKindsFor(next) };
+  }
+
+  async function resetProgression(): Promise<SessionSnapshot> {
+    await saveProgression({
+      ...progression,
+      goodChance: DEFAULT_PROGRESSION.goodChance,
+      penaltyFields: [],
+      lastDecayAt: null,
+      lossStreak: 0,
+      lockoutUntil: null,
+      blockedActionsNextSession: [],
+    });
+    options.onProgressionChanged?.(progression);
+    return snapshot();
   }
 
   async function devPlaceAction(action: ActionId): Promise<SessionView> {
@@ -227,5 +279,5 @@ export async function createSessionService(options: SessionServiceOptions): Prom
     return { session: next, mediaKinds: mediaKindsFor(next) };
   }
 
-  return { snapshot, spin, dispatch, close, tickDecay, devPlaceAction };
+  return { snapshot, spin, dispatch, close, tickDecay, reroll, resetProgression, devPlaceAction };
 }

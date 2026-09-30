@@ -262,6 +262,8 @@ export function generateSession(input: GenerateSessionInput): GenerateSessionRes
       startField,
       position: startField,
       initialTaskCount: input.goalValue,
+      rules,
+      rerolled: false,
       categories,
       performerFolderId,
       actionPool: pool.map((card) => card.id),

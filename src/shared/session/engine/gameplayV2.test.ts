@@ -88,7 +88,7 @@ describe('detour conversion (§8.4)', () => {
     expect(passesOver(3, 'left', 5, 100)).toBe(true); // wraps around
   });
 
-  it('converts two undiscovered bad normal cards per detour', () => {
+  it('converts one undiscovered bad normal card per detour (default)', () => {
     const { session, context } = readyToRoll();
     const prepared = withGoal(session, wrapField(session.position + 30));
     const badBefore = hiddenBad(prepared);
@@ -96,18 +96,21 @@ describe('detour conversion (§8.4)', () => {
     const state = moveBy(prepared, context, 2, 'left');
     expect(head(state)).toEqual({
       kind: 'notice',
-      notice: { type: 'cards_converted', count: 2, source: 'detour' },
+      notice: { type: 'cards_converted', count: 1, source: 'detour' },
     });
     const landedWasBad = state.reveal?.kind === 'normal' && state.reveal.group === 'bad' ? 1 : 0;
     const landedWasGood = state.reveal?.kind === 'normal' && state.reveal.group === 'good' ? 1 : 0;
-    expect(hiddenBad(state)).toBe(badBefore - 2 - landedWasBad);
-    expect(hiddenGood(state)).toBe(goodBefore + 2 - landedWasGood);
-    expect(state.stats).toMatchObject({ detours: 1, detourConversions: 2 });
+    expect(hiddenBad(state)).toBe(badBefore - 1 - landedWasBad);
+    expect(hiddenGood(state)).toBe(goodBefore + 1 - landedWasGood);
+    expect(state.stats).toMatchObject({ detours: 1, detourConversions: 1 });
   });
 
   it('respects the cap and runs out of bad cards gracefully', () => {
     const { session, context } = readyToRoll();
-    const capped = { ...context, rules: { ...context.rules, maxDetourConversions: 3 } };
+    const capped = {
+      ...context,
+      rules: { ...context.rules, detourConversion: 2, maxDetourConversions: 3 },
+    };
     expect(detourConversionsAvailable(session, capped.rules)).toBe(2);
     expect(
       detourConversionsAvailable(

@@ -1,3 +1,10 @@
+import {
+  DEFAULT_GAME_CONFIG,
+  normalizePenaltyRules,
+  normalizeSessionRules,
+  normalizeVisualEffects,
+  type GameConfig,
+} from '@shared/config/gameConfig';
 import { FOLDER_DEFAULTS, WEIGHT_RANGE, type FolderConfig } from '@shared/content';
 import { DEFAULT_ACTION_CARDS } from '@shared/session/defaults';
 import type { ActionCardDefinition } from '@shared/session/types';
@@ -6,20 +13,23 @@ import type { Migration } from '../storage/jsonStore';
 import { normalizeSettings } from '../settings/normalizeSettings';
 import { normalizeActionCards } from './actionCardsConfig';
 
-/** config.json (game-design §21). Grows with later work packages (session rules …). */
+/** config.json (game-design §21). */
 export interface AppConfig {
   settings: AppSettings;
   folders: FolderConfig[];
   /** game-design §10.4 action card definitions */
   actionCards: ActionCardDefinition[];
+  /** game-design §16 session rules, penalties, visual effects (admin, AP10) */
+  game: GameConfig;
 }
 
-export const CONFIG_SCHEMA_VERSION = 3;
+export const CONFIG_SCHEMA_VERSION = 4;
 
 export const DEFAULT_CONFIG: AppConfig = {
   settings: DEFAULT_SETTINGS,
   folders: [],
   actionCards: [...DEFAULT_ACTION_CARDS],
+  game: DEFAULT_GAME_CONFIG,
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -43,6 +53,8 @@ export const CONFIG_MIGRATIONS: Readonly<Record<number, Migration>> = {
       actionCards: [],
     };
   },
+  // v4 (AP10): game rules become configurable; normalization fills the defaults
+  3: (data) => ({ ...(isRecord(data) ? data : {}), game: {} }),
 };
 
 const MIN_TASK_COUNT = 1;
@@ -103,5 +115,15 @@ export function normalizeConfig(data: unknown): AppConfig {
     settings: isRecord(data.settings) ? normalizeSettings(data.settings) : DEFAULT_SETTINGS,
     folders,
     actionCards: normalizeActionCards(data.actionCards),
+    game: normalizeGame(data.game),
+  };
+}
+
+export function normalizeGame(value: unknown): GameConfig {
+  const game = isRecord(value) ? value : {};
+  return {
+    rules: normalizeSessionRules(game.rules),
+    penalties: normalizePenaltyRules(game.penalties),
+    visualEffects: normalizeVisualEffects(game.visualEffects),
   };
 }

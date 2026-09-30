@@ -24,8 +24,8 @@ export interface ActionCardDefinition {
   minPerSession: number;
   /** null = unlimited */
   maxPerSession: number | null;
-  /** Rolled once per session; failing excludes the card (rare actions). */
-  sessionChance?: number;
+  /** Rolled once per session; failing excludes the card (rare actions). null = no gate. */
+  sessionChance: number | null;
   /** Any-of dependency on resolver types that must be in the session's action pool. */
   requires?: readonly ActionId[];
   /** Type-specific values, rolled when the card triggers. */
@@ -296,6 +296,10 @@ export interface SessionState {
   startField: number;
   position: number;
   initialTaskCount: number;
+  /** Rules this session was generated with (admin changes apply to the next session, AP10). */
+  rules: SessionRules;
+  /** The category selection was rerolled once on the briefing (`allowReroll`). */
+  rerolled: boolean;
   categories: Record<Group, string[]>;
   /** Performer folder of this session (§6.2.1); null = no collectibles */
   performerFolderId: string | null;

@@ -69,4 +69,19 @@ describe('actionCardService (§10.4)', () => {
       name: null,
     });
   });
+
+  it('validates edits like the admin form and can remove a session gate', async () => {
+    const { service } = setup();
+    await expect(service.update('pixelate', { weight: 500 })).rejects.toMatchObject({ code: 'invalid_card' });
+    await expect(service.update('squeeze_task', { params: { count: [30, 5] } })).rejects.toMatchObject({
+      code: 'invalid_card',
+    });
+    await service.update('mistress_says_no', { sessionChance: null });
+    expect(service.list().find((card) => card.id === 'mistress_says_no')?.sessionChance).toBeNull();
+    await service.update('mistress_says_no', { sessionChance: 0.2, requires: ['pixelate'] });
+    expect(service.list().find((card) => card.id === 'mistress_says_no')).toMatchObject({
+      sessionChance: 0.2,
+      requires: ['pixelate'],
+    });
+  });
 });

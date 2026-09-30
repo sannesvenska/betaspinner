@@ -1,12 +1,12 @@
 import { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DEFAULT_PENALTY_RULES, DEFAULT_SESSION_RULES } from '@shared/session/defaults';
 import { cardGroup } from '@shared/session/selectActionPool';
 import { applySessionOutcome, LOSS_OUTCOMES } from '@shared/session/progressionRules';
 import { createRng } from '@shared/session/rng';
 import type { SessionState } from '@shared/session/types';
 import { FinalWheelScreen, OutcomeScreen } from '@renderer/features/win/WinScreens';
 import { actionCardName, useActionCardsStore } from '@renderer/stores/actionCardsStore';
+import { useGameConfigStore } from '@renderer/stores/gameConfigStore';
 import { useLibraryStore } from '@renderer/stores/libraryStore';
 import { useSessionStore } from '@renderer/stores/sessionStore';
 import { useUiStore } from '@renderer/stores/uiStore';
@@ -122,6 +122,8 @@ function SessionBriefing({ session }: { session: SessionState }) {
   const folders = useLibraryStore((state) => state.snapshot?.folders ?? []);
   const actionCards = useActionCardsStore((state) => state.cards);
   const markRevealed = useUiStore((state) => state.markRevealed);
+  const reroll = useSessionStore((state) => state.reroll);
+  const canReroll = session.rules.allowReroll && !session.rerolled;
   const name = (id: string) => folders.find((folder) => folder.id === id)?.displayName ?? id;
   const pool = session.actionPool
     .map((id) => actionCards.find((card) => card.id === id))
@@ -149,7 +151,7 @@ function SessionBriefing({ session }: { session: SessionState }) {
               <div className="font-display text-chip font-bold uppercase tracking-chip">
                 {name(session.performerFolderId)}
               </div>
-              {DEFAULT_SESSION_RULES.collectibleTiers.map((tier) => (
+              {session.rules.collectibleTiers.map((tier) => (
                 <div key={tier.collected} className="text-body-sm text-ink-2">
                   {tier.bonus.type === 'convert_bad'
                     ? t('briefing.tierConvert', { collected: tier.collected, count: tier.bonus.count })
@@ -173,11 +175,17 @@ function SessionBriefing({ session }: { session: SessionState }) {
           ))}
         </BriefingColumn>
       </div>
-      <div>
+      <div className="flex items-center gap-4">
         <Button variant="primary" size="primary" keyHint="Space" onClick={start}>
           {t('briefing.start')}
         </Button>
+        {canReroll && (
+          <Button variant="outline" size="primary" onClick={() => void reroll()}>
+            {t('briefing.reroll')}
+          </Button>
+        )}
       </div>
+      {session.rerolled && <p className="text-body-sm text-ink-muted">{t('briefing.rerolled')}</p>}
     </CenteredScreen>
   );
 }
@@ -188,6 +196,7 @@ function SessionEnd({ session }: { session: SessionState }) {
   const progression = useSessionStore((state) => state.snapshot?.progression);
   const mediaKinds = useSessionStore((state) => state.snapshot?.mediaKinds ?? {});
   const actionCards = useActionCardsStore((state) => state.cards);
+  const penalties = useGameConfigStore((state) => state.config.penalties);
   const outcome = session.endReason ?? 'ended_early';
   const discovered = session.cards.filter((card) => card.discovered).length;
   const onClose = useCallback(() => void close(), [close]);
@@ -195,7 +204,7 @@ function SessionEnd({ session }: { session: SessionState }) {
 
   // Preview only: counts are deterministic, the random field positions are decided when closing
   const change = progression
-    ? applySessionOutcome(progression, session, DEFAULT_PENALTY_RULES, createRng(0)).change
+    ? applySessionOutcome(progression, session, penalties, createRng(0)).change
     : null;
   const changeLines = change
     ? [

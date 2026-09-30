@@ -1,4 +1,10 @@
-import { DEFAULT_SETTINGS, LANGUAGE_PACKS, type AppSettings, type LanguagePackId } from '@shared/settings';
+import {
+  DEFAULT_SETTINGS,
+  isValidAccelerator,
+  LANGUAGE_PACKS,
+  type AppSettings,
+  type LanguagePackId,
+} from '@shared/settings';
 
 const MIN_ANIMATION_SPEED = 0;
 const MAX_ANIMATION_SPEED = 3;
@@ -38,5 +44,9 @@ export function normalizeSettings(data: unknown): AppSettings {
       enabled: booleanOr(sound.enabled, DEFAULT_SETTINGS.sound.enabled),
       volume: clamp(numberOr(sound.volume, DEFAULT_SETTINGS.sound.volume), 0, 1),
     },
+    pauseHotkey:
+      typeof data.pauseHotkey === 'string' && isValidAccelerator(data.pauseHotkey)
+        ? data.pauseHotkey
+        : DEFAULT_SETTINGS.pauseHotkey,
   };
 }

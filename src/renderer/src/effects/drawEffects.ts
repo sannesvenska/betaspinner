@@ -4,6 +4,8 @@ export interface EffectOptions {
   pixelLevel: number;
   /** null = card is not splattered */
   splatterSeed: number | null;
+  /** Block size per level incl. level 0 (admin visual effects, §12.4); default: built-in levels */
+  blockFractions?: readonly number[];
 }
 
 export const hasEffects = (options: EffectOptions): boolean =>
@@ -27,7 +29,7 @@ export function drawEffectFrame(
   const rect = containRect(mediaWidth, mediaHeight, width, height);
   if (rect.width === 0) return;
 
-  const block = pixelBlockSize(options.pixelLevel, rect);
+  const block = pixelBlockSize(options.pixelLevel, rect, options.blockFractions);
   if (block > 0) {
     const smallWidth = Math.max(1, Math.ceil(rect.width / block));
     const smallHeight = Math.max(1, Math.ceil(rect.height / block));

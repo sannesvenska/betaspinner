@@ -9,8 +9,11 @@ import {
   CONFIG_SCHEMA_VERSION,
   DEFAULT_CONFIG,
   normalizeConfig,
+  normalizeGame,
   type AppConfig,
 } from './config/appConfig';
+import { DEFAULT_GAME_CONFIG, hasErrors, validateGameSection } from '@shared/config/gameConfig';
+import { simulateSessions } from '@shared/session/simulateSessions';
 import { createActionCardService } from './config/actionCardService';
 import { createConfigService } from './config/configService';
 import { createActionArtStore } from './content/actionArtStore';
@@ -36,9 +39,21 @@ import { createJsonStore } from './storage/jsonStore';
 import { createMainWindow } from './window';
 
 const isDev = !app.isPackaged;
-/** Default from game-design §19; configurable in AP10. */
-const PAUSE_HOTKEY = 'CommandOrControl+Shift+Space';
 const DECAY_CHECK_INTERVAL_MS = 60_000;
+const MAX_SIMULATION_RUNS = 5000;
+let registeredHotkey: string | null = null;
+
+/** game-design §19: global pause hotkey (configurable) works even when the window is not focused. */
+function registerPauseHotkey(accelerator: string): void {
+  if (registeredHotkey === accelerator) return;
+  if (registeredHotkey) globalShortcut.unregister(registeredHotkey);
+  registeredHotkey = null;
+  const registered = globalShortcut.register(accelerator, () => {
+    broadcast('app:togglePause', null);
+  });
+  if (registered) registeredHotkey = accelerator;
+  else console.error(`[pause] could not register global hotkey ${accelerator}`);
+}
 
 // Dev/test only: isolate app data (config, index) from the real profile
 const userDataOverride = process.env.CHANCE_RUNNER_USER_DATA;
@@ -120,6 +135,7 @@ async function startApp(): Promise<void> {
     folders: () => config.get().folders,
     media: library.mediaEntries,
     actionCards: actionCards.list,
+    game: () => config.get().game,
     onProgressionChanged: (progression) => {
       broadcast('session:progression', progression);
     },
@@ -141,6 +157,7 @@ async function startApp(): Promise<void> {
     'settings:load': () => config.get().settings,
     'settings:save': async (next) => {
       const saved = await config.update((current) => ({ ...current, settings: normalizeSettings(next) }));
+      registerPauseHotkey(saved.settings.pauseHotkey);
       return saved.settings;
     },
     'window:toggleFullscreen': () => {
@@ -167,6 +184,36 @@ async function startApp(): Promise<void> {
     'session:spin': () => sessions.spin(),
     'session:dispatch': (event) => sessions.dispatch(event),
     'session:close': () => sessions.close(),
+    'session:reroll': () => sessions.reroll(),
+    'progression:reset': () => sessions.resetProgression(),
+    'config:getGame': () => config.get().game,
+    'config:updateGame': async (update) => {
+      // Same field specs as the renderer: invalid input is rejected, never silently clamped
+      if (hasErrors(validateGameSection(update))) throw new Error('invalid_config');
+      const saved = await config.update((current) => ({
+        ...current,
+        game: normalizeGame({ ...current.game, [update.section]: update.value }),
+      }));
+      return saved.game;
+    },
+    'config:resetGame': async ({ section }) => {
+      const saved = await config.update((current) => ({
+        ...current,
+        game: { ...current.game, [section]: DEFAULT_GAME_CONFIG[section] },
+      }));
+      return saved.game;
+    },
+    'admin:simulate': ({ runs }) =>
+      simulateSessions(
+        {
+          rules: config.get().game.rules,
+          actionCards: actionCards.list(),
+          folders: config.get().folders,
+          media: library.mediaEntries(),
+          progression: sessions.snapshot().progression,
+        },
+        Math.min(Math.max(1, Math.round(runs)), MAX_SIMULATION_RUNS),
+      ),
     'actionCards:list': () => actionCards.list(),
     'actionCards:update': ({ id, patch }) => actionCards.update(id, patch),
     'actionCards:duplicate': ({ id, name }) => actionCards.duplicate(id, name),
@@ -207,14 +254,7 @@ async function startApp(): Promise<void> {
     window.focus();
   });
 
-  // game-design §19: global pause hotkey works even when the window is not focused
-  if (
-    !globalShortcut.register(PAUSE_HOTKEY, () => {
-      broadcast('app:togglePause', null);
-    })
-  ) {
-    console.error(`[pause] could not register global hotkey ${PAUSE_HOTKEY}`);
-  }
+  registerPauseHotkey(config.get().settings.pauseHotkey);
   app.on('will-quit', () => {
     clearInterval(decayTimer);
     globalShortcut.unregisterAll();

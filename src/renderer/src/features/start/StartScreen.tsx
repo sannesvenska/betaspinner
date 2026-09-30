@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isFolderEligible } from '@shared/content';
 import type { SpinResult } from '@shared/ipc';
-import { DEFAULT_PENALTY_RULES } from '@shared/session/defaults';
 import { nextDecayAt } from '@shared/session/progressionRules';
+import { useGameConfigStore } from '@renderer/stores/gameConfigStore';
 import { useLibraryStore } from '@renderer/stores/libraryStore';
 import { useSessionStore } from '@renderer/stores/sessionStore';
 import { useAnimationScale, useUiStore } from '@renderer/stores/uiStore';
@@ -42,6 +42,7 @@ function useNow(active: boolean): number {
 export function StartScreen() {
   const { t } = useTranslation();
   const navigate = useUiStore((state) => state.navigate);
+  const openAdmin = useUiStore((state) => state.openAdmin);
   const answerResume = useUiStore((state) => state.answerResume);
   const scale = useAnimationScale();
   const progression = useSessionStore((state) => state.snapshot?.progression);
@@ -57,7 +58,8 @@ export function StartScreen() {
   const lockoutUntil = progression?.lockoutUntil ? new Date(progression.lockoutUntil).getTime() : 0;
   const decayAt = progression ? nextDecayAt(progression)?.getTime() : undefined;
   const now = useNow(lockoutUntil > 0 || decayAt !== undefined);
-  const nextLossAdds = DEFAULT_PENALTY_RULES.penaltyStep * ((progression?.lossStreak ?? 0) + 1);
+  const penalties = useGameConfigStore((state) => state.config.penalties);
+  const nextLossAdds = penalties.penaltyStep * ((progression?.lossStreak ?? 0) + 1);
   const lockedMs = lockoutUntil - now;
   const locked = lockedMs > 0;
 
@@ -139,10 +141,10 @@ export function StartScreen() {
           <Button
             variant="text"
             onClick={() => {
-              navigate('library');
+              openAdmin('folders');
             }}
           >
-            {t('library.title')}
+            {t('admin.title')}
           </Button>
           <Button
             variant="text"
@@ -175,7 +177,7 @@ export function StartScreen() {
               <Button
                 variant="outline"
                 onClick={() => {
-                  navigate('library');
+                  openAdmin('folders');
                 }}
               >
                 {t('start.openLibrary')}
@@ -205,7 +207,7 @@ export function StartScreen() {
             {progression?.penaltyFields.length ?? 0}
           </div>
           <div className="text-body-sm text-ink-2">
-            {t('start.penaltyHint', { minutes: DEFAULT_PENALTY_RULES.lockoutMinutes })}
+            {t('start.penaltyHint', { minutes: penalties.lockoutMinutes })}
           </div>
         </div>
         {decayAt !== undefined && (
@@ -217,7 +219,7 @@ export function StartScreen() {
               {formatRemaining(decayAt - now)}
             </div>
             <div className="text-body-sm text-ink-2">
-              {t('start.decayHint', { count: DEFAULT_PENALTY_RULES.decayAmount })}
+              {t('start.decayHint', { count: penalties.decayAmount })}
             </div>
           </div>
         )}

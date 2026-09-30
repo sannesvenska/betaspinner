@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_GAME_CONFIG, type GameConfig } from '@shared/config/gameConfig';
 import { DEFAULT_PROGRESSION } from '@shared/session/defaults';
 import { standardInput } from '@shared/session/testFixtures';
 import type { SessionRecord } from '@shared/session/history';
@@ -23,7 +24,11 @@ function memoryStore<T>(initial: T): JsonStore<T> & { current: () => T; writes: 
   };
 }
 
-async function setup(progression: Progression = DEFAULT_PROGRESSION, storedSession: StoredSession = null) {
+async function setup(
+  progression: Progression = DEFAULT_PROGRESSION,
+  storedSession: StoredSession = null,
+  game: GameConfig = DEFAULT_GAME_CONFIG,
+) {
   const fixture = standardInput();
   const progressionStore = memoryStore(progression);
   const sessionStore = memoryStore<StoredSession>(storedSession);
@@ -36,6 +41,7 @@ async function setup(progression: Progression = DEFAULT_PROGRESSION, storedSessi
     folders: () => fixture.folders,
     media: () => fixture.media,
     actionCards: () => fixture.actionCards,
+    game: () => game,
     now: () => new Date('2026-09-29T20:00:00.000Z'),
     randomSeed: () => seed++,
     newId: () => 'session-id',
@@ -142,6 +148,7 @@ describe('sessionService idempotency and decay', () => {
       folders: () => [],
       media: () => [],
       actionCards: () => [],
+      game: () => DEFAULT_GAME_CONFIG,
     });
     await restarted.close();
     expect(progressionStore.current()).toMatchObject({ lossStreak: 1, penaltyFields: [5, 6] });
@@ -162,11 +169,67 @@ describe('sessionService idempotency and decay', () => {
       folders: () => [],
       media: () => [],
       actionCards: () => [],
+      game: () => DEFAULT_GAME_CONFIG,
       now: () => new Date('2026-09-29T20:00:00.000Z'),
       onProgressionChanged: (next) => changes.push(next),
     });
     await service.tickDecay();
     expect(service.snapshot().progression.penaltyFields).toEqual([]);
     expect(changes).toHaveLength(1);
+  });
+});
+
+describe('sessionService admin features (AP10)', () => {
+  it('snapshots the configured rules into a new session', async () => {
+    const game = { ...DEFAULT_GAME_CONFIG, rules: { ...DEFAULT_GAME_CONFIG.rules, holdSecondsCap: 30 } };
+    const { service } = await setup(DEFAULT_PROGRESSION, null, game);
+    const { session } = await service.spin();
+    expect(session?.rules.holdSecondsCap).toBe(30);
+  });
+
+  it('rerolls once on the briefing when allowed, with new categories where possible', async () => {
+    // One category per group: the cooldown forces different ones on the reroll
+    const rules = {
+      ...DEFAULT_GAME_CONFIG.rules,
+      allowReroll: true,
+      categoriesPerSession: { good: [1, 1], bad: [1, 1] } as const,
+    };
+    const { service } = await setup(DEFAULT_PROGRESSION, null, { ...DEFAULT_GAME_CONFIG, rules });
+    const { session } = await service.spin();
+    await service.dispatch({ type: 'confirm' }); // initial task → briefing
+    const { session: rerolled } = await service.reroll();
+    expect(rerolled).toMatchObject({ id: session?.id, goalValue: session?.goalValue, rerolled: true });
+    expect(rerolled.phase).toBe('resolve_card');
+    const before = [...(session?.categories.good ?? []), ...(session?.categories.bad ?? [])];
+    const after = [...rerolled.categories.good, ...rerolled.categories.bad];
+    expect(after.every((id) => !before.includes(id))).toBe(true);
+    await expect(service.reroll()).rejects.toMatchObject({ code: 'reroll_unavailable' });
+  });
+
+  it('rejects a reroll when the rules do not allow it', async () => {
+    const { service } = await setup();
+    await service.spin();
+    await service.dispatch({ type: 'confirm' });
+    await expect(service.reroll()).rejects.toMatchObject({ code: 'reroll_unavailable' });
+  });
+
+  it('resets progression but keeps counters and history data', async () => {
+    const progression = {
+      ...DEFAULT_PROGRESSION,
+      goodChance: 0.61,
+      penaltyFields: [3, 4],
+      lossStreak: 3,
+      sessionCounter: 9,
+      imageRecency: { abc: 8 },
+    };
+    const { service } = await setup(progression);
+    const snapshot = await service.resetProgression();
+    expect(snapshot.progression).toMatchObject({
+      goodChance: 0.4,
+      penaltyFields: [],
+      lossStreak: 0,
+      sessionCounter: 9,
+      imageRecency: { abc: 8 },
+    });
   });
 });

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DEFAULT_PENALTY_RULES } from '@shared/session/defaults';
 import type { RewardChoice, SessionState } from '@shared/session/types';
 import { PickTile } from '@renderer/features/game/PickTile';
+import { useGameConfigStore } from '@renderer/stores/gameConfigStore';
 import { useSessionStore } from '@renderer/stores/sessionStore';
 import { useAnimationScale, useUiStore } from '@renderer/stores/uiStore';
 import { Button } from '@renderer/ui/Button';
@@ -289,7 +289,7 @@ export function OutcomeScreen({ session }: { session: SessionState }) {
   const dispatch = useSessionStore((state) => state.dispatch);
   const [choosingReward, setChoosingReward] = useState(false);
   const allowed = session.finalWheel?.result === 'allowed';
-  const rules = DEFAULT_PENALTY_RULES;
+  const rules = useGameConfigStore((state) => state.config.penalties);
   const percent = (value: number) => Math.round(value * PERCENT * 10) / 10;
 
   const confirmDenied = useCallback(() => void dispatch({ type: 'confirm' }), [dispatch]);

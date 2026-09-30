@@ -1,13 +1,16 @@
 import { create } from 'zustand';
 import type { AppSettings } from '@shared/settings';
 
-export type Screen = 'home' | 'library' | 'showcase';
+export type Screen = 'home' | 'admin' | 'showcase';
+export type AdminSection =
+  'folders' | 'actionCards' | 'rules' | 'performers' | 'visualEffects' | 'penalties' | 'controls';
 
 type SettingsState =
   { status: 'loading' } | { status: 'ready'; settings: AppSettings } | { status: 'error'; error: string };
 
 interface UiState {
   screen: Screen;
+  adminSection: AdminSection;
   settingsState: SettingsState;
   /** Neutral pause screen (game-design §19) */
   paused: boolean;
@@ -16,6 +19,8 @@ interface UiState {
   /** The resume question is asked once per app start. */
   resumeAnswered: boolean;
   navigate: (screen: Screen) => void;
+  /** Opens the admin on a section (game-design §16). */
+  openAdmin: (section: AdminSection) => void;
   loadSettings: () => Promise<void>;
   /** Persists settings in main; returns an error message or null. */
   saveSettings: (settings: AppSettings) => Promise<string | null>;
@@ -26,12 +31,16 @@ interface UiState {
 
 export const useUiStore = create<UiState>()((set) => ({
   screen: 'home',
+  adminSection: 'folders',
   settingsState: { status: 'loading' },
   paused: false,
   revealedSessionIds: [],
   resumeAnswered: false,
   navigate: (screen) => {
     set({ screen });
+  },
+  openAdmin: (adminSection) => {
+    set({ screen: 'admin', adminSection });
   },
   loadSettings: async () => {
     const result = await window.api.invoke('settings:load', undefined);

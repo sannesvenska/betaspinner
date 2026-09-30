@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DEFAULT_SESSION_RULES } from '@shared/session/defaults';
 import { computeActionHint } from '@shared/session/engine/actionHint';
 import type { EngineEvent } from '@shared/session/engine/reduce';
 import { computeReleaseChance } from '@shared/session/engine/releaseChance';
@@ -33,8 +32,6 @@ const PREVIEW_SIZE = 'h-[45%] w-[45%]';
 const COUNTDOWN_TICK_SECONDS = 3;
 const DIE_SIDES = 6;
 const SMALL_DIE_SIZE = 28;
-/** Session rules until the admin makes them configurable (AP10). */
-const RULES = DEFAULT_SESSION_RULES;
 
 const rotationFor = (position: number): number => -(position - 0.5) * SEGMENT_DEG;
 
@@ -89,7 +86,9 @@ export function GameScreen({ session }: GameScreenProps) {
   const animationTimer = useRef<number | undefined>(undefined);
 
   const hint = useMemo(() => computeActionHint(session), [session]);
-  const releaseChance = useMemo(() => computeReleaseChance(session, RULES), [session]);
+  // The session plays with the rules it was generated with (admin changes apply to the next session)
+  const rules = session.rules;
+  const releaseChance = useMemo(() => computeReleaseChance(session, session.rules), [session]);
   const performerName = session.performerFolderId
     ? (folders.find((folder) => folder.id === session.performerFolderId)?.displayName ?? null)
     : null;
@@ -269,7 +268,7 @@ export function GameScreen({ session }: GameScreenProps) {
       const number = Number(key);
       if (!Number.isInteger(number) || number < 1 || number > 9) return;
       if (session.phase === 'roll' && session.chooseNextRoll && number <= 6) handlers.chooseRoll(number);
-      else if (tierable && number <= RULES.strokeTierMax) handlers.selectTier(number as StrokeTier);
+      else if (tierable && number <= rules.strokeTierMax) handlers.selectTier(number as StrokeTier);
       else if (step?.kind === 'guess' && number <= 6) handlers.toggleGuess(number);
       else if (step?.kind === 'pick_effect') {
         const effect = step.options[number - 1];
@@ -290,7 +289,18 @@ export function GameScreen({ session }: GameScreenProps) {
       window.removeEventListener('keyup', onKeyUp);
       window.clearTimeout(endEarlyTimer.current);
     };
-  }, [paused, animating, session, step, tierable, handlers, countdown.finished, finishAnimation, send]);
+  }, [
+    paused,
+    animating,
+    session,
+    step,
+    tierable,
+    rules,
+    handlers,
+    countdown.finished,
+    finishAnimation,
+    send,
+  ]);
 
   const targets =
     session.phase === 'choose_direction' && session.lastRoll && animating !== 'rolling'
@@ -370,7 +380,7 @@ export function GameScreen({ session }: GameScreenProps) {
     >
       <GameConsole
         session={session}
-        rules={RULES}
+        rules={rules}
         hint={hint}
         releaseChance={releaseChance}
         performerName={performerName}
@@ -410,7 +420,7 @@ export function GameScreen({ session }: GameScreenProps) {
         />
         <TaskBar
           session={session}
-          rules={RULES}
+          rules={rules}
           folders={folders}
           actionCards={actionCards}
           hint={hint}

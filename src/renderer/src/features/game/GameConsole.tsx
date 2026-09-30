@@ -2,6 +2,9 @@ import { useId, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ActionHint } from '@shared/session/engine/actionHint';
 import type { ActiveEffect, ReleaseChance, SessionRules, SessionState } from '@shared/session/types';
+import { DEFAULT_SETTINGS } from '@shared/settings';
+import { displayAccelerator } from '@renderer/features/settings/accelerator';
+import { useUiStore } from '@renderer/stores/uiStore';
 import { Button } from '@renderer/ui/Button';
 import { Chip } from '@renderer/ui/Chip';
 import { classNames } from '@renderer/ui/classNames';
@@ -74,6 +77,9 @@ export function GameConsole({
 }: GameConsoleProps) {
   const { t } = useTranslation();
   const endEarlyHintId = useId();
+  const settingsState = useUiStore((state) => state.settingsState);
+  const pauseHotkey =
+    settingsState.status === 'ready' ? settingsState.settings.pauseHotkey : DEFAULT_SETTINGS.pauseHotkey;
   const discovered = session.cards.filter((card) => card.discovered).length;
   const hiddenNormal = (group: 'good' | 'bad') =>
     session.cards.filter((card) => card.kind === 'normal' && card.group === group && !card.discovered).length;
@@ -125,9 +131,16 @@ export function GameConsole({
         <Stat label={t('console.undiscovered')}>
           <GroupCount good={hiddenNormal('good')} bad={hiddenNormal('bad')} />
         </Stat>
-        <Stat label={t('console.actionsLeft')}>
-          <GroupCount good={hint.total.good} bad={hint.total.bad} />
-        </Stat>
+        {/* game-design §7.4 actionHint: off / total / split / split_by_side */}
+        {rules.actionHint !== 'off' && (
+          <Stat label={t('console.actionsLeft')}>
+            {rules.actionHint === 'total' ? (
+              hint.total.good + hint.total.bad
+            ) : (
+              <GroupCount good={hint.total.good} bad={hint.total.bad} />
+            )}
+          </Stat>
+        )}
       </div>
       {performerName && (
         <PerformerProgress
@@ -155,7 +168,7 @@ export function GameConsole({
           <Icon name="gallery" size={16} />
           {t('console.gallery')}
         </Button>
-        <Tooltip content={t('console.pauseHint')}>
+        <Tooltip content={t('console.pauseHint', { hotkey: displayAccelerator(pauseHotkey) })}>
           {(describedById) => (
             <Button variant="outline" aria-describedby={describedById} onClick={onPause} className="w-full">
               <Icon name="pause" size={16} />

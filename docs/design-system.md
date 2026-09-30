@@ -222,7 +222,7 @@ Short (< 400 ms), synthesized with Web Audio (no files, offline) – `src/render
 | Pause / neutral                                                                                                                                                                              | ✅                                   |
 | Empty state + first-run wizard                                                                                                                                                               | ⬜                                   |
 | Error states (missing folder, media failed)                                                                                                                                                  | ⬜                                   |
-| Admin: Folders, Actions (+ simulation), Session Rules, Visual Effects, Penalties, Sound/Controls, Backup                                                                                     | ⬜                                   |
+| Admin: Folders, Action cards (+ simulation), Session rules, Performers, Visual effects, Penalties, Sound & controls (built in code, AP10); Backup                                            | ✅ (Backup ⬜)                       |
 | History                                                                                                                                                                                      | ⬜                                   |
 | Media Library + Mask Editor                                                                                                                                                                  | ⬜ (own milestone)                   |
 
@@ -238,9 +238,15 @@ Designed in code like the rest of the screens (AP0.5); these are the binding rul
 | Undiscovered counter    | `GroupCount` (triangle up/down + color) of undiscovered **normal** cards; sits next to "Actions left".                                                                                                |
 | Performer progress      | Performer name + one pip per collected card (`collectible` fill) up to the highest tier; tier thresholds are marked by a taller pip. Hidden without a performer.                                      |
 | Collectible on the ring | Discovered segment filled with `collectible`, plus a 4-point **star** marker inside the ring (shape ≠ circle/diamond, never color-only).                                                              |
-| Detour badge            | On a direction button: `ink` outline chip "Detour · +2 good" below the goal distance. Only shown when the move would convert cards.                                                                   |
+| Detour badge            | On a direction button: `ink` outline chip "Detour · +1 good" below the goal distance. Only shown when the move would convert cards.                                                                   |
 | Forced reversal         | Roll phase: one `ink-2` line "Only backwards this round" with the reverse icon. The blocked direction button is disabled with the reverse icon (U Turn keeps its own icon); ring uses the dashed arc. |
 | Stroke tier picker      | Three outline tiles `×1 / ×2 / ×3` (keys `1`–`3`) left of the primary "Done"; the selected tile is filled `ink`. Each tile shows the resulting count and "n dice". The title shows the chosen count.  |
 | Multi-dice              | Ring center shows the sum large and the single dice as small `DiceFace`s below it.                                                                                                                    |
 | Session briefing        | Replaces the category reveal: columns Good / Bad categories, Performer (with tier list), and the action pool as icon + name rows (good first).                                                        |
 | Board notices           | Detour conversion, goal drift and collectible tiers use the notice step; their title is always the notice text (never the action name).                                                               |
+
+### Admin forms (AP10)
+
+- Section = title (`text-title`) + intro, fields grouped under `label` headings; groups separated by a `line` border.
+- Fields come from the shared schema: numbers use `NumberField` (visible label, inline error in `bad` below, % suffix for shares), ranges show Min/Max side by side, choices use `SegmentedControl`, flags use `Switch` with the state in the label.
+- A sticky action bar at the bottom: primary **Save** (disabled while invalid or unchanged), **Discard**, a status line ("Fix the marked values" / "Unsaved changes" / "applies to the next session"), **Reset to defaults** (confirm dialog). Nested editors (folder properties, action cards) use the compact, non-sticky variant.

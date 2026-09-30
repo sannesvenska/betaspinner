@@ -24,7 +24,7 @@
     "actionsLeft": "Actions left",
     "gallery": "Gallery",
     "pause": "Pause",
-    "pauseHint": "Pause instantly (Ctrl + Shift + Space)",
+    "pauseHint": "Pause instantly ({{hotkey}})",
     "endEarly": "End early",
     "endEarlyHint": "Hold to end the session. Counts as a loss.",
     "undiscovered": "Undiscovered",
@@ -188,7 +188,6 @@
     "broken": "Media could not be loaded"
   },
   "library": {
-    "title": "Library",
     "addFolders": "Add folders",
     "rescan": "Rescan",
     "scanning": "Scanning…",
@@ -227,7 +226,10 @@
       "noMedia": "No supported files in this folder (jpg, png, webp, gif, webm, mp4).",
       "showing": "Showing {{shown}} of {{total}}",
       "loadMore": "Load more",
-      "remove": "Remove folder"
+      "remove": "Remove folder",
+      "properties": "Properties",
+      "propertiesContent": "How often this category is picked, how much of the board it fills and how long its tasks are.",
+      "propertiesPerformer": "How often this performer is picked and how long the tasks on its collectibles are."
     },
     "remove": {
       "title": "Remove folder?",
@@ -256,11 +258,6 @@
       "bad": "Bad · Content",
       "performer": "Performers"
     },
-    "tabs": {
-      "label": "Show",
-      "folders": "Folders",
-      "actionCards": "Action cards"
-    },
     "cards": {
       "intro": "Every action card is its own card with its own image. Cards without an image use the neutral design. Duplicate a card to create a variant.",
       "section": {
@@ -282,7 +279,23 @@
         "image_in_use": "This image already belongs to another action card. Every card needs its own image.",
         "built_in": "Built-in cards cannot be deleted – reset them instead.",
         "not_found": "This action card no longer exists."
-      }
+      },
+      "edit": "Edit",
+      "weight": "Weight {{weight}}",
+      "distribution": "In {{share}} % of sessions · Ø {{count}} per session"
+    },
+    "sim": {
+      "title": "Simulation",
+      "run": "Run {{runs}} sessions",
+      "running": "Simulating…",
+      "hint": "Runs the session generator with the saved settings and shows how often each card appears.",
+      "actionCards": "Action cards (good / bad)",
+      "poolSize": "Pool size",
+      "collectibles": "Collectibles",
+      "performer": "With performer",
+      "runs": "{{runs}} simulated sessions with the saved settings",
+      "failed_one": "{{count}} session could not be generated",
+      "failed_other": "{{count}} sessions could not be generated"
     }
   },
   "start": {
@@ -323,7 +336,9 @@
     "tierConvert": "{{collected}} found: {{count}} bad fields turn good",
     "tierChance": "{{collected}} found: release chance +{{percent}} %",
     "actions": "Action cards",
-    "start": "Start"
+    "start": "Start",
+    "reroll": "Reroll board",
+    "rerolled": "Board rerolled – no further reroll this session."
   },
   "resume": {
     "title": "Resume session?",
@@ -524,6 +539,186 @@
     "reducedMotion": "Reduced motion",
     "reducedMotionHint": "Replaces movement with short fades; wheels and dice jump to their result.",
     "startFullscreen": "Start in fullscreen",
-    "testSound": "Test sound"
+    "testSound": "Test sound",
+    "pauseHotkey": "Pause hotkey",
+    "hotkeyChange": "Change",
+    "hotkeyCapturing": "Press keys… (Esc cancels)",
+    "hotkeyInvalid": "Use at least one of Ctrl, Alt, Shift plus a letter, digit or F-key.",
+    "hotkeyHint": "Works everywhere, even when the window is not focused."
+  },
+  "admin": {
+    "title": "Admin",
+    "nav": "Admin sections",
+    "section": {
+      "folders": "Folders",
+      "actionCards": "Action cards",
+      "rules": "Session rules",
+      "performers": "Performers",
+      "visualEffects": "Visual effects",
+      "penalties": "Penalties & progression",
+      "controls": "Sound & controls"
+    },
+    "intro": {
+      "rules": "How a session is built and played. Changes apply to the next session – a running session keeps its rules.",
+      "performers": "Performer galleries place collectible cards on the board. Collecting them unlocks the bonus tiers once per session.",
+      "penalties": "Penalty fields on the start wheel, what losses and outcomes change, and the good chance between sessions.",
+      "visualEffects": "Pixelate block size per level, as share of the short image side. Levels must grow.",
+      "controls": "Sound cues, animations, window and the global pause hotkey."
+    },
+    "group": {
+      "setup": "Start wheel",
+      "categories": "Categories",
+      "actions": "Action cards",
+      "release": "Release chance & final wheel",
+      "board": "Board mechanics",
+      "performer": "Collectibles",
+      "tiers": "Bonus tiers",
+      "penalties": "Penalty fields",
+      "rewards": "Outcome rewards",
+      "goodChance": "Good chance",
+      "pixelate": "Pixelate levels",
+      "params": "Parameters",
+      "folder": "Selection",
+      "card": "Frequency"
+    },
+    "field": {
+      "wheelRange": "Wheel range",
+      "startJitter": "Start jitter",
+      "minGoalDistance": "Min. goal distance",
+      "categoriesPerSession_good": "Good categories per session",
+      "categoriesPerSession_bad": "Bad categories per session",
+      "cooldownSessions": "Cooldown (sessions)",
+      "freshnessBonus": "Freshness bonus",
+      "freshnessCap": "Freshness cap (sessions)",
+      "allowReroll": "Reroll on the briefing",
+      "actionCardCount": "Action cards per session",
+      "actionGoodShare": "Good action share",
+      "actionPoolSize": "Action pool size",
+      "startProtection": "Start protection (fields)",
+      "goalProtection": "Goal protection (fields)",
+      "minActionGap": "Min. gap between special cards",
+      "actionRetrigger": "Action cards trigger",
+      "consumedTaskRange": "Task count of consumed cards",
+      "actionHint": "Action card hint",
+      "imageRecencySessions": "Image recency (sessions)",
+      "chancePerDiscovered": "Release chance per discovered card (%)",
+      "winChanceBounds": "Release chance bounds (%)",
+      "holdSecondsCap": "Hold Position cap (s)",
+      "detourConversion": "Bad → good per detour",
+      "maxDetourConversions": "Detour conversions",
+      "goalDriftRange": "Goal drift distance",
+      "goalDriftWidenStep": "Goal drift widen step",
+      "goalDriftMaxDistance": "Goal drift max. distance",
+      "strokeTierMax": "Max. stroke tier",
+      "forcedReversalChance": "Forced reversal chance",
+      "collectibleCount": "Collectibles per session",
+      "collectibleRevisitTaskRange": "Task count on a revisit",
+      "lockoutMinutes": "Lockout (min)",
+      "penaltyStep": "Fields per loss × streak",
+      "maxPenaltyFields": "Max. penalty fields",
+      "decayAmount": "Decay per hour",
+      "successRemoveFields": "Success reward: fields removed",
+      "partialRemoveFields": "Interrupted / no result: fields removed",
+      "goodChanceStep": "Good chance step",
+      "goodChanceBounds": "Good chance bounds",
+      "selectionWeight": "Selection weight",
+      "shareWeight": "Share weight",
+      "taskRange": "Task count",
+      "minImages": "Min. files",
+      "unmaskedEffectBehavior": "Effects without a mask",
+      "weight": "Weight",
+      "minPerSession": "Min. per session",
+      "maxPerSession": "Max. per session"
+    },
+    "option": {
+      "actionRetrigger": {
+        "once": "Once, then normal card",
+        "always": "Every visit"
+      },
+      "actionHint": {
+        "off": "Off",
+        "total": "Total",
+        "split": "Good / bad",
+        "split_by_side": "Per direction"
+      },
+      "unmaskedEffectBehavior": {
+        "full": "Whole image",
+        "none": "Not affected"
+      }
+    },
+    "error": {
+      "required": "Enter a value",
+      "integer": "Whole numbers only",
+      "tooSmall": "At least {{min}}",
+      "tooLarge": "At most {{max}}",
+      "minAboveMax": "Min. must not be above max.",
+      "notAscending": "Must be higher than the previous one",
+      "tooManySpecial": "Action cards + collectibles (max.) must not exceed 45",
+      "driftMax": "Must be at least the max. drift distance",
+      "invalid": "Some values are invalid – nothing was saved."
+    },
+    "min": "Min",
+    "max": "Max",
+    "on": "On",
+    "off": "Off",
+    "unlimited": "Unlimited",
+    "limited": "Limited",
+    "limit": "Limit",
+    "goodShare": {
+      "linked": "Like good chance",
+      "fixed": "Fixed",
+      "value": "Share"
+    },
+    "save": "Save",
+    "discard": "Discard",
+    "fixErrors": "Fix the marked values to save.",
+    "unsaved": "Unsaved changes",
+    "nextSession": "Saved – applies to the next session.",
+    "resetDefaults": "Reset to defaults",
+    "resetTitle": "Reset {{section}}?",
+    "resetBody": "All values of this section go back to their defaults.",
+    "resetConfirm": "Reset",
+    "tiers": {
+      "none": "No bonus tiers – collecting has no effect.",
+      "collected": "Collected",
+      "bonus": "Bonus",
+      "convert": "Bad → good",
+      "chance": "Release chance",
+      "cards": "Cards",
+      "percent": "Percent",
+      "remove": "Remove",
+      "add": "Add tier"
+    },
+    "progression": {
+      "title": "Reset progression",
+      "body": "Removes all penalty fields, the lockout, the loss streak and blocked cards, and sets the good chance back to 40 %. History and image rotation stay.",
+      "reset": "Hold to reset",
+      "done": "Progression was reset."
+    },
+    "pixelLevel": "Level {{level}}",
+    "pixelHint": "Example: 2.2 % of a 1,000 px short side = 22 px blocks.",
+    "card": {
+      "title": "Settings · {{name}}",
+      "noParams": "This card has no parameters.",
+      "requires": "Only with",
+      "requiresHint": "The card only appears if one of the selected types is in the session.",
+      "sessionChance": "Session gate",
+      "always": "Every session",
+      "gated": "Rolled per session",
+      "chance": "Chance"
+    },
+    "param": {
+      "holdSeconds": "Hold duration (s)",
+      "seconds": "Duration (s)",
+      "count": "Count",
+      "taskCount": "Task count",
+      "cardCount": "Cards hit",
+      "rounds": "Rounds",
+      "multiplier": "Multiplier",
+      "multiplierStep": "Multiplier step",
+      "alternatives": "Alternatives",
+      "safetyZone": "Safety zone (fields)",
+      "shieldEnabled": "Shield when nothing to remove"
+    }
   }
 }

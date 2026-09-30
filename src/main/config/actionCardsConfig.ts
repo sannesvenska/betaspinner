@@ -60,8 +60,13 @@ function normalizeCard(value: Record<string, unknown>, base: ActionCardDefinitio
       : typeof value.maxPerSession === 'number'
         ? Math.round(clampNumber(value.maxPerSession, 1, MAX_PER_SESSION, 1))
         : base.maxPerSession;
+  // null = no gate (kept in the JSON), a number sets it, a missing key keeps the base
   const sessionChance =
-    typeof value.sessionChance === 'number' ? clampNumber(value.sessionChance, 0, 1, 1) : base.sessionChance;
+    value.sessionChance === null
+      ? null
+      : typeof value.sessionChance === 'number'
+        ? clampNumber(value.sessionChance, 0, 1, 1)
+        : base.sessionChance;
   const requires = Array.isArray(value.requires) ? value.requires.filter(isActionId) : base.requires;
   return {
     id: base.id,
@@ -74,7 +79,7 @@ function normalizeCard(value: Record<string, unknown>, base: ActionCardDefinitio
     weight: clampNumber(value.weight, 0, MAX_WEIGHT, base.weight),
     minPerSession: Math.round(clampNumber(value.minPerSession, 0, MAX_PER_SESSION, base.minPerSession)),
     maxPerSession,
-    ...(sessionChance === undefined ? {} : { sessionChance }),
+    sessionChance,
     ...(requires && requires.length > 0 ? { requires } : {}),
     params: normalizeParams(value.params, base.params),
   };

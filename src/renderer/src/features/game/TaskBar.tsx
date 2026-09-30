@@ -243,8 +243,13 @@ export function TaskBar({
               </>
             ) : (
               <>
-                {t('game.goalDistance', { distance: goalDistance })} ·{' '}
-                <GroupCount good={side.good} bad={side.bad} /> {t('game.actions')}
+                {t('game.goalDistance', { distance: goalDistance })}
+                {rules.actionHint === 'split_by_side' && (
+                  <>
+                    {' · '}
+                    <GroupCount good={side.good} bad={side.bad} /> {t('game.actions')}
+                  </>
+                )}
               </>
             )}
           </span>

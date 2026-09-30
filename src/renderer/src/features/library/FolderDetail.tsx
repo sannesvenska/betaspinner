@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { FolderConfig, FolderScanStatus } from '@shared/content';
+import { FOLDER_FIELDS, validateFields } from '@shared/config/gameConfig';
+import { FOLDER_DEFAULTS, type FolderConfig, type FolderScanStatus } from '@shared/content';
+import { SectionEditor } from '@renderer/features/admin/SectionEditor';
 import { useLibraryStore } from '@renderer/stores/libraryStore';
 import { Button } from '@renderer/ui/Button';
 import { Dialog } from '@renderer/ui/Dialog';
@@ -27,6 +29,10 @@ export function FolderDetail({ folder, status, scanning }: FolderDetailProps) {
   const [nameDraft, setNameDraft] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const health = folderHealth(folder, status, scanning);
+  // Performers have no share between categories (game-design §5.1)
+  const folderFields = FOLDER_FIELDS.filter(
+    (spec) => folder.role === 'content' || spec.key !== 'shareWeight',
+  );
 
   const commitName = () => {
     const trimmed = nameDraft?.trim();
@@ -103,6 +109,37 @@ export function FolderDetail({ folder, status, scanning }: FolderDetailProps) {
           </Button>
         </div>
       </div>
+
+      <SectionEditor
+        compact
+        title={t('library.detail.properties')}
+        intro={t(
+          folder.role === 'performer'
+            ? 'library.detail.propertiesPerformer'
+            : 'library.detail.propertiesContent',
+        )}
+        value={folder}
+        fields={folderFields}
+        validate={(draft) => validateFields(draft, folderFields)}
+        onSave={(draft) =>
+          updateFolder(folder.id, {
+            selectionWeight: draft.selectionWeight,
+            shareWeight: draft.shareWeight,
+            taskRange: draft.taskRange,
+            minImages: draft.minImages,
+            unmaskedEffectBehavior: draft.unmaskedEffectBehavior,
+          })
+        }
+        onReset={async () => {
+          await updateFolder(folder.id, {
+            selectionWeight: FOLDER_DEFAULTS.selectionWeight,
+            shareWeight: FOLDER_DEFAULTS.shareWeight,
+            taskRange: [...FOLDER_DEFAULTS.taskRange],
+            minImages: FOLDER_DEFAULTS.minImages,
+            unmaskedEffectBehavior: FOLDER_DEFAULTS.unmaskedEffectBehavior,
+          });
+        }}
+      />
 
       {/* FolderDetail is keyed by folder id, so the grid remounts per folder */}
       {status?.state === 'ok' && (

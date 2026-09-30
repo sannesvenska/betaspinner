@@ -36,7 +36,7 @@ export function selectActionPool(
       card.enabled &&
       (card.weight > 0 || card.minPerSession > 0) &&
       !blocked.includes(card.id) &&
-      (card.sessionChance === undefined || chance(rng, card.sessionChance)),
+      (card.sessionChance === null || chance(rng, card.sessionChance)),
   );
   const target = randInt(rng, Math.round(size[0]), Math.round(size[1]));
   const pool = candidates.filter((card) => card.minPerSession > 0);

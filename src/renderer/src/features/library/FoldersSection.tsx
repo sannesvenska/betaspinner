@@ -2,14 +2,11 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { FolderConfig } from '@shared/content';
 import { useLibraryStore } from '@renderer/stores/libraryStore';
-import { useUiStore } from '@renderer/stores/uiStore';
 import { Alert } from '@renderer/ui/Alert';
 import { Button } from '@renderer/ui/Button';
 import { classNames } from '@renderer/ui/classNames';
 import { Icon } from '@renderer/ui/icons/Icon';
 import { ProgressBar } from '@renderer/ui/ProgressBar';
-import { SegmentedControl } from '@renderer/ui/SegmentedControl';
-import { ActionCardsPanel } from './ActionCardsPanel';
 import { FolderDetail } from './FolderDetail';
 import { folderHealth, folderHealthText } from './folderLabels';
 import { useAddFolders } from './useAddFolders';
@@ -20,15 +17,11 @@ const SECTIONS = [
   { key: 'performer', role: 'performer', tone: 'collectible' },
 ] as const;
 
-type LibraryTab = 'folders' | 'actionCards';
-
-/** Folder management (minimal admin until AP10). */
-export function LibraryScreen() {
+/** Admin section "Folders" (game-design §5, §16): folders by group/role, scan state, properties. */
+export function FoldersSection() {
   const { t } = useTranslation();
-  const navigate = useUiStore((state) => state.navigate);
   const { snapshot, progress, error, rescan, dismissError } = useLibraryStore();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [tab, setTab] = useState<LibraryTab>('folders');
   const addFlow = useAddFolders();
 
   const folders = snapshot?.folders ?? [];
@@ -36,30 +29,8 @@ export function LibraryScreen() {
   const scanning = snapshot?.scanning ?? false;
 
   return (
-    <main className="flex h-full flex-col">
-      <header className="flex items-center gap-4 border-b border-line px-12 py-6">
-        <Button
-          variant="text"
-          keyHint="Esc"
-          onClick={() => {
-            navigate('home');
-          }}
-        >
-          <Icon name="arrowLeft" size={16} />
-          {t('common.back')}
-        </Button>
-        <h1 className="font-display text-title font-bold uppercase">{t('library.title')}</h1>
-        <div className="flex-1">
-          <SegmentedControl
-            label={t('library.tabs.label')}
-            value={tab}
-            options={[
-              { value: 'folders', label: t('library.tabs.folders') },
-              { value: 'actionCards', label: t('library.tabs.actionCards') },
-            ]}
-            onChange={setTab}
-          />
-        </div>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex items-center justify-end gap-4 border-b border-line px-12 py-4">
         <Button variant="outline" disabled={scanning} onClick={() => void rescan()}>
           <Icon name="refresh" size={16} />
           {scanning ? t('library.scanning') : t('library.rescan')}
@@ -68,7 +39,7 @@ export function LibraryScreen() {
           <Icon name="plus" size={16} />
           {t('library.addFolders')}
         </Button>
-      </header>
+      </div>
 
       {scanning && (
         <div className="flex items-center gap-4 px-12 py-3">
@@ -88,89 +59,83 @@ export function LibraryScreen() {
         </div>
       )}
 
-      {tab === 'actionCards' ? (
-        <ActionCardsPanel />
-      ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-[minmax(280px,360px)_1fr]">
-          <nav
-            aria-label={t('library.foldersNav')}
-            className="overflow-y-auto border-r border-line bg-panel px-6 py-6"
-          >
-            {SECTIONS.map(({ key, role, tone }) => {
-              const sectionFolders = folders.filter(
-                (folder) => folder.role === role && (role === 'performer' || folder.group === key),
-              );
-              return (
-                <section key={key} className="mb-6">
-                  <h2
-                    className={classNames(
-                      'mb-2 border-l-3 pl-3 font-label text-label uppercase tracking-label text-ink-muted',
-                      tone === 'good' ? 'border-good' : tone === 'bad' ? 'border-bad' : 'border-collectible',
-                    )}
-                  >
-                    {t(`library.section.${key}`)}
-                  </h2>
-                  {sectionFolders.length === 0 ? (
-                    <p className="pl-4 text-body-sm text-ink-muted">{t('library.sectionEmpty')}</p>
-                  ) : (
-                    <ul>
-                      {sectionFolders.map((folder) => {
-                        const status = snapshot?.status[folder.id];
-                        const health = folderHealth(folder, status, scanning);
-                        const isSelected = folder.id === selected?.id;
-                        return (
-                          <li key={folder.id}>
-                            <button
-                              type="button"
-                              aria-current={isSelected ? 'true' : undefined}
-                              onClick={() => {
-                                setSelectedId(folder.id);
-                              }}
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(260px,320px)_1fr]">
+        <nav
+          aria-label={t('library.foldersNav')}
+          className="overflow-y-auto border-r border-line bg-panel px-6 py-6"
+        >
+          {SECTIONS.map(({ key, role, tone }) => {
+            const sectionFolders = folders.filter(
+              (folder) => folder.role === role && (role === 'performer' || folder.group === key),
+            );
+            return (
+              <section key={key} className="mb-6">
+                <h2
+                  className={classNames(
+                    'mb-2 border-l-3 pl-3 font-label text-label uppercase tracking-label text-ink-muted',
+                    tone === 'good' ? 'border-good' : tone === 'bad' ? 'border-bad' : 'border-collectible',
+                  )}
+                >
+                  {t(`library.section.${key}`)}
+                </h2>
+                {sectionFolders.length === 0 ? (
+                  <p className="pl-4 text-body-sm text-ink-muted">{t('library.sectionEmpty')}</p>
+                ) : (
+                  <ul>
+                    {sectionFolders.map((folder) => {
+                      const status = snapshot?.status[folder.id];
+                      const health = folderHealth(folder, status, scanning);
+                      const isSelected = folder.id === selected?.id;
+                      return (
+                        <li key={folder.id}>
+                          <button
+                            type="button"
+                            aria-current={isSelected ? 'true' : undefined}
+                            onClick={() => {
+                              setSelectedId(folder.id);
+                            }}
+                            className={classNames(
+                              'flex w-full flex-col items-start gap-0.5 rounded-panel px-4 py-2.5 text-left transition-colors duration-150',
+                              isSelected ? 'bg-surface' : 'hover:bg-surface/60',
+                            )}
+                          >
+                            <span className="font-display text-chip font-semibold uppercase tracking-chip">
+                              {folder.displayName}
+                            </span>
+                            <span
                               className={classNames(
-                                'flex w-full flex-col items-start gap-0.5 rounded-panel px-4 py-2.5 text-left transition-colors duration-150',
-                                isSelected ? 'bg-surface' : 'hover:bg-surface/60',
+                                'flex items-center gap-1.5 text-body-sm',
+                                health === 'ok' ? 'text-ink-muted' : 'text-bad',
                               )}
                             >
-                              <span className="font-display text-chip font-semibold uppercase tracking-chip">
-                                {folder.displayName}
-                              </span>
-                              <span
-                                className={classNames(
-                                  'flex items-center gap-1.5 text-body-sm',
-                                  health === 'ok' ? 'text-ink-muted' : 'text-bad',
-                                )}
-                              >
-                                {health !== 'ok' && health !== 'scanning' && (
-                                  <Icon name="warning" size={14} />
-                                )}
-                                {folderHealthText(t, health, folder, status)}
-                              </span>
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </section>
-              );
-            })}
-          </nav>
+                              {health !== 'ok' && health !== 'scanning' && <Icon name="warning" size={14} />}
+                              {folderHealthText(t, health, folder, status)}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
+            );
+          })}
+        </nav>
 
-          <section className="overflow-y-auto px-12 py-8">
-            {selected ? (
-              <FolderDetail
-                key={selected.id}
-                folder={selected}
-                status={snapshot?.status[selected.id]}
-                scanning={scanning}
-              />
-            ) : (
-              <p className="text-body text-ink-muted">{t('library.noFolders')}</p>
-            )}
-          </section>
-        </div>
-      )}
+        <section className="overflow-y-auto px-12 py-8">
+          {selected ? (
+            <FolderDetail
+              key={selected.id}
+              folder={selected}
+              status={snapshot?.status[selected.id]}
+              scanning={scanning}
+            />
+          ) : (
+            <p className="text-body text-ink-muted">{t('library.noFolders')}</p>
+          )}
+        </section>
+      </div>
       {addFlow.dialog}
-    </main>
+    </div>
   );
 }
