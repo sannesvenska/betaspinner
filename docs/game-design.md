@@ -523,6 +523,16 @@ Pixelation levels (configurable): `blockSizes = [0, 0.012, 0.022, 0.035, 0.05, 0
 
 Ring hover previews and the discovered gallery use the same pipeline at small size.
 
+**Implementation notes (AP8):** `src/renderer/src/effects/`.
+
+- Without active effects media render as plain `<img>`/`<video>`; the canvas pipeline only runs for affected cards.
+- Images draw once (redrawn on resize); videos draw per decoded frame (`requestVideoFrameCallback`); GIF / animated WebP decode frames with `ImageDecoder`. Thumbnails (ring preview, gallery) always draw a single frame.
+- Frame budget: if drawing averages more than 16 ms over 30 frames, animated media freeze on the current frame (`animatedEffectFallback`).
+- Decoded images are cached by hash (64 entries) instead of caching processed frames – drawing is cheap, fetching is not (the media protocol sends `no-store`).
+- The media scheme is CORS-enabled so canvases stay untainted and `ImageDecoder` can fetch.
+- Splatter textures live in `src/renderer/src/assets/splatter/` (any PNG/SVG/WebP there is used); `pnpm generate:splatter` recreates the placeholders. Stamp layout is deterministic per `splatterSeed`.
+- Region masks (§12.1) are not applied yet: folders behave as `unmaskedEffectBehavior` says (`full` / `none`) until the Mask Editor milestone (AP10).
+
 ---
 
 ## 13. Penalty System

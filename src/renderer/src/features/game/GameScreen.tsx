@@ -9,7 +9,8 @@ import { useSessionStore } from '@renderer/stores/sessionStore';
 import { useAnimationScale, useUiStore } from '@renderer/stores/uiStore';
 import { Alert } from '@renderer/ui/Alert';
 import { HOLD_TO_CONFIRM_MS } from '@renderer/ui/HoldToConfirm';
-import { Media } from '@renderer/ui/Media';
+import { cardEffectOptions } from '@renderer/effects/cardEffects';
+import { EffectMedia } from '@renderer/effects/EffectMedia';
 import { useCountdown } from '@renderer/ui/useCountdown';
 import { playCue } from '@renderer/sound/sound';
 import { getBlockedDirection } from '@shared/session/engine/effects';
@@ -276,7 +277,13 @@ export function GameScreen({ session }: GameScreenProps) {
     <>
       <div className={PREVIEW_SIZE}>
         {previewCard.imageHash && previewKind && (
-          <Media hash={previewCard.imageHash} kind={previewKind} variant="thumbnail" className="bg-stage" />
+          <EffectMedia
+            hash={previewCard.imageHash}
+            kind={previewKind}
+            variant="thumbnail"
+            className="bg-stage"
+            {...cardEffectOptions(previewCard, session.effects, folders)}
+          />
         )}
       </div>
       <div className="font-label text-label uppercase tracking-label text-ink">
@@ -351,6 +358,7 @@ export function GameScreen({ session }: GameScreenProps) {
           mediaKinds={mediaKinds}
           dimmed={session.phase === 'choose_direction' || session.phase === 'roll'}
           paused={paused}
+          effects={cardEffectOptions(session.reveal, session.effects, folders)}
         />
         <TaskBar
           session={session}
@@ -374,6 +382,8 @@ export function GameScreen({ session }: GameScreenProps) {
         }}
         cards={session.cards}
         mediaKinds={mediaKinds}
+        effects={session.effects}
+        folders={folders}
       />
     </main>
   );

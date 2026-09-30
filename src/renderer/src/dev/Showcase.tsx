@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ACTION_IDS, actionGroup } from '@shared/actions';
 import { AddFoldersDialog } from '@renderer/features/library/AddFoldersDialog';
 import { useUiStore } from '@renderer/stores/uiStore';
+import { EffectsPreview } from './EffectsPreview';
 import { Button } from '@renderer/ui/Button';
 import { Chip } from '@renderer/ui/Chip';
 import { Countdown } from '@renderer/ui/Countdown';
@@ -179,6 +180,10 @@ export function Showcase() {
           >
             {t('showcase.openFolderSetup')}
           </Button>
+        </Section>
+
+        <Section title={t('showcase.effects')}>
+          <EffectsPreview />
         </Section>
 
         <Section title={t('showcase.icons')}>

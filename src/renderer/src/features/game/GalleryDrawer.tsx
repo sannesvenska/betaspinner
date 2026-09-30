@@ -4,17 +4,22 @@ import type { Card } from '@shared/session/types';
 import { classNames } from '@renderer/ui/classNames';
 import { Drawer } from '@renderer/ui/Dialog';
 import { Icon } from '@renderer/ui/icons/Icon';
-import { Media } from '@renderer/ui/Media';
+import type { FolderConfig } from '@shared/content';
+import type { ActiveEffect } from '@shared/session/types';
+import { cardEffectOptions } from '@renderer/effects/cardEffects';
+import { EffectMedia } from '@renderer/effects/EffectMedia';
 
 interface GalleryDrawerProps {
   open: boolean;
   onClose: () => void;
   cards: readonly Card[];
   mediaKinds: SessionMediaKinds;
+  effects: readonly ActiveEffect[];
+  folders: readonly FolderConfig[];
 }
 
 /** Discovered cards (game-design §7.1) – read-only, opened with G. */
-export function GalleryDrawer({ open, onClose, cards, mediaKinds }: GalleryDrawerProps) {
+export function GalleryDrawer({ open, onClose, cards, mediaKinds, effects, folders }: GalleryDrawerProps) {
   const { t } = useTranslation();
   const discovered = cards.filter((card) => card.discovered && card.kind !== 'goal');
 
@@ -36,7 +41,12 @@ export function GalleryDrawer({ open, onClose, cards, mediaKinds }: GalleryDrawe
                     )}
                   >
                     {card.imageHash && kind ? (
-                      <Media hash={card.imageHash} kind={kind} variant="thumbnail" />
+                      <EffectMedia
+                        hash={card.imageHash}
+                        kind={kind}
+                        variant="thumbnail"
+                        {...cardEffectOptions(card, effects, folders)}
+                      />
                     ) : card.action ? (
                       <div className="flex h-full items-center justify-center text-ink-muted">
                         <Icon name={card.action} size={40} />

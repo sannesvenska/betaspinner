@@ -3,7 +3,8 @@ import type { SessionMediaKinds } from '@shared/ipc';
 import type { Card } from '@shared/session/types';
 import { classNames } from '@renderer/ui/classNames';
 import { Icon } from '@renderer/ui/icons/Icon';
-import { Media } from '@renderer/ui/Media';
+import type { EffectOptions } from '@renderer/effects/drawEffects';
+import { EffectMedia } from '@renderer/effects/EffectMedia';
 
 const NEUTRAL_ICON_SIZE = 160;
 
@@ -12,10 +13,11 @@ interface GameStageProps {
   mediaKinds: SessionMediaKinds;
   dimmed: boolean;
   paused: boolean;
+  effects: EffectOptions;
 }
 
 /** Image first: the card media fills the stage without cropping; no chrome on top (design-system §1). */
-export function GameStage({ card, mediaKinds, dimmed, paused }: GameStageProps) {
+export function GameStage({ card, mediaKinds, dimmed, paused, effects }: GameStageProps) {
   const { t } = useTranslation();
   const hash = card?.imageHash;
   const kind = hash ? mediaKinds[hash] : undefined;
@@ -29,7 +31,7 @@ export function GameStage({ card, mediaKinds, dimmed, paused }: GameStageProps) 
     >
       {hash && kind ? (
         <div key={hash} className="h-full w-full animate-[cr-fade-in_240ms_ease-out]">
-          <Media hash={hash} kind={kind} paused={paused} />
+          <EffectMedia hash={hash} kind={kind} paused={paused} {...effects} />
         </div>
       ) : card?.kind === 'action' && card.action ? (
         // Built-in neutral action design (§6.3)

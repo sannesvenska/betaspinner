@@ -87,7 +87,8 @@
     "primary": "Roll",
     "text": "Text",
     "disabled": "Disabled",
-    "openFolderSetup": "Folder setup dialog"
+    "openFolderSetup": "Folder setup dialog",
+    "effects": "Visual effects"
   },
   "action": {
     "clearing_edges": {

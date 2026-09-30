@@ -132,12 +132,17 @@ Order note: win flow (AP6) comes **before** actions (AP7) so a complete session 
 
 **Verified:** 116 tests; visual e2e of every action screen in the running app via the QA hook.
 
-## AP8 – Canvas effect renderer · M · ⬜
+## AP8 – Canvas effect renderer · M · ✅
 
-1. Pipeline §12.4: pixelate levels, splatter overlays with per-card seed, cache.
-2. Animated media through canvas (frame loop) with fallback to static frame.
-3. Generated placeholder splatter textures (replaceable files).
-4. Thumbnails/previews through the same pipeline.
+| #   | Task                                                                                                                                                                     | Status |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| 8.1 | Pipeline §12.4: contain-fit, pixelate (6 levels, nearest-neighbour upscale), splatter stamps clipped to the media, deterministic per seed (unit tested)                  | ✅     |
+| 8.2 | `EffectMedia`: plain media without effects; canvas for images, videos (per frame) and GIF / animated WebP (`ImageDecoder`); frame-budget fallback to a still; pause-safe | ✅     |
+| 8.3 | Generated placeholder splatter textures (`pnpm generate:splatter`), replaceable by dropping files into `assets/splatter/`                                                | ✅     |
+| 8.4 | Same pipeline for stage, ring preview and gallery; `unmaskedEffectBehavior: none` respected                                                                              | ✅     |
+| 8.5 | Dev showcase "Visual effects" (every level × media kind)                                                                                                                 | ✅     |
+
+**Verified:** 126 tests; showcase and in-game e2e (image static, GIF + video animating with effects, untainted canvas).
 
 **Result:** M3 – feature-complete game.
 

@@ -19,7 +19,8 @@ export function registerMediaScheme(): void {
   protocol.registerSchemesAsPrivileged([
     {
       scheme: MEDIA_PROTOCOL,
-      privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
+      // corsEnabled: canvas effects and ImageDecoder read the media (no tainted canvas)
+      privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true },
     },
   ]);
 }
@@ -52,6 +53,8 @@ export function handleMediaProtocol(resolve: (hash: string) => ResolvedMedia | u
         'Content-Type': media.mimeType,
         'Accept-Ranges': 'bytes',
         'Cache-Control': 'no-store', // privacy: no disk cache of media
+        // Only the app itself can reach this scheme; allows canvas/ImageDecoder reads
+        'Access-Control-Allow-Origin': '*',
       };
 
       if (range === 'unsatisfiable') {

@@ -12,6 +12,7 @@ import { Button } from '@renderer/ui/Button';
 import { Dialog } from '@renderer/ui/Dialog';
 import { DIALOG_AUTOFOCUS } from '@renderer/ui/dialogAutofocus';
 import { GameScreen } from './GameScreen';
+import { NO_EFFECTS } from '@renderer/effects/cardEffects';
 import { GameStage } from './GameStage';
 
 function useSpaceToConfirm(action: () => void) {
@@ -154,7 +155,13 @@ function SessionEnd({ session }: { session: SessionState }) {
       aside={
         outcome === 'mistress_says_no' ? (
           <div className="aspect-[3/4] h-full">
-            <GameStage card={session.reveal} mediaKinds={mediaKinds} dimmed={false} paused={false} />
+            <GameStage
+              card={session.reveal}
+              mediaKinds={mediaKinds}
+              dimmed={false}
+              paused={false}
+              effects={NO_EFFECTS}
+            />
           </div>
         ) : undefined
       }

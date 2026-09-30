@@ -20,7 +20,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check:i18n": "node scripts/check-i18n.mts",
-    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm check:i18n && pnpm test"
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm check:i18n && pnpm test",
+    "generate:splatter": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/generate-splatter.mts"
   },
   "dependencies": {
     "@fontsource/barlow": "5.3.0",
