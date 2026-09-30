@@ -25,6 +25,8 @@
   --color-good: #e3a64a;
   --color-bad: #e0442f;
   --color-collectible: #8fb3c4;
+  --color-masked: #7aa7e0;
+  --color-reviewed: #8cc79a;
   --color-penalty: var(--color-bad);
   --color-danger: var(--color-bad);
   --color-ring-empty: #3a332d;

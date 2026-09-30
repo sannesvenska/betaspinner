@@ -5,6 +5,7 @@ import { classNames } from '@renderer/ui/classNames';
 import { Drawer } from '@renderer/ui/Dialog';
 import { Icon } from '@renderer/ui/icons/Icon';
 import type { FolderConfig } from '@shared/content';
+import type { ImageMask } from '@shared/masks';
 import type { ActiveEffect } from '@shared/session/types';
 import { cardEffectOptions } from '@renderer/effects/cardEffects';
 import { EffectMedia } from '@renderer/effects/EffectMedia';
@@ -16,10 +17,19 @@ interface GalleryDrawerProps {
   mediaKinds: SessionMediaKinds;
   effects: readonly ActiveEffect[];
   folders: readonly FolderConfig[];
+  masks: Readonly<Record<string, ImageMask>>;
 }
 
 /** Discovered cards (game-design §7.1) – read-only, opened with G. */
-export function GalleryDrawer({ open, onClose, cards, mediaKinds, effects, folders }: GalleryDrawerProps) {
+export function GalleryDrawer({
+  open,
+  onClose,
+  cards,
+  mediaKinds,
+  effects,
+  folders,
+  masks,
+}: GalleryDrawerProps) {
   const { t } = useTranslation();
   const discovered = cards.filter((card) => card.discovered && card.kind !== 'goal');
 
@@ -49,7 +59,7 @@ export function GalleryDrawer({ open, onClose, cards, mediaKinds, effects, folde
                         hash={card.imageHash}
                         kind={kind}
                         variant="thumbnail"
-                        {...cardEffectOptions(card, effects, folders)}
+                        {...cardEffectOptions(card, effects, folders, masks)}
                       />
                     ) : card.action ? (
                       <div className="flex h-full items-center justify-center text-ink-muted">

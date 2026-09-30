@@ -43,4 +43,28 @@ describe('cardEffectOptions', () => {
     );
     expect(cardEffectOptions(null, pixelate, [])).toEqual(NO_EFFECTS);
   });
+
+  it('restricts effects to the regions of a masked image, even in "none" folders', () => {
+    const region = {
+      id: 'r',
+      shape: 'rect' as const,
+      rect: { x: 0, y: 0, w: 0.5, h: 0.5 },
+      effects: ['pixelate' as const],
+      feather: 0,
+    };
+    const masks = {
+      ['h'.repeat(40)]: {
+        imageHash: 'h'.repeat(40),
+        status: 'masked' as const,
+        regions: [region],
+        updatedAt: '',
+      },
+    };
+    expect(cardEffectOptions(card('b', 42), pixelate, [folder('b', 'none')], masks)).toEqual({
+      pixelLevel: 3,
+      splatterSeed: 42,
+      pixelateRegions: [region],
+      splatterRegions: [],
+    });
+  });
 });

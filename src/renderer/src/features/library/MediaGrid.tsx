@@ -18,7 +18,7 @@ type GridState =
   | { status: 'error'; error: string }
   | { status: 'ready'; entries: MediaEntry[]; total: number };
 
-/** Paged preview grid (virtualization follows with the Media Library, AP11). Remount per folder via `key`. */
+/** Paged preview grid in the folder detail; the Media Library has the virtualized review grid. Remount per folder via `key`. */
 export function MediaGrid({ folderId, revision }: MediaGridProps) {
   const { t } = useTranslation();
   const [state, setState] = useState<GridState>({ status: 'loading' });

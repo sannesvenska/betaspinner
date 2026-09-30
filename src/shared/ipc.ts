@@ -12,6 +12,7 @@ import type { EngineEvent } from './session/engine/reduce';
 import type { GenerationErrorCode } from './session/generateSession';
 import type { WheelResult } from './session/goalAndStart';
 import type { GameConfig } from './config/gameConfig';
+import type { ImageMask, MaskRegion, MaskStatus } from './masks';
 import type { SimulationResult } from './session/simulateSessions';
 import type { ActionCardDefinition, Progression, SessionState } from './session/types';
 import type { AppSettings } from './settings';
@@ -59,6 +60,22 @@ export type ActionCardPatch = Partial<
     | 'requires'
   >
 >;
+
+export type MaskFilter = 'all' | MaskStatus;
+export type MaskBulkAction = 'no_regions' | 'clear';
+
+/** Review progress of one folder (game-design §12.2). */
+export interface MaskFolderSummary {
+  total: number;
+  reviewed: number;
+  masked: number;
+  noRegions: number;
+}
+
+export interface MaskedMediaEntry extends MediaEntry {
+  maskStatus: MaskStatus;
+  regionCount: number;
+}
 
 export type GameConfigSection = keyof GameConfig;
 export type GameConfigUpdate = {
@@ -115,6 +132,15 @@ export interface IpcInvokeContract {
   /** Opens the native file picker and assigns the picked file; unchanged list when cancelled. */
   'actionCards:pickImage': { request: { id: string }; response: ActionCardDefinition[] };
   'actionCards:clearImage': { request: { id: string }; response: ActionCardDefinition[] };
+  'masks:summary': { request: undefined; response: Record<string, MaskFolderSummary> };
+  /** All media of a folder (sorted by file name) with their mask status; the grid virtualizes rendering. */
+  'masks:listFolder': { request: { folderId: string; filter: MaskFilter }; response: MaskedMediaEntry[] };
+  'masks:getMany': { request: { hashes: string[] }; response: Record<string, ImageMask> };
+  'masks:save': {
+    request: { imageHash: string; regions: MaskRegion[]; status?: MaskStatus };
+    response: ImageMask;
+  };
+  'masks:bulk': { request: { hashes: string[]; action: MaskBulkAction }; response: number };
   /** Dev builds only (QA): puts an action card on both neighbour fields and enables a chosen roll. */
   'dev:placeAction': { request: { action: ActionId }; response: SessionView };
 }
@@ -170,6 +196,11 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'actionCards:reset',
   'actionCards:pickImage',
   'actionCards:clearImage',
+  'masks:summary',
+  'masks:listFolder',
+  'masks:getMany',
+  'masks:save',
+  'masks:bulk',
   'dev:placeAction',
 ];
 

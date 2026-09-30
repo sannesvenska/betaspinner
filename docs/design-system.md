@@ -38,6 +38,8 @@ Defined once as CSS variables and exposed to Tailwind v4 via `@theme`. Component
 | `good`        | `#E3A64A`                                    | Good group                                                           | 9.0:1               |
 | `bad`         | `#E0442F`                                    | Bad group                                                            | 4.6:1               |
 | `collectible` | `#8FB3C4`                                    | Performer collectibles (ring segment, star marker, progress) – v2    | 8.7:1               |
+| `masked`      | `#7AA7E0`                                    | Mask status "masked" (badge), mask regions in the editor             | 7.4:1               |
+| `reviewed`    | `#8CC79A`                                    | Mask status "no regions" (badge)                                     | 9.4:1               |
 | `penalty`     | → `bad`                                      | Penalty fields on the start wheel (own name so it can diverge later) | 4.6:1               |
 | `danger`      | → `bad`                                      | Destructive controls (End Early hold progress)                       | 4.6:1               |
 | `ring-empty`  | `#3A332D`                                    | Undiscovered segment                                                 | 1.55:1 ¹            |
@@ -224,7 +226,7 @@ Short (< 400 ms), synthesized with Web Audio (no files, offline) – `src/render
 | Error states (missing folder, media failed)                                                                                                                                                  | ⬜                                   |
 | Admin: Folders, Action cards (+ simulation), Session rules, Performers, Visual effects, Penalties, Sound & controls (built in code, AP10); Backup                                            | ✅ (Backup ⬜)                       |
 | History                                                                                                                                                                                      | ⬜                                   |
-| Media Library + Mask Editor                                                                                                                                                                  | ⬜ (own milestone)                   |
+| Media Library + Mask Editor (built in code, AP11)                                                                                                                                            | ✅                                   |
 
 ---
 
@@ -250,3 +252,9 @@ Designed in code like the rest of the screens (AP0.5); these are the binding rul
 - Section = title (`text-title`) + intro, fields grouped under `label` headings; groups separated by a `line` border.
 - Fields come from the shared schema: numbers use `NumberField` (visible label, inline error in `bad` below, % suffix for shares), ranges show Min/Max side by side, choices use `SegmentedControl`, flags use `Switch` with the state in the label.
 - A sticky action bar at the bottom: primary **Save** (disabled while invalid or unchanged), **Discard**, a status line ("Fix the marked values" / "Unsaved changes" / "applies to the next session"), **Reset to defaults** (confirm dialog). Nested editors (folder properties, action cards) use the compact, non-sticky variant.
+
+### Media Library & Mask Editor (AP11)
+
+- Thumbnails carry a status badge top-left: `surface`/`ink-muted` = unreviewed, `masked` fill = "n regions", `reviewed` fill = "no regions"; selection = 2px `ink` outline.
+- The editor is a full-screen native dialog: tool bar on top (tool buttons with key hints, undo/redo, zoom %, Close), stage on `stage`, side panel 340px on `panel` (image, selected region, preview, navigation).
+- Regions: `masked` stroke + 20 % fill; the selected region uses a dashed `ink` stroke and four `ink` corner handles (10px, constant screen size).

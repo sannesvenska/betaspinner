@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { ActionCardsPanel } from '@renderer/features/library/ActionCardsPanel';
 import { FoldersSection } from '@renderer/features/library/FoldersSection';
+import { MediaLibrarySection } from '@renderer/features/media/MediaLibrarySection';
 import { SettingsForm } from '@renderer/features/settings/SettingsForm';
 import { useGameConfigStore } from '@renderer/stores/gameConfigStore';
 import { useUiStore, type AdminSection } from '@renderer/stores/uiStore';
@@ -17,6 +18,7 @@ import {
 
 const SECTIONS: readonly AdminSection[] = [
   'folders',
+  'mediaLibrary',
   'actionCards',
   'rules',
   'performers',
@@ -52,6 +54,9 @@ export function AdminScreen() {
     case 'folders':
       content = <FoldersSection />;
       break;
+    case 'mediaLibrary':
+      content = <MediaLibrarySection />;
+      break;
     case 'actionCards':
       content = <ActionCardsPanel />;
       break;
@@ -72,7 +77,7 @@ export function AdminScreen() {
       break;
   }
   // Folders and action cards manage their own scrolling panes
-  const ownLayout = section === 'folders' || section === 'actionCards';
+  const ownLayout = section === 'folders' || section === 'actionCards' || section === 'mediaLibrary';
 
   return (
     <main className="flex h-full flex-col">

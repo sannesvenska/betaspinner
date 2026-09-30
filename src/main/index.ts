@@ -17,6 +17,13 @@ import { simulateSessions } from '@shared/session/simulateSessions';
 import { createActionCardService } from './config/actionCardService';
 import { createConfigService } from './config/configService';
 import { createActionArtStore } from './content/actionArtStore';
+import {
+  createMaskService,
+  EMPTY_MASK_FILE,
+  MASKS_SCHEMA_VERSION,
+  normalizeMaskFile,
+  type MaskFile,
+} from './masks/maskService';
 import { EMPTY_INDEX, INDEX_MIGRATIONS, INDEX_SCHEMA_VERSION, normalizeIndex } from './content/libraryIndex';
 import { createLibraryService } from './content/libraryService';
 import { MEDIA_EXTENSIONS } from './content/mediaFormats';
@@ -141,6 +148,17 @@ async function startApp(): Promise<void> {
     },
   });
 
+  const masks = await createMaskService({
+    store: createJsonStore<MaskFile>({
+      directory: userData,
+      fileName: 'masks.json',
+      schemaVersion: MASKS_SCHEMA_VERSION,
+      defaults: EMPTY_MASK_FILE,
+      normalize: normalizeMaskFile,
+    }),
+    media: library.mediaEntries,
+  });
+
   // game-design §13.3: decay lazily on start and every minute while running
   const runDecay = () => {
     sessions.tickDecay().catch((error: unknown) => {
@@ -232,6 +250,11 @@ async function startApp(): Promise<void> {
       return result.canceled || !path ? actionCards.list() : actionCards.assignImage(id, path);
     },
     'actionCards:clearImage': ({ id }) => actionCards.clearImage(id),
+    'masks:summary': () => masks.summary(),
+    'masks:listFolder': ({ folderId, filter }) => masks.listFolder(folderId, filter),
+    'masks:getMany': ({ hashes }) => masks.getMany(hashes),
+    'masks:save': (input) => masks.save(input),
+    'masks:bulk': ({ hashes, action }) => masks.bulk(hashes, action),
     'dev:placeAction': ({ action }) => {
       // Never available in packaged builds
       if (!isDev) throw new Error('Not available');

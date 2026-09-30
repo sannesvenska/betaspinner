@@ -201,11 +201,18 @@ Implements game-design **Revision 3** (all rules marked **[v2]**, decision log �
 
 **Result:** M5 – configurable.
 
-## AP11 – Media Library & Mask Editor · L · ⬜
+## AP11 – Media Library & Mask Editor · L · ✅
 
-1. Library: folder sidebar with review progress, virtualized grid, status badges, filters, bulk actions.
-2. Mask editor: rect/ellipse/polygon/lasso (RDP), select/move/resize, zoom/pan, undo/redo, shortcuts, copy-from-previous, preview slider through the real renderer, autosave.
-3. `masks.json` keyed by hash, normalized coordinates.
+| #    | Task                                                                                                                                                                                                | Status |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 11.1 | `src/shared/masks.ts`: types, normalized geometry (hit test, move, corner resize, polygon scaling), lasso simplification (RDP), status rules, tolerant normalization                                | ✅     |
+| 11.2 | `masks.json` keyed by hash (main `maskService`): save with derived status, bulk "no regions" (never overwrites regions) / clear, review progress per folder, folder listing with filter             | ✅     |
+| 11.3 | Effect pipeline: masked images get pixelate and splatter only inside the regions of each effect, feathered by a blurred alpha mask; unmasked images keep the folder behaviour (game, gallery, ring) | ✅     |
+| 11.4 | Admin section "Media library": folder sidebar with review progress, virtualized grid (only visible rows), status badges, filters, click / Ctrl / Shift selection, bulk actions                      | ✅     |
+| 11.5 | Mask Editor (native modal): select/move/resize, rectangle, ellipse, polygon, lasso; zoom (wheel, around the cursor) and pan (Space / middle mouse); undo/redo; region effects + feather; delete     | ✅     |
+| 11.6 | Editor workflow: ←/→ navigation with autosave, C copy regions from previous, N no regions + next, preview pixelate level 0–5 and splatter through the real renderer, autosave on close              | ✅     |
+
+**Verified:** 180 tests (geometry, RDP, status/normalization, mask service, history, masked card effects); e2e in the running app with patterned test images: bulk "no regions", rectangle + lasso drawn, region moved, undo/redo, preview level 4 pixelates only inside the regions with soft edges, navigation autosaves, progress and badges update. Found and fixed: the six-segment preview control overflowed the side panel; a focused radio button blocked the editor shortcuts.
 
 **Result:** M6 – masks.
 

@@ -185,7 +185,67 @@
     }
   },
   "media": {
-    "broken": "Media could not be loaded"
+    "broken": "Media could not be loaded",
+    "foldersNav": "Folders to review",
+    "progress": "{{reviewed}} / {{total}} reviewed",
+    "filter": {
+      "label": "Show",
+      "all": "All",
+      "unreviewed": "Unreviewed",
+      "masked": "Masked",
+      "no_regions": "No regions"
+    },
+    "status": {
+      "unreviewed": "Unreviewed",
+      "masked": "Masked",
+      "no_regions": "No regions"
+    },
+    "badge": {
+      "masked_one": "{{count}} region",
+      "masked_other": "{{count}} regions"
+    },
+    "selected": "{{count}} of {{total}} selected",
+    "selectAll": "Select all",
+    "bulk": {
+      "noRegions": "Mark as no regions",
+      "clear": "Clear masks"
+    },
+    "empty": "No files match this filter.",
+    "gridLabel": "Media files",
+    "hint": "Click to select (Ctrl / Shift for several), double-click or Enter opens the mask editor. Masked images get pixelate and splatter only inside their regions.",
+    "tool": {
+      "select": "Select",
+      "rect": "Rectangle",
+      "ellipse": "Ellipse",
+      "polygon": "Polygon",
+      "lasso": "Lasso"
+    },
+    "shape": {
+      "rect": "Rectangle",
+      "ellipse": "Ellipse",
+      "polygon": "Polygon"
+    },
+    "editor": {
+      "title": "Mask editor",
+      "undo": "Undo",
+      "redo": "Redo",
+      "zoom": "{{zoom}} %",
+      "position": "Image {{index}} of {{total}}",
+      "saved": "Saved",
+      "unsaved": "Unsaved – saves when you leave the image",
+      "region": "Selected region",
+      "feather": "Edge feather",
+      "delete": "Delete region",
+      "noSelection_one": "{{count}} region – select one to edit it",
+      "noSelection_other": "{{count}} regions – select one to edit it",
+      "preview": "Preview pixelate level",
+      "previewSplatter": "Preview splatter",
+      "copyPrevious": "Copy regions from previous",
+      "noRegions": "No regions needed – next",
+      "previous": "Previous",
+      "next": "Next",
+      "panHint": "+ drag to pan · mouse wheel to zoom · 0 resets"
+    }
   },
   "library": {
     "addFolders": "Add folders",
@@ -556,7 +616,8 @@
       "performers": "Performers",
       "visualEffects": "Visual effects",
       "penalties": "Penalties & progression",
-      "controls": "Sound & controls"
+      "controls": "Sound & controls",
+      "mediaLibrary": "Media library"
     },
     "intro": {
       "rules": "How a session is built and played. Changes apply to the next session – a running session keeps its rules.",

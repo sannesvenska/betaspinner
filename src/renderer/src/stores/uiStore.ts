@@ -3,7 +3,14 @@ import type { AppSettings } from '@shared/settings';
 
 export type Screen = 'home' | 'admin' | 'showcase';
 export type AdminSection =
-  'folders' | 'actionCards' | 'rules' | 'performers' | 'visualEffects' | 'penalties' | 'controls';
+  | 'folders'
+  | 'mediaLibrary'
+  | 'actionCards'
+  | 'rules'
+  | 'performers'
+  | 'visualEffects'
+  | 'penalties'
+  | 'controls';
 
 type SettingsState =
   { status: 'loading' } | { status: 'ready'; settings: AppSettings } | { status: 'error'; error: string };

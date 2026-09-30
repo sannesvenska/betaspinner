@@ -7,6 +7,7 @@ import { clockwiseDistance, shortDistance, TRACK_LENGTH, wrapField } from '@shar
 import type { Direction, SessionState, StrokeTier } from '@shared/session/types';
 import { useActionCardsStore } from '@renderer/stores/actionCardsStore';
 import { useLibraryStore } from '@renderer/stores/libraryStore';
+import { useMasks } from '@renderer/stores/masksStore';
 import { useSessionStore } from '@renderer/stores/sessionStore';
 import { useAnimationScale, useUiStore } from '@renderer/stores/uiStore';
 import { Alert } from '@renderer/ui/Alert';
@@ -69,6 +70,11 @@ export function GameScreen({ session }: GameScreenProps) {
   const dismissError = useSessionStore((state) => state.dismissError);
   const folders = useLibraryStore((state) => state.snapshot?.folders ?? []);
   const actionCards = useActionCardsStore((state) => state.cards);
+  const trackHashes = useMemo(
+    () => session.cards.flatMap((card) => (card.imageHash ? [card.imageHash] : [])),
+    [session.cards],
+  );
+  const masks = useMasks(trackHashes);
   const paused = useUiStore((state) => state.paused);
   const togglePause = useUiStore((state) => state.togglePause);
   const scale = useAnimationScale();
@@ -322,7 +328,7 @@ export function GameScreen({ session }: GameScreenProps) {
             kind={previewKind}
             variant="thumbnail"
             className="bg-stage"
-            {...cardEffectOptions(previewCard, session.effects, folders)}
+            {...cardEffectOptions(previewCard, session.effects, folders, masks)}
           />
         )}
       </div>
@@ -416,7 +422,7 @@ export function GameScreen({ session }: GameScreenProps) {
           mediaKinds={mediaKinds}
           dimmed={session.phase === 'choose_direction' || session.phase === 'roll'}
           paused={paused}
-          effects={cardEffectOptions(session.reveal, session.effects, folders)}
+          effects={cardEffectOptions(session.reveal, session.effects, folders, masks)}
         />
         <TaskBar
           session={session}
@@ -445,6 +451,7 @@ export function GameScreen({ session }: GameScreenProps) {
         mediaKinds={mediaKinds}
         effects={session.effects}
         folders={folders}
+        masks={masks}
       />
     </main>
   );

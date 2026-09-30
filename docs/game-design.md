@@ -584,7 +584,15 @@ Implemented as a pure reducer in `src/shared/session/engine/` (`reduce(state, ev
 
 Pixelate and Splatter can be restricted to **regions** defined per image. Each image may have a mask consisting of one or more regions. The effect is applied only inside those regions. Images without a mask follow their folder's `unmaskedEffectBehavior` (`full` = whole image, `none` = unaffected).
 
-> **Scope:** the Media Library and Mask Editor (§12.2–12.3) are a **separate milestone** after the core game. Until then every folder behaves as `unmaskedEffectBehavior: full`.
+**[RULE] Mask status and effects (AP11):**
+
+| Status       | Effects                                                                                |
+| ------------ | -------------------------------------------------------------------------------------- |
+| `masked`     | Each effect only inside the regions that list it (a region can be pixelate-only, etc.) |
+| `no_regions` | Reviewed, nothing to restrict → the folder's `unmaskedEffectBehavior` applies          |
+| `unreviewed` | The folder's `unmaskedEffectBehavior` applies                                          |
+
+A mask's status follows its regions: any region → `masked`; removing all regions returns to `unreviewed` unless "no regions needed" was chosen. Bulk "mark as no regions" never overwrites existing regions.
 
 ### 12.2 Media Library (Admin)
 
@@ -647,7 +655,7 @@ Ring hover previews and the discovered gallery use the same pipeline at small si
 - Decoded images are cached by hash (64 entries) instead of caching processed frames – drawing is cheap, fetching is not (the media protocol sends `no-store`).
 - The media scheme is CORS-enabled so canvases stay untainted and `ImageDecoder` can fetch.
 - Splatter textures live in `src/renderer/src/assets/splatter/` (any PNG/SVG/WebP there is used); `pnpm generate:splatter` recreates the placeholders. Stamp layout is deterministic per `splatterSeed`.
-- Region masks (§12.1) are not applied yet: folders behave as `unmaskedEffectBehavior` says (`full` / `none`) until the Mask Editor milestone (AP11).
+- Region masks (§12.1): the pixelate and splatter layers are drawn into an offscreen layer and cut with a white alpha mask of the regions (each region blurred by its feather); `src/shared/masks.ts` holds the geometry, `masks.json` the data.
 
 ---
 

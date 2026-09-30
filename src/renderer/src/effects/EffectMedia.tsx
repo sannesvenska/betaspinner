@@ -3,7 +3,7 @@ import { mediaUrl, type MediaKind } from '@shared/content';
 import { classNames } from '@renderer/ui/classNames';
 import { Media } from '@renderer/ui/Media';
 import { useGameConfigStore } from '@renderer/stores/gameConfigStore';
-import { drawEffectFrame, hasEffects, type EffectOptions } from './drawEffects';
+import { createEffectScratch, drawEffectFrame, hasEffects, type EffectOptions } from './drawEffects';
 import { loadSplatterTextures } from './splatterTextures';
 
 /** A frame drawn slower than this on average switches animated media to a static frame (§5.3). */
@@ -54,7 +54,25 @@ interface EffectMediaProps extends EffectOptions {
  * Thumbnails always draw a single frame.
  */
 export function EffectMedia(props: EffectMediaProps) {
-  const { hash, kind, alt, className, variant = 'stage', paused = false, pixelLevel, splatterSeed } = props;
+  const {
+    hash,
+    kind,
+    alt,
+    className,
+    variant = 'stage',
+    paused = false,
+    pixelLevel,
+    splatterSeed,
+    pixelateRegions,
+    splatterRegions,
+  } = props;
+  // Region arrays are new objects on every render – restart the pipeline only when their content changes
+  const regionKey = JSON.stringify([pixelateRegions, splatterRegions]);
+  const regionsRef = useRef({ pixelateRegions, splatterRegions });
+  // Declared before the pipeline effect, so the pipeline always starts with the current regions
+  useEffect(() => {
+    regionsRef.current = { pixelateRegions, splatterRegions };
+  });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const pausedRef = useRef(paused);
@@ -71,8 +89,8 @@ export function EffectMedia(props: EffectMediaProps) {
     let disposed = false;
     // Function call so the flag isn't narrowed across awaits
     const isDisposed = (): boolean => disposed;
-    const scratch = document.createElement('canvas');
-    const options: EffectOptions = { pixelLevel, splatterSeed, blockFractions };
+    const scratch = createEffectScratch();
+    const options: EffectOptions = { pixelLevel, splatterSeed, blockFractions, ...regionsRef.current };
     let textures: HTMLImageElement[] = [];
     let redraw: () => void = () => undefined;
     const cleanups: (() => void)[] = [];
@@ -233,7 +251,7 @@ export function EffectMedia(props: EffectMediaProps) {
       disposed = true;
       for (const cleanup of cleanups) cleanup();
     };
-  }, [active, hash, kind, variant, pixelLevel, splatterSeed, blockFractions]);
+  }, [active, hash, kind, variant, pixelLevel, splatterSeed, blockFractions, regionKey]);
 
   // Pause (§19) stops playback without tearing the pipeline down, so it resumes where it was
   useEffect(() => {
