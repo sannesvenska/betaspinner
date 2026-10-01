@@ -8,7 +8,8 @@ import { placeActions } from './placeActions';
 import { createRng, randInt, shuffle, type Rng } from './rng';
 import { cardGroup, selectActionPool } from './selectActionPool';
 import { selectCategories } from './selectCategories';
-import { ALL_FIELDS, TRACK_LENGTH, wrapField } from './track';
+import { canSplatter } from './engine/effects';
+import { ALL_FIELDS, wrapField } from './track';
 import type {
   ActionCardDefinition,
   Card,
@@ -154,11 +155,9 @@ export function generateSession(input: GenerateSessionInput): GenerateSessionRes
   const plannedGood = Math.round(plannedActions * goodShare);
   const collectibleCount = performerFolderId ? rollCount(rng, rules.collectibleCount) : 0;
 
-  // §6.4 action pool, then slots (unfillable slots become normal cards); Freshen Up is beta-only (§6.7)
+  // §6.4 action pool, then slots (unfillable slots become normal cards)
   const pool = selectActionPool(rng, {
-    cards: rules.betaMode
-      ? input.actionCards
-      : input.actionCards.filter((card) => card.type !== 'freshen_up'),
+    cards: input.actionCards,
     blocked: progression.blockedActionsNextSession,
     size: rules.actionPoolSize,
   });
@@ -246,12 +245,11 @@ export function generateSession(input: GenerateSessionInput): GenerateSessionRes
     categoryBags,
   };
   const builtCards: Card[] = ALL_FIELDS.map((field) => buildCard(rng, field, context));
-  // §6.7 draft splash: a share of the cards starts splattered (a normal, removable splatter effect)
+  // §6.0 draft splash: a share of the cards starts splattered (a normal, removable splatter effect);
+  // action cards are never splattered (§12.1)
+  const splatterable = builtCards.filter(canSplatter).map((card) => card.field);
   const splatterTargets = new Set(
-    shuffle(
-      rng,
-      builtCards.filter((card) => card.kind !== 'goal').map((card) => card.field),
-    ).slice(0, Math.round((input.draft?.splatterShare ?? 0) * (TRACK_LENGTH - 1))),
+    shuffle(rng, splatterable).slice(0, Math.round((input.draft?.splatterShare ?? 0) * splatterable.length)),
   );
   const cards = builtCards.map((card) =>
     splatterTargets.has(card.field) ? { ...card, splatterSeed: randInt(rng, 1, SPLATTER_SEED_MAX) } : card,

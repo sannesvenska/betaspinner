@@ -33,6 +33,11 @@ describe('cardEffectOptions', () => {
     });
   });
 
+  it('never puts effects on action cards (own art stays untouched)', () => {
+    const action: Card = { ...card('a', 42), kind: 'action', action: 'pixelate', actionCardId: 'pixelate' };
+    expect(cardEffectOptions(action, pixelate, [folder('a', 'full')])).toEqual(NO_EFFECTS);
+  });
+
   it('keeps folders with behavior none untouched', () => {
     expect(cardEffectOptions(card('b', 42), pixelate, [folder('b', 'none')])).toEqual(NO_EFFECTS);
   });

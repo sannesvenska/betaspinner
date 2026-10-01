@@ -59,8 +59,7 @@ describe('generateSession – invariants over 1,000 seeds', () => {
 
       // §6.3 / §9.4 collectibles from the performer
       expect(session.performerFolderId).toBe('perf-a');
-      expect(collectibles.length).toBeGreaterThanOrEqual(6);
-      expect(collectibles.length).toBeLessThanOrEqual(8);
+      expect(collectibles).toHaveLength(5);
       for (const card of collectibles) {
         expect(card).toMatchObject({ folderId: 'perf-a', discovered: false });
         expect(card.group).toBeUndefined();
@@ -183,7 +182,7 @@ describe('generateSession – categories and images', () => {
 
   it('skips collectibles without an eligible performer gallery', () => {
     const base = standardInput();
-    const media = base.media.filter((entry) => entry.folderId !== 'perf-a').concat(mediaFor('perf-a', 7));
+    const media = base.media.filter((entry) => entry.folderId !== 'perf-a').concat(mediaFor('perf-a', 4));
     const { session } = generateSession({ ...base, media });
     expect(session.performerFolderId).toBeNull();
     expect(session.cards.some((card) => card.kind === 'collectible')).toBe(false);

@@ -138,7 +138,7 @@ describe('simulateSessions (§16 admin preview)', () => {
     expect(result.failed).toBe(0);
     expect(result.avgActionCards).toBeGreaterThanOrEqual(14);
     expect(result.avgActionCards).toBeLessThanOrEqual(22);
-    expect(result.avgCollectibles).toBeGreaterThanOrEqual(6);
+    expect(result.avgCollectibles).toBe(5);
     expect(result.performerShare).toBe(1);
     expect(result.avgPoolSize).toBeGreaterThanOrEqual(7);
     expect(result.cards).toHaveLength(DEFAULT_ACTION_CARDS.length);

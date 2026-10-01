@@ -92,12 +92,8 @@ export interface SessionRules {
   collectibleCount: Range;
   collectibleRevisitTaskRange: Range;
   collectibleTiers: readonly CollectibleTier[];
-  /** Beta mode (§6.7): collectibles are shown on the ring before they are discovered */
-  collectiblesVisible: boolean;
-  /** Beta mode: pixelate levels removed when a collectible is collected for the first time */
+  /** Pixelate levels removed when a collectible is collected for the first time (§9.4) */
   collectiblePixelateRelief: number;
-  /** The session was generated with the beta mode (history comparison) */
-  betaMode: boolean;
 }
 
 /** game-design §13 / §14.3 – admin-configurable (AP10). */

@@ -162,7 +162,7 @@
     },
     "freshen_up": {
       "name": "Freshen Up",
-      "description": "Beta mode only. Choose: pixelation drops one level or 30 % of the splattered cards get cleaned."
+      "description": "Choose: pixelation drops one level or 30 % of the splattered cards get cleaned."
     }
   },
   "media": {
@@ -632,17 +632,15 @@
       "penalties": "Penalties & progression",
       "controls": "Sound & controls",
       "mediaLibrary": "Media library",
-      "draft": "Session draft",
-      "beta": "Beta mode"
+      "draft": "Session draft"
     },
     "intro": {
       "rules": "How a session is built and played. Changes apply to the next session – a running session keeps its rules.",
-      "performers": "Performer galleries place collectible cards on the board. Collecting them unlocks the bonus tiers once per session.",
+      "performers": "Performer galleries place collectible cards on the board – visible on the ring from the start. The first visit lowers pixelate; collecting several unlocks the bonus tiers once per session.",
       "penalties": "Penalty fields on the start wheel, what losses and outcomes change, and the good chance between sessions.",
       "visualEffects": "Pixelate block size per level, as share of the short image side. Levels must grow.",
       "controls": "Sound cues, animations, window and the global pause hotkey.",
-      "draft": "Before the start wheel the player turns over some hidden fields. Their mix decides the good share of the normal cards, a start pixelate level and an extra win factor for the coming session.",
-      "beta": "A test variant to compare against the normal game. While active, the performer cards are visible on the ring from the start, collecting one also lowers pixelate, the draft uses the mix below (splash fields splatter a share of the cards) and the action card Freshen Up can appear. The normal settings stay untouched; history marks beta sessions."
+      "draft": "Before the start wheel the player turns over some hidden fields. Their mix decides the good share of the normal cards, a start pixelate level and an extra win factor for the coming session."
     },
     "group": {
       "setup": "Start wheel",
@@ -662,10 +660,7 @@
       "draft": "Draft",
       "draftFields": "Fields per type",
       "draftEffects": "Effects",
-      "draftArt": "Card images",
-      "beta": "Beta mode",
-      "betaPerformer": "Visible performer cards",
-      "betaDraft": "Draft fields in beta mode"
+      "draftArt": "Card images"
     },
     "field": {
       "wheelRange": "Wheel range",
@@ -697,7 +692,7 @@
       "goalDriftMaxDistance": "Goal drift max. distance",
       "strokeTierMax": "Max. stroke tier",
       "forcedReversalChance": "Forced reversal chance",
-      "collectibleCount": "Collectibles per session",
+      "collectibleCount": "Performer cards per session",
       "collectibleRevisitTaskRange": "Task count on a revisit",
       "lockoutMinutes": "Lockout (min)",
       "penaltyStep": "Fields per loss × streak",
@@ -730,14 +725,7 @@
       "winMultiplier": "Win factor per ×2 field",
       "composition_splash": "Splash fields",
       "splashShare": "Splatter per splash field",
-      "active": "Beta mode active",
-      "visibleCollectibles": "Performer cards on the ring",
-      "collectiblePixelateRelief": "Pixelate levels removed per first hit",
-      "draftComposition_pixelate": "Pixelate fields",
-      "draftComposition_splash": "Splash fields",
-      "draftComposition_bad": "Bad fields",
-      "draftComposition_good": "Good fields",
-      "draftComposition_double": "Win ×2 fields",
+      "collectiblePixelateRelief": "Pixelate levels removed on the first visit",
       "revisitChancePenalty": "Release chance lost per revisited good field (%)"
     },
     "option": {
@@ -767,8 +755,7 @@
       "driftMax": "Must be at least the max. drift distance",
       "invalid": "Some values are invalid – nothing was saved.",
       "compositionSum": "Must equal the sum of the fields per type",
-      "picksAboveFields": "Cannot be more than the hidden fields",
-      "compositionTooSmall": "The draft needs at least 2 fields"
+      "picksAboveFields": "Cannot be more than the hidden fields"
     },
     "min": "Min",
     "max": "Max",
@@ -837,7 +824,7 @@
   },
   "draft": {
     "title": "Draw your session",
-    "body": "Turn over {{picks}} of {{total}} hidden fields. They decide the good and bad cards, a start pixelate and maybe a doubled win chance.",
+    "body": "Turn over {{picks}} of {{total}} hidden fields. They decide a start pixelate, splatter on the cards, bad cards and maybe a doubled win chance.",
     "remaining": "{{count}} of {{total}} left to turn over",
     "done": "Your draw – all fields revealed",
     "boardLabel": "Draft fields",
@@ -873,9 +860,7 @@
       "cropHint": "Drag the square to move it, drag its corner to resize.",
       "unsupported": "Only images can be used (no videos)."
     },
-    "continue": "Continue to the wheel",
-    "beta": "Beta mode",
-    "bodyBeta": "Turn over {{picks}} of {{total}} hidden fields. They decide a start pixelate, splatter on the cards, bad cards and maybe a doubled win chance."
+    "continue": "Continue to the wheel"
   },
   "help": {
     "title": "Help",
@@ -923,8 +908,7 @@
     "cards": {
       "normal": "Normal cards: good (light) or bad (hatched) – a task with an image from the session categories.",
       "action": "Action cards trigger something special. On the ring a circle marks a good one, a diamond a bad one.",
-      "performer": "Performer cards (blue, star) are hidden among the others. Collecting them unlocks bonus tiers once per session.",
-      "performerVisible": "Performer cards (blue, star) are visible on the ring from the start – plan your way to collect them. Collecting them unlocks bonus tiers once per session.",
+      "performer": "Performer cards (blue, star) are visible on the ring from the start – plan your way to collect them. Collecting them unlocks bonus tiers once per session.",
       "tierConvert": "{{collected}} collected: {{count}} bad cards turn good.",
       "tierChance": "{{collected}} collected: +{{percent}} % release chance.",
       "relief": "The first visit to a performer card also lowers pixelate by {{count}} level.",

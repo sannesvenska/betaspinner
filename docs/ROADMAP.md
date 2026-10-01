@@ -243,19 +243,21 @@ Implements game-design **Revision 3** (all rules marked **[v2]**, decision log �
 
 ## AP11d – Library comfort, revisit penalty, final wheel · M · ✅
 
-| #     | Task                                                                                                                             | Status |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| 11d.1 | Add folders: media count per folder in the setup dialog, warning + skip for folders already in the library, new folder selected  | ✅     |
-| 11d.2 | Media library: move selected files to the recycle bin (index and orphaned masks cleaned up)                                      | ✅     |
-| 11d.3 | Mask editor: invert + preview splatter as top-bar toggles (`I` / `S`); tool, invert start value, previews remembered in settings | ✅     |
-| 11d.4 | Revisit penalty: a revisited good field costs 0.5 % release chance; console, task bar and final wheel show it; session schema v6 | ✅     |
-| 11d.5 | Final wheel: accelerate → cruise → short random hard brake instead of a long readable deceleration                               | ✅     |
-| 11d.6 | Dev component showcase removed (was AP12.5)                                                                                      | ✅     |
-| 11d.7 | Help screen for players (mechanics, effects, action cards, controls) with values from the active config                          | ✅     |
+| #     | Task                                                                                                                                             | Status |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| 11d.1 | Add folders: media count per folder in the setup dialog, warning + skip for folders already in the library, new folder selected                  | ✅     |
+| 11d.2 | Media library: move selected files to the recycle bin (index and orphaned masks cleaned up)                                                      | ✅     |
+| 11d.3 | Mask editor: invert + preview splatter as top-bar toggles (`I` / `S`); tool, invert start value, previews remembered in settings                 | ✅     |
+| 11d.4 | Revisit penalty: a revisited good field costs 0.5 % release chance; console, task bar and final wheel show it; session schema v6                 | ✅     |
+| 11d.5 | Final wheel: accelerate → cruise → short random hard brake instead of a long readable deceleration                                               | ✅     |
+| 11d.6 | Dev component showcase removed (was AP12.5)                                                                                                      | ✅     |
+| 11d.7 | Help screen for players (mechanics, effects, action cards, controls) with values from the active config                                          | ✅     |
+| 11d.8 | Beta mode becomes the only mode (defaults, config v6 migration, admin section and flags removed); balancing bot aims for visible performer cards | ✅     |
+| 11d.9 | Action cards never get pixelate or splatter (renderer and splatter targets)                                                                      | ✅     |
 
 ## AP12 – Stats, backup, polish, release · M · ⬜
 
-1. Session stats collection + History screen (sortable table, summary; normal vs. beta mode comparison).
+1. Session stats collection + History screen (sortable table, summary).
 2. Session summary screen.
 3. Backup export/import (ZIP, path remapping; includes `action-art/`).
 4. Accessibility audit (keyboard, focus, contrast, reduced motion), performance audit (6,000 files).

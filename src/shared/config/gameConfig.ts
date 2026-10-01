@@ -18,38 +18,12 @@ export const DEFAULT_VISUAL_EFFECTS: VisualEffectsConfig = {
 };
 const BLOCK_FRACTION_BOUNDS: Range = [0.002, 0.2];
 
-/**
- * game-design §6.7 beta mode: a switchable variant to compare against the normal game. While enabled it
- * overrides parts of the rules and the draft at runtime (`effectiveGameConfig`); the base values stay.
- */
-export interface BetaConfig {
-  active: boolean;
-  /** Exact number of performer cards, visible on the ring from the start */
-  visibleCollectibles: number;
-  /** Pixelate levels removed on the first landing on a performer card */
-  collectiblePixelateRelief: number;
-  /** Draft field mix in beta mode */
-  draftComposition: Record<DraftFieldType, number>;
-  /** Share of the cards splattered per revealed splash field */
-  splashShare: number;
-}
-
-export const DEFAULT_BETA_CONFIG: BetaConfig = {
-  active: false,
-  visibleCollectibles: 5,
-  collectiblePixelateRelief: 1,
-  draftComposition: { pixelate: 6, splash: 3, bad: 2, good: 0, double: 1 },
-  splashShare: 0.3,
-};
-
 export interface GameConfig {
   rules: SessionRules;
   penalties: PenaltyRules;
   visualEffects: VisualEffectsConfig;
   /** game-design §6.0 session draft */
   draft: DraftConfig;
-  /** game-design §6.7 beta mode */
-  beta: BetaConfig;
 }
 
 export const DEFAULT_GAME_CONFIG: GameConfig = {
@@ -57,36 +31,10 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   penalties: DEFAULT_PENALTY_RULES,
   visualEffects: DEFAULT_VISUAL_EFFECTS,
   draft: DEFAULT_DRAFT_CONFIG,
-  beta: DEFAULT_BETA_CONFIG,
 };
 
 const compositionSize = (composition: Record<DraftFieldType, number>): number =>
   Object.values(composition).reduce((total, count) => total + count, 0);
-
-/** The config the game actually plays with: the beta values replace their base counterparts. */
-export function effectiveGameConfig(game: GameConfig): GameConfig {
-  const { beta } = game;
-  if (!beta.active) return game;
-  const fieldCount = compositionSize(beta.draftComposition);
-  return {
-    ...game,
-    rules: {
-      ...game.rules,
-      collectibleCount: [beta.visibleCollectibles, beta.visibleCollectibles],
-      collectiblesVisible: true,
-      collectiblePixelateRelief: beta.collectiblePixelateRelief,
-      betaMode: true,
-    },
-    draft: {
-      ...game.draft,
-      enabled: true,
-      composition: beta.draftComposition,
-      fieldCount,
-      picks: Math.min(game.draft.picks, fieldCount),
-      splashShare: beta.splashShare,
-    },
-  };
-}
 
 export type FieldKind =
   'int' | 'float' | 'percent' | 'range' | 'boolean' | 'select' | 'optionalInt' | 'goodShare';
@@ -171,6 +119,7 @@ export const SESSION_RULE_FIELDS: readonly FieldSpec[] = [
 export const PERFORMER_RULE_FIELDS: readonly FieldSpec[] = [
   range('collectibleCount', 'performer', 0, 20),
   range('collectibleRevisitTaskRange', 'performer', 1, 200),
+  int('collectiblePixelateRelief', 'performer', 0, PIXELATE_LEVELS),
 ];
 
 /** game-design §6.0 session draft. */
@@ -190,19 +139,6 @@ export const DRAFT_FIELDS: readonly FieldSpec[] = [
   int('pixelateLevels.three', 'draftEffects', 0, PIXELATE_LEVELS),
   float('winMultiplier', 'draftEffects', 1, 5, 0.5),
   { key: 'splashShare', kind: 'percent', group: 'draftEffects', min: 0, max: 1, step: 0.05 },
-];
-
-/** game-design §6.7 beta mode. */
-export const BETA_FIELDS: readonly FieldSpec[] = [
-  { key: 'active', kind: 'boolean', group: 'beta' },
-  int('visibleCollectibles', 'betaPerformer', 0, 20),
-  int('collectiblePixelateRelief', 'betaPerformer', 0, PIXELATE_LEVELS),
-  int('draftComposition.pixelate', 'betaDraft', 0, 24),
-  int('draftComposition.splash', 'betaDraft', 0, 24),
-  int('draftComposition.bad', 'betaDraft', 0, 24),
-  int('draftComposition.good', 'betaDraft', 0, 24),
-  int('draftComposition.double', 'betaDraft', 0, 24),
-  { key: 'splashShare', kind: 'percent', group: 'betaDraft', min: 0, max: 1, step: 0.05 },
 ];
 
 /** game-design §13 / §14.3. */
@@ -236,8 +172,7 @@ export type FieldError =
   | 'tooManySpecial'
   | 'driftMax'
   | 'compositionSum'
-  | 'picksAboveFields'
-  | 'compositionTooSmall';
+  | 'picksAboveFields';
 export type FieldErrors = Record<string, FieldError>;
 
 // --- generic access to (nested) keys ---
@@ -380,14 +315,6 @@ export function validateDraft(draft: DraftConfig): FieldErrors {
   return errors;
 }
 
-/** The beta draft needs at least two fields; the pick count comes from the draft section. */
-export function validateBeta(beta: BetaConfig): FieldErrors {
-  const errors = validateFields(beta, BETA_FIELDS);
-  if (!errors['draftComposition.pixelate'] && compositionSize(beta.draftComposition) < MIN_DRAFT_FIELDS)
-    errors['draftComposition.pixelate'] = 'compositionTooSmall';
-  return errors;
-}
-
 export function validateVisualEffects(effects: VisualEffectsConfig): FieldErrors {
   const errors: FieldErrors = {};
   const spec: FieldSpec = {
@@ -508,13 +435,6 @@ export function normalizeDraft(value: unknown): DraftConfig {
   return { ...draft, fieldCount: sum, picks: Math.min(draft.picks, sum) };
 }
 
-export function normalizeBeta(value: unknown): BetaConfig {
-  const beta = normalizeSection(value, DEFAULT_BETA_CONFIG, BETA_FIELDS);
-  return compositionSize(beta.draftComposition) < MIN_DRAFT_FIELDS
-    ? { ...beta, draftComposition: DEFAULT_BETA_CONFIG.draftComposition }
-    : beta;
-}
-
 export function normalizeVisualEffects(value: unknown): VisualEffectsConfig {
   const fractions =
     typeof value === 'object' && value !== null ? (value as Section).pixelBlockFractions : undefined;
@@ -535,8 +455,7 @@ export function validateGameSection(
     | { section: 'rules'; value: SessionRules }
     | { section: 'penalties'; value: PenaltyRules }
     | { section: 'visualEffects'; value: VisualEffectsConfig }
-    | { section: 'draft'; value: DraftConfig }
-    | { section: 'beta'; value: BetaConfig },
+    | { section: 'draft'; value: DraftConfig },
 ): FieldErrors {
   switch (update.section) {
     case 'rules':
@@ -547,8 +466,6 @@ export function validateGameSection(
       return validateVisualEffects(update.value);
     case 'draft':
       return validateDraft(update.value);
-    case 'beta':
-      return validateBeta(update.value);
   }
 }
 

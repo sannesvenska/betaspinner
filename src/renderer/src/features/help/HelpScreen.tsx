@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { actionGroup } from '@shared/actions';
-import { effectiveGameConfig } from '@shared/config/gameConfig';
 import { DRAFT_FIELD_TYPES } from '@shared/draft';
 import { DEFAULT_SETTINGS } from '@shared/settings';
 import type { EffectType } from '@shared/session/types';
@@ -100,14 +99,11 @@ export function HelpScreen() {
     void loadCards();
   }, [loadCards]);
 
-  const { rules, draft, penalties } = effectiveGameConfig(config);
+  const { rules, draft, penalties } = config;
   const pauseHotkey = displayAccelerator(
     settingsState.status === 'ready' ? settingsState.settings.pauseHotkey : DEFAULT_SETTINGS.pauseHotkey,
   );
-  // Freshen Up only exists in beta sessions (game-design §6.7)
-  const playableCards = cards.filter(
-    (card) => card.enabled && (rules.betaMode || card.type !== 'freshen_up'),
-  );
+  const playableCards = cards.filter((card) => card.enabled);
   const actionList = (group: 'good' | 'bad') => (
     <ul className="grid max-w-5xl grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-3">
       {playableCards
@@ -187,7 +183,7 @@ export function HelpScreen() {
           items={[
             t('help.cards.normal'),
             t('help.cards.action'),
-            rules.collectiblesVisible ? t('help.cards.performerVisible') : t('help.cards.performer'),
+            t('help.cards.performer'),
             ...rules.collectibleTiers.map((tier) =>
               tier.bonus.type === 'convert_bad'
                 ? t('help.cards.tierConvert', { collected: tier.collected, count: tier.bonus.count })

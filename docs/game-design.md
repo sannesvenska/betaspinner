@@ -151,18 +151,18 @@ Pipeline order:
 - **Flow:** each picked field turns over at once; after the last pick all fields are revealed (unpicked ones faded) with a summary (good cards %, start pixelate, win factor). "Continue to the wheel" then shows the start wheel. The summary also appears in the briefing, the console breakdown and the final wheel.
 - **Images:** one square image per field type plus the card back, picked in the admin, copied into `userData/draft-art/` and cropped to a square (`crop` normalized to the image). Without an image a neutral icon is shown.
 - **Admin ("Session draft"):** on/off, field count, picks, fields per type (must add up to the field count), shifts, pixelate levels, win factor, splatter per splash field.
-- **Splash fields** (`default 0`, used by the beta mode §6.7): each revealed splash field splatters `splashShare` (`30 %`) of the non-goal cards, cumulative (1 → 30 %, 2 → 60 %, 3 → 90 %, max 100 %). A normal, removable splatter effect (Cleaning Lady, Clearing Edges, Good Fairy, Freshen Up).
+- **Splash fields** (`default 3`): each revealed splash field splatters `splashShare` (`30 %`) of the non-goal cards, cumulative (1 → 30 %, 2 → 60 %, 3 → 90 %, max 100 %). A normal, removable splatter effect (Cleaning Lady, Clearing Edges, Good Fairy, Freshen Up).
 
-### 6.7 Beta Mode (Revision 5, 2026-10-01)
+### 6.7 Former Beta Mode – Now the Only Mode (Revision 6, 2026-10-01)
 
-**[RULE]** A switchable test variant (admin "Beta mode", `default off`) to find out whether the game plays better this way. While active it overrides parts of the configuration at runtime (`effectiveGameConfig`); the normal settings stay untouched. The rules snapshot stores `betaMode`, and history records it per session for a later comparison (AP12).
+The beta mode (Revision 5) was a switchable test variant. Since Revision 6 it is the only mode: its values are the defaults, the admin "Beta mode" section, `effectiveGameConfig` and the `betaMode` / `collectiblesVisible` flags are gone. Config v6 migrates stored beta values into the draft and performer settings (draft switched on).
 
-| Area             | Beta behavior (configurable)                                                                                                                                                           |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Performer cards  | Exactly `visibleCollectibles` (`5`) per session, **visible on the ring from the start** (translucent blue until collected, solid afterwards), so the player can aim for them.          |
-| First collection | Lowers pixelate by `collectiblePixelateRelief` (`1`) level **in addition** to the normal effect (task + tiers). At pixelate 0 only the normal effect applies. Revisits change nothing. |
-| Draft            | Draft always on; mix 6 pixelate / 3 splash / 2 bad / 1 win ×2 (no good fields), picks from the draft section. 3+ pixelate fields still mean level 5.                                   |
-| Freshen Up       | New good action card, only in beta sessions (see §10.1).                                                                                                                               |
+| Area             | Rule (configurable)                                                                                                                                              |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Performer cards  | `collectibleCount` `default [5, 5]`, always **visible on the ring** (translucent blue + star until collected, solid afterwards), so the player can aim for them. |
+| First collection | Lowers pixelate by `collectiblePixelateRelief` (`default 1`) in addition to task and tiers; nothing extra at pixelate 0, nothing on revisits.                    |
+| Draft            | Default mix 6 pixelate / 3 splash / 2 bad / 1 win ×2 (no good fields); 3+ pixelate fields mean level 5.                                                          |
+| Freshen Up       | Good action card in every session (§10.1).                                                                                                                       |
 
 ### 6.1 Goal Field and Start Position
 
@@ -521,7 +521,7 @@ All actions are identified by ID; labels and descriptions come from i18n keys `a
 | `cleaning_lady`  | 15             | Removes all visual effects (pixelate level to 0, all splatters).                                                                                                                                                                                                       | requires `pixelate` or `splatter` |
 | `hail_mary`      | 10             | Grants a success multiplier for the release chance.                                                                                                                                                                                                                    | range 1.5–3.0, step 0.5           |
 | `redemption`     | 10             | Converts N random undiscovered bad normal cards into good ones (same rules as §8.4). If none are left, shows "nothing to convert".                                                                                                                                     | N 3–5                             |
-| `freshen_up`     | 15             | **Beta mode only (§6.7).** The player chooses: pixelate −1 level **or** clean `splatterShare` of the splattered cards (at least one; the splatter effect ends with the last card). Applied directly when only one is active, "nothing to remove" when neither is.      | share 30 %                        |
+| `freshen_up`     | 15             | The player chooses: pixelate −1 level **or** clean `splatterShare` of the splattered cards (at least one; the splatter effect ends with the last card). Applied directly when only one is active, "nothing to remove" when neither is.                                 | share 30 %                        |
 | `switcheroo`     | 10             | Player first chooses one of the session's **active categories**, then picks one of 3 random alternative folders of the same group. All undiscovered normal cards of that category get new images from the chosen folder. Discovered cards remain unchanged. See §10.3. | alternatives 3                    |
 
 ### 10.2 Bad Actions
@@ -629,6 +629,8 @@ Pixelate and Splatter can be restricted to **regions** defined per image. Each i
 | `unreviewed` | The folder's `unmaskedEffectBehavior` applies                                                                                                     |
 
 A mask's status follows its regions: any region → `masked`; removing all regions returns to `unreviewed` unless "no regions needed" was chosen. Bulk "mark as no regions" never overwrites existing regions.
+
+**[RULE] Action cards are never affected by visual effects** (Revision 6): their own art is shown without pixelate or splatter, and splatter (action card, draft splash) only picks normal cards and performer cards. Once a consumed action card turns into a normal card, the new image follows the normal rules.
 
 ### 12.2 Media Library (Admin)
 

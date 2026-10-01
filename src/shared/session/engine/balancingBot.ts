@@ -11,6 +11,8 @@ const MAX_EVENTS = 4000;
 const DIE_MAX = 6;
 /** Score malus for landing on a discovered good field (worth a few fields of distance) */
 const REVISIT_AVOIDANCE = 5;
+/** Extra score for landing on a visible, not yet collected performer card */
+const PERFORMER_BONUS = 10;
 const DIRECTIONS: readonly Direction[] = ['left', 'right'];
 const sign = (direction: Direction) => (direction === 'right' ? 1 : -1);
 
@@ -47,8 +49,14 @@ function botEvent(state: SessionState, context: EngineContext, targetChance: num
           card?.discovered === true && card.kind === 'normal' && card.group === 'good'
             ? REVISIT_AVOIDANCE
             : 0;
+        // Performer cards are visible on the ring (§9.4) – a player aims for them while exploring
+        const performer = card?.kind === 'collectible' && !card.discovered ? PERFORMER_BONUS : 0;
         const score = exploring
-          ? (card?.discovered ? 0 : 10) + (target === state.goalField ? -100 : 0) + distance / 100 - costly
+          ? (card?.discovered ? 0 : 10) +
+            performer +
+            (target === state.goalField ? -100 : 0) +
+            distance / 100 -
+            costly
           : (target === state.goalField ? 1000 : 0) - distance - costly;
         return { direction, score };
       },

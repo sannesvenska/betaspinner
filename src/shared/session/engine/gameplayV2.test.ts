@@ -6,8 +6,11 @@ import type { EngineContext } from './context';
 import { head, landOnAction, readyToRoll, run, withCard } from './engineTestKit';
 import { reduce } from './reduce';
 
-const hiddenBad = (state: SessionState) =>
-  state.cards.filter((card) => card.kind === 'normal' && card.group === 'bad' && !card.discovered).length;
+/** Hidden bad normal cards; `except` leaves out a field a test is about to overwrite. */
+const hiddenBad = (state: SessionState, except?: number) =>
+  state.cards.filter(
+    (card) => card.kind === 'normal' && card.group === 'bad' && !card.discovered && card.field !== except,
+  ).length;
 const hiddenGood = (state: SessionState) =>
   state.cards.filter((card) => card.kind === 'normal' && card.group === 'good' && !card.discovered).length;
 
@@ -184,7 +187,7 @@ describe('collectibles (§9.4)', () => {
     const { session, context } = readyToRoll();
     // Goal placed like the helper does, so the count below only sees the tier conversion
     let state: SessionState = { ...withGoal(session, wrapField(session.position + 50)), collected: 2 };
-    const badBefore = hiddenBad(state);
+    const badBefore = hiddenBad(state, wrapField(state.position + 1));
     state = landOnCollectible(state, context);
     expect(state.collected).toBe(3);
     expect(state.reachedTiers).toEqual([3]);
@@ -243,7 +246,7 @@ describe('Redemption (§10.1)', () => {
     const ready = readyToRoll();
     const { context } = ready;
     const session = withGoal(ready.session, wrapField(ready.session.position + 50));
-    const before = hiddenBad(session);
+    const before = hiddenBad(session, wrapField(session.position + 1));
     const state = landOnAction(session, context, 'redemption');
     const notice = head(state);
     if (notice?.kind !== 'notice' || notice.notice.type !== 'cards_converted')

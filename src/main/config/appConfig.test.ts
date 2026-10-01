@@ -52,6 +52,44 @@ describe('config migration', () => {
     expect(config.folders.every((folder) => !('allowedActions' in folder))).toBe(true);
     expect(config.actionCards).toEqual(DEFAULT_ACTION_CARDS);
   });
+
+  it('v5 to v6: the beta values become the only values, the beta section is dropped', () => {
+    const v5 = {
+      schemaVersion: 5,
+      data: {
+        settings: DEFAULT_SETTINGS,
+        folders: [],
+        game: {
+          rules: { ...DEFAULT_GAME_CONFIG.rules, collectibleCount: [6, 8], chancePerDiscovered: 0.7 },
+          draft: {
+            ...DEFAULT_GAME_CONFIG.draft,
+            enabled: false,
+            composition: { bad: 6, good: 2, pixelate: 3, double: 1 },
+          },
+          beta: {
+            active: false,
+            visibleCollectibles: 4,
+            collectiblePixelateRelief: 2,
+            draftComposition: { pixelate: 5, splash: 3, bad: 3, good: 0, double: 1 },
+            splashShare: 0.25,
+          },
+        },
+      },
+    };
+    const { game } = normalizeConfig(migrate(v5, CONFIG_SCHEMA_VERSION, CONFIG_MIGRATIONS));
+    expect(game).not.toHaveProperty('beta');
+    expect(game.rules).toMatchObject({
+      collectibleCount: [4, 4],
+      collectiblePixelateRelief: 2,
+      chancePerDiscovered: 0.7,
+    });
+    expect(game.draft).toMatchObject({
+      enabled: true,
+      fieldCount: 12,
+      composition: { pixelate: 5, splash: 3, bad: 3, good: 0, double: 1 },
+      splashShare: 0.25,
+    });
+  });
 });
 
 describe('normalizeActionCards (10.4)', () => {

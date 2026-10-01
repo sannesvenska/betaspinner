@@ -39,8 +39,6 @@ interface RingProps {
   blocked: { side: Direction; reason: 'u_turn' | 'forced' } | null;
   /** Goal Teleport or goal drift just happened – the goal segment pulses. */
   goalPulse: boolean;
-  /** Beta mode (§6.7): performer cards are shown before they are discovered */
-  collectiblesVisible?: boolean;
   center: ReactNode;
 }
 
@@ -83,7 +81,6 @@ export function Ring({
   center,
   blocked,
   goalPulse,
-  collectiblesVisible = false,
 }: RingProps) {
   const { t } = useTranslation();
   const hatchId = useId();
@@ -147,10 +144,9 @@ export function Ring({
             const isGoal = card.field === goalField;
             const isTarget = targetSet.has(card.field);
             let fill = 'var(--color-ring-empty)';
-            // Visible but not yet collected performer cards stay translucent (design-system §10)
-            const hiddenCollectible = card.kind === 'collectible' && !card.discovered && collectiblesVisible;
-            if (card.kind === 'collectible' && (card.discovered || collectiblesVisible))
-              fill = 'var(--color-collectible)';
+            // Performer cards are always visible; not yet collected ones stay translucent (design-system §10)
+            const hiddenCollectible = card.kind === 'collectible' && !card.discovered;
+            if (card.kind === 'collectible') fill = 'var(--color-collectible)';
             else if (card.discovered && card.kind !== 'goal')
               fill = card.group === 'good' ? 'var(--color-good)' : `url(#${hatchId})`;
             if (isCurrent) fill = 'var(--color-ink)';
@@ -212,12 +208,7 @@ export function Ring({
               );
             })}
           {cards
-            .filter(
-              (card) =>
-                card.kind === 'collectible' &&
-                (card.discovered || collectiblesVisible) &&
-                card.field !== position,
-            )
+            .filter((card) => card.kind === 'collectible' && card.field !== position)
             .map((card) => {
               const [x, y] = polar(MARKER_RADIUS, fieldAngle(card.field));
               // 4-point star = collectible (design-system §10), distinct from circle/diamond

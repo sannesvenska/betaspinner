@@ -31,7 +31,7 @@ export const DEFAULT_DRAFT_CONFIG: DraftConfig = {
   enabled: true,
   fieldCount: 12,
   picks: 6,
-  composition: { bad: 6, pixelate: 3, good: 2, splash: 0, double: 1 },
+  composition: { bad: 2, pixelate: 6, good: 0, splash: 3, double: 1 },
   goodShift: 1 / 3,
   badShift: 1 / 6,
   pixelateLevels: { one: 1, two: 3, three: 5 },

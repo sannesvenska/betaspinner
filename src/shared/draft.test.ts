@@ -17,7 +17,9 @@ describe('session draft (§6.0)', () => {
   it('shuffles the configured composition deterministically', () => {
     const a = createDraft(createRng(7), DEFAULT_DRAFT_CONFIG);
     expect(a.board).toHaveLength(12);
-    expect(a.board.filter((type) => type === 'bad')).toHaveLength(6);
+    expect(a.board.filter((type) => type === 'bad')).toHaveLength(2);
+    expect(a.board.filter((type) => type === 'pixelate')).toHaveLength(6);
+    expect(a.board.filter((type) => type === 'splash')).toHaveLength(3);
     expect(a.board.filter((type) => type === 'double')).toHaveLength(1);
     expect(createDraft(createRng(7), DEFAULT_DRAFT_CONFIG)).toEqual(a);
     expect(a.picks).toBe(6);

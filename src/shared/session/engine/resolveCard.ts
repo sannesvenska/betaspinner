@@ -7,6 +7,7 @@ import { definitionOf, numberParam, rangeParam, rollRange, type EngineContext } 
 import {
   activeNegativeEffects,
   applyEffect,
+  canSplatter,
   getPace,
   getPixelLevel,
   getTaskMultiplier,
@@ -201,7 +202,7 @@ export function triggerAction(
       const targets = new Set(
         shuffle(
           rng,
-          draft.cards.filter((card) => card.kind !== 'goal').map((card) => card.field),
+          draft.cards.filter(canSplatter).map((card) => card.field),
         ).slice(0, count),
       );
       draft.cards = draft.cards.map((card) =>

@@ -406,7 +406,6 @@ export function GameScreen({ session }: GameScreenProps) {
               (step.notice.type === 'goal_moved' || step.notice.type === 'goal_drifted')
             }
             center={ringCenter}
-            collectiblesVisible={session.rules.collectiblesVisible}
           />
         }
         onGallery={() => {

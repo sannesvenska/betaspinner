@@ -258,9 +258,7 @@ describe('sessionService draft (§6.0)', () => {
     const { session } = await service.spin();
     expect(session?.draft?.counts).toBeDefined();
     const counts = session?.draft?.counts;
-    expect((counts?.bad ?? 0) + (counts?.good ?? 0) + (counts?.pixelate ?? 0) + (counts?.double ?? 0)).toBe(
-      6,
-    );
+    expect(Object.values(counts ?? {}).reduce((sum, count) => sum + count, 0)).toBe(6);
     expect(session?.draftMultiplier).toBe(2 ** (counts?.double ?? 0));
     const pixelate = session?.effects.find((effect) => effect.type === 'pixelate')?.value ?? 0;
     expect(pixelate).toBe(session?.draft?.pixelLevel);

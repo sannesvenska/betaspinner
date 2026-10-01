@@ -7,7 +7,7 @@ import type { EffectOptions } from './drawEffects';
 export const NO_EFFECTS: EffectOptions = { pixelLevel: 0, splatterSeed: null };
 
 /**
- * Visual effects for one card (game-design §12.1):
+ * Visual effects for one card (game-design §12.1) – never on action cards:
  * - masked: each effect only inside its regions (inverted mask: everywhere except the regions)
  * - "no regions needed": no visual effects at all
  * - unreviewed: the folder decides – `full` = whole image, `none` = untouched
@@ -18,7 +18,8 @@ export function cardEffectOptions(
   folders: readonly FolderConfig[],
   masks: Readonly<Record<string, ImageMask>> = {},
 ): EffectOptions {
-  if (!card?.imageHash) return NO_EFFECTS;
+  // Action cards always show their own art untouched
+  if (!card?.imageHash || card.kind === 'action') return NO_EFFECTS;
   const mask = masks[card.imageHash];
   const base = { pixelLevel: getPixelLevel(effects), splatterSeed: card.splatterSeed ?? null };
   const pixelate = clipForEffect(mask, 'pixelate');

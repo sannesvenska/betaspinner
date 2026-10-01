@@ -117,6 +117,9 @@ export const hasEffect = (effects: readonly ActiveEffect[], type: EffectType): b
 export const activeNegativeEffects = (effects: readonly ActiveEffect[]): EffectType[] =>
   effects.filter((effect) => NEGATIVE_EFFECTS.includes(effect.type)).map((effect) => effect.type);
 
+/** Visual effects never touch action cards or the goal (§12.1). */
+export const canSplatter = (card: Card): boolean => card.kind !== 'goal' && card.kind !== 'action';
+
 /** Visual state for the renderer (§12). Splatter lives on the cards themselves. */
 export function getVisualState(effects: readonly ActiveEffect[], card: Card | null) {
   return { pixelLevel: getPixelLevel(effects), splatterSeed: card?.splatterSeed ?? null };

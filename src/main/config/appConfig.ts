@@ -1,6 +1,5 @@
 import {
   DEFAULT_GAME_CONFIG,
-  normalizeBeta,
   normalizeDraft,
   normalizePenaltyRules,
   normalizeSessionRules,
@@ -8,8 +7,8 @@ import {
   type GameConfig,
 } from '@shared/config/gameConfig';
 import { FOLDER_DEFAULTS, WEIGHT_RANGE, type ActionArtImage, type FolderConfig } from '@shared/content';
-import { DRAFT_ART_SLOTS, type DraftArtSlot, type DraftCrop } from '@shared/draft';
-import { DEFAULT_ACTION_CARDS } from '@shared/session/defaults';
+import { DEFAULT_DRAFT_CONFIG, DRAFT_ART_SLOTS, type DraftArtSlot, type DraftCrop } from '@shared/draft';
+import { DEFAULT_ACTION_CARDS, DEFAULT_SESSION_RULES } from '@shared/session/defaults';
 import type { ActionCardDefinition } from '@shared/session/types';
 import { DEFAULT_SETTINGS, type AppSettings } from '@shared/settings';
 import type { Migration } from '../storage/jsonStore';
@@ -43,7 +42,7 @@ export const EMPTY_DRAFT_ART: DraftArt = {
   double: null,
 };
 
-export const CONFIG_SCHEMA_VERSION = 5;
+export const CONFIG_SCHEMA_VERSION = 6;
 
 export const DEFAULT_CONFIG: AppConfig = {
   settings: DEFAULT_SETTINGS,
@@ -78,6 +77,40 @@ export const CONFIG_MIGRATIONS: Readonly<Record<number, Migration>> = {
   3: (data) => ({ ...(isRecord(data) ? data : {}), game: {} }),
   // v5: session draft (config + images); normalization fills the defaults
   4: (data) => ({ ...(isRecord(data) ? data : {}), draftArt: {} }),
+  // v6: the former beta mode is the only mode – its values replace the old draft and performer values
+  5: (data) => {
+    const root = isRecord(data) ? data : {};
+    const game = isRecord(root.game) ? root.game : {};
+    const beta = isRecord(game.beta) ? game.beta : {};
+    const rules = isRecord(game.rules) ? game.rules : {};
+    const draft = isRecord(game.draft) ? game.draft : {};
+    const performerCards =
+      typeof beta.visibleCollectibles === 'number'
+        ? beta.visibleCollectibles
+        : DEFAULT_SESSION_RULES.collectibleCount[0];
+    const rest = { ...game };
+    delete rest.beta;
+    return {
+      ...root,
+      game: {
+        ...rest,
+        rules: {
+          ...rules,
+          collectibleCount: [performerCards, performerCards],
+          collectiblePixelateRelief:
+            beta.collectiblePixelateRelief ?? DEFAULT_SESSION_RULES.collectiblePixelateRelief,
+        },
+        draft: {
+          ...draft,
+          enabled: true,
+          composition: isRecord(beta.draftComposition)
+            ? beta.draftComposition
+            : DEFAULT_DRAFT_CONFIG.composition,
+          splashShare: beta.splashShare ?? DEFAULT_DRAFT_CONFIG.splashShare,
+        },
+      },
+    };
+  },
 };
 
 const MIN_TASK_COUNT = 1;
@@ -180,6 +213,5 @@ export function normalizeGame(value: unknown): GameConfig {
     penalties: normalizePenaltyRules(game.penalties),
     visualEffects: normalizeVisualEffects(game.visualEffects),
     draft: normalizeDraft(game.draft),
-    beta: normalizeBeta(game.beta),
   };
 }

@@ -14,12 +14,7 @@ import {
   normalizeGame,
   type AppConfig,
 } from './config/appConfig';
-import {
-  DEFAULT_GAME_CONFIG,
-  effectiveGameConfig,
-  hasErrors,
-  validateGameSection,
-} from '@shared/config/gameConfig';
+import { DEFAULT_GAME_CONFIG, hasErrors, validateGameSection } from '@shared/config/gameConfig';
 import { simulateSessions } from '@shared/session/simulateSessions';
 import { createActionCardService } from './config/actionCardService';
 import { createConfigService } from './config/configService';
@@ -161,7 +156,7 @@ async function startApp(): Promise<void> {
     folders: () => config.get().folders,
     media: library.mediaEntries,
     actionCards: actionCards.list,
-    game: () => effectiveGameConfig(config.get().game),
+    game: () => config.get().game,
     onProgressionChanged: (progression) => {
       broadcast('session:progression', progression);
     },
@@ -271,7 +266,7 @@ async function startApp(): Promise<void> {
     'admin:simulate': ({ runs }) =>
       simulateSessions(
         {
-          rules: effectiveGameConfig(config.get().game).rules,
+          rules: config.get().game.rules,
           actionCards: actionCards.list(),
           folders: config.get().folders,
           media: library.mediaEntries(),
