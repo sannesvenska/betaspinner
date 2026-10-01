@@ -93,6 +93,7 @@ describe('maskService (§12.2 / §12.3)', () => {
         imageHash: 'f'.repeat(40),
         status: 'no_regions',
         regions: [],
+        inverted: false,
         updatedAt: new Date(0).toISOString(),
       },
     });

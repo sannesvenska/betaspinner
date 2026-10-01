@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { app, BrowserWindow, dialog, globalShortcut } from 'electron';
 import type { LibraryIndex } from '@shared/content';
 import { DEFAULT_PROGRESSION } from '@shared/session/defaults';
@@ -187,7 +189,13 @@ async function startApp(): Promise<void> {
     'library:getSnapshot': () => library.snapshot(),
     'library:pickFolders': async (_request, event) => {
       const window = BrowserWindow.fromWebContents(event.sender);
-      const options: Electron.OpenDialogOptions = { properties: ['openDirectory', 'multiSelections'] };
+      // Start next to the most recently added folder (siblings are usually the next categories)
+      const lastAdded = config.get().folders.at(-1)?.path;
+      const startDirectory = lastAdded ? dirname(lastAdded) : undefined;
+      const options: Electron.OpenDialogOptions = {
+        properties: ['openDirectory', 'multiSelections'],
+        ...(startDirectory && existsSync(startDirectory) ? { defaultPath: startDirectory } : {}),
+      };
       const result = window
         ? await dialog.showOpenDialog(window, options)
         : await dialog.showOpenDialog(options);

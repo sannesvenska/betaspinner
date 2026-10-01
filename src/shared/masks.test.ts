@@ -6,7 +6,7 @@ import {
   moveRegion,
   normalizeMask,
   regionAt,
-  regionsForEffect,
+  clipForEffect,
   resizeRegion,
   simplifyPath,
   statusFor,
@@ -110,17 +110,24 @@ describe('mask status and normalization', () => {
     expect(statusFor([], 'masked')).toBe('unreviewed');
   });
 
-  it('only masked images restrict effects to their regions', () => {
+  it('masked images clip each effect; "no regions" means no effects; unreviewed follows the folder', () => {
     const masked = {
       imageHash: HASH,
       status: 'masked' as const,
       regions: [rect(0, 0, 0.5, 0.5, { effects: ['pixelate'] })],
+      inverted: true,
       updatedAt: '',
     };
-    expect(regionsForEffect(masked, 'pixelate')).toHaveLength(1);
-    expect(regionsForEffect(masked, 'splatter')).toEqual([]);
-    expect(regionsForEffect({ ...masked, status: 'no_regions', regions: [] }, 'pixelate')).toBeUndefined();
-    expect(regionsForEffect(undefined, 'pixelate')).toBeUndefined();
+    expect(clipForEffect(masked, 'pixelate')).toEqual({ regions: masked.regions, inverted: true });
+    expect(clipForEffect(masked, 'splatter')).toEqual({ regions: [], inverted: true });
+    expect(clipForEffect({ ...masked, status: 'no_regions', regions: [] }, 'pixelate')).toBe('none');
+    expect(clipForEffect(undefined, 'pixelate')).toBeUndefined();
+  });
+
+  it('keeps the inversion only while regions exist', () => {
+    const base = { imageHash: HASH, status: 'masked', inverted: true };
+    expect(normalizeMask({ ...base, regions: [rect(0, 0, 0.5, 0.5)] })?.inverted).toBe(true);
+    expect(normalizeMask({ ...base, regions: [] })?.inverted).toBe(false);
   });
 
   it('repairs stored masks and drops broken regions', () => {

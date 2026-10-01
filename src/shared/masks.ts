@@ -35,7 +35,15 @@ export interface ImageMask {
   imageHash: string;
   status: MaskStatus;
   regions: MaskRegion[];
+  /** Effects apply everywhere **except** inside the regions (e.g. a circle that stays sharp). */
+  inverted: boolean;
   updatedAt: string;
+}
+
+/** What a masked image does with one effect (§12.1). */
+export interface EffectClip {
+  regions: MaskRegion[];
+  inverted: boolean;
 }
 
 export const MASK_EFFECTS: readonly MaskEffect[] = ['pixelate', 'splatter'];
@@ -181,10 +189,20 @@ export function statusFor(regions: readonly MaskRegion[], previous: MaskStatus):
   return previous === 'no_regions' ? 'no_regions' : 'unreviewed';
 }
 
-/** Regions that restrict `effect`; undefined = the image is not masked (folder behaviour applies). */
-export function regionsForEffect(mask: ImageMask | undefined, effect: MaskEffect): MaskRegion[] | undefined {
+/**
+ * How a mask restricts `effect`: a clip for masked images, `'none'` for "no regions needed" (the image
+ * gets no visual effects), undefined for unreviewed images (folder behaviour applies).
+ */
+export function clipForEffect(
+  mask: ImageMask | undefined,
+  effect: MaskEffect,
+): EffectClip | 'none' | undefined {
+  if (mask?.status === 'no_regions') return 'none';
   if (mask?.status !== 'masked') return undefined;
-  return mask.regions.filter((region) => region.effects.includes(effect));
+  return {
+    regions: mask.regions.filter((region) => region.effects.includes(effect)),
+    inverted: mask.inverted,
+  };
 }
 
 // --- normalization (masks.json is data – never trust it blindly) ---
@@ -228,6 +246,7 @@ export function normalizeMask(value: unknown): ImageMask | null {
     imageHash: value.imageHash,
     status: statusFor(regions, stored),
     regions,
+    inverted: value.inverted === true && regions.length > 0,
     updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : new Date(0).toISOString(),
   };
 }

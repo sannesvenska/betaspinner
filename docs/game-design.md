@@ -586,11 +586,11 @@ Pixelate and Splatter can be restricted to **regions** defined per image. Each i
 
 **[RULE] Mask status and effects (AP11):**
 
-| Status       | Effects                                                                                |
-| ------------ | -------------------------------------------------------------------------------------- |
-| `masked`     | Each effect only inside the regions that list it (a region can be pixelate-only, etc.) |
-| `no_regions` | Reviewed, nothing to restrict → the folder's `unmaskedEffectBehavior` applies          |
-| `unreviewed` | The folder's `unmaskedEffectBehavior` applies                                          |
+| Status       | Effects                                                                                                                                           |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `masked`     | Each effect only inside the regions that list it (a region can be pixelate-only, etc.); **inverted mask**: everywhere except inside those regions |
+| `no_regions` | "No regions needed": the image gets **no** visual effects (decision 2026-10-01)                                                                   |
+| `unreviewed` | The folder's `unmaskedEffectBehavior` applies                                                                                                     |
 
 A mask's status follows its regions: any region → `masked`; removing all regions returns to `unreviewed` unless "no regions needed" was chosen. Bulk "mark as no regions" never overwrites existing regions.
 

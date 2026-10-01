@@ -1,5 +1,5 @@
 import type { FolderConfig } from '@shared/content';
-import { regionsForEffect, type ImageMask } from '@shared/masks';
+import { clipForEffect, type ImageMask } from '@shared/masks';
 import { getPixelLevel } from '@shared/session/engine/effects';
 import type { ActiveEffect, Card } from '@shared/session/types';
 import type { EffectOptions } from './drawEffects';
@@ -7,8 +7,10 @@ import type { EffectOptions } from './drawEffects';
 export const NO_EFFECTS: EffectOptions = { pixelLevel: 0, splatterSeed: null };
 
 /**
- * Visual effects for one card (game-design §12). A masked image (§12.1) gets its effects only inside the
- * regions of each effect; other images follow their folder: `full` = whole image, `none` = untouched.
+ * Visual effects for one card (game-design §12.1):
+ * - masked: each effect only inside its regions (inverted mask: everywhere except the regions)
+ * - "no regions needed": no visual effects at all
+ * - unreviewed: the folder decides – `full` = whole image, `none` = untouched
  */
 export function cardEffectOptions(
   card: Card | null | undefined,
@@ -19,11 +21,15 @@ export function cardEffectOptions(
   if (!card?.imageHash) return NO_EFFECTS;
   const mask = masks[card.imageHash];
   const base = { pixelLevel: getPixelLevel(effects), splatterSeed: card.splatterSeed ?? null };
-  if (mask?.status === 'masked') {
+  const pixelate = clipForEffect(mask, 'pixelate');
+  const splatter = clipForEffect(mask, 'splatter');
+  if (pixelate === 'none' || splatter === 'none') return NO_EFFECTS;
+  if (pixelate && splatter) {
     return {
       ...base,
-      pixelateRegions: regionsForEffect(mask, 'pixelate'),
-      splatterRegions: regionsForEffect(mask, 'splatter'),
+      pixelateRegions: pixelate.regions,
+      splatterRegions: splatter.regions,
+      invertRegions: pixelate.inverted,
     };
   }
   const folder = folders.find((candidate) => candidate.id === card.folderId);

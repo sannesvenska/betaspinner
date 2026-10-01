@@ -11,6 +11,8 @@ export interface EffectOptions {
   pixelateRegions?: readonly MaskRegion[] | undefined;
   /** §12.1 regions for splatter; undefined = whole image, [] = nowhere */
   splatterRegions?: readonly MaskRegion[] | undefined;
+  /** Inverted mask: effects outside the regions (no regions = whole image) */
+  invertRegions?: boolean | undefined;
 }
 
 /** Reusable offscreen canvases of one EffectMedia instance. */
@@ -65,18 +67,26 @@ function sizeTo(canvas: HTMLCanvasElement, width: number, height: number): Canva
   return context;
 }
 
-/** White alpha mask of the regions; each region is feathered by its own blur (§12.4). */
+/**
+ * White alpha mask of the regions; each region is feathered by its own blur (§12.4). Inverted: the media
+ * rect is white and the regions are cut out.
+ */
 function drawMask(
   mask: HTMLCanvasElement,
   width: number,
   height: number,
   regions: readonly MaskRegion[],
   rect: Rect,
+  inverted: boolean,
 ): void {
   const context = sizeTo(mask, width, height);
   if (!context) return;
   const shortSide = Math.min(rect.width, rect.height);
   context.fillStyle = '#fff';
+  if (inverted) {
+    context.fillRect(rect.x, rect.y, rect.width, rect.height);
+    context.globalCompositeOperation = 'destination-out';
+  }
   for (const region of regions) {
     const blur = region.feather * shortSide;
     context.filter = blur > 0 ? `blur(${blur.toFixed(1)}px)` : 'none';
@@ -85,6 +95,7 @@ function drawMask(
     context.fill();
   }
   context.filter = 'none';
+  context.globalCompositeOperation = 'source-over';
 }
 
 /**
@@ -94,11 +105,13 @@ function drawMask(
 function paintRestricted(
   target: CanvasRenderingContext2D,
   regions: readonly MaskRegion[] | undefined,
+  inverted: boolean,
   rect: Rect,
   scratch: EffectScratch,
   paint: (context: CanvasRenderingContext2D) => void,
 ): void {
-  if (regions === undefined) {
+  // No restriction, or an inverted mask without regions for this effect → whole image
+  if (regions === undefined || (inverted && regions.length === 0)) {
     paint(target);
     return;
   }
@@ -107,7 +120,7 @@ function paintRestricted(
   const layer = sizeTo(scratch.layer, width, height);
   if (!layer) return;
   paint(layer);
-  drawMask(scratch.mask, width, height, regions, rect);
+  drawMask(scratch.mask, width, height, regions, rect, inverted);
   layer.globalCompositeOperation = 'destination-in';
   layer.drawImage(scratch.mask, 0, 0);
   layer.globalCompositeOperation = 'source-over';
@@ -132,6 +145,7 @@ export function drawEffectFrame(
   const rect = containRect(mediaWidth, mediaHeight, width, height);
   if (rect.width === 0) return;
   context.drawImage(source, rect.x, rect.y, rect.width, rect.height);
+  const inverted = options.invertRegions === true;
 
   const block = pixelBlockSize(options.pixelLevel, rect, options.blockFractions);
   if (block > 0) {
@@ -141,7 +155,7 @@ export function drawEffectFrame(
     if (small) {
       small.imageSmoothingEnabled = true;
       small.drawImage(source, 0, 0, smallWidth, smallHeight);
-      paintRestricted(context, options.pixelateRegions, rect, scratch, (target) => {
+      paintRestricted(context, options.pixelateRegions, inverted, rect, scratch, (target) => {
         target.imageSmoothingEnabled = false;
         target.drawImage(
           scratch.small,
@@ -162,7 +176,7 @@ export function drawEffectFrame(
   if (options.splatterSeed === null || textures.length === 0) return;
   const seed = options.splatterSeed;
   const shortSide = Math.min(rect.width, rect.height);
-  paintRestricted(context, options.splatterRegions, rect, scratch, (target) => {
+  paintRestricted(context, options.splatterRegions, inverted, rect, scratch, (target) => {
     target.save();
     target.beginPath();
     target.rect(rect.x, rect.y, rect.width, rect.height);

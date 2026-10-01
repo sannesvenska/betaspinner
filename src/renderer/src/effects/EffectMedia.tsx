@@ -65,13 +65,14 @@ export function EffectMedia(props: EffectMediaProps) {
     splatterSeed,
     pixelateRegions,
     splatterRegions,
+    invertRegions,
   } = props;
   // Region arrays are new objects on every render – restart the pipeline only when their content changes
-  const regionKey = JSON.stringify([pixelateRegions, splatterRegions]);
-  const regionsRef = useRef({ pixelateRegions, splatterRegions });
+  const regionKey = JSON.stringify([pixelateRegions, splatterRegions, invertRegions]);
+  const regionsRef = useRef({ pixelateRegions, splatterRegions, invertRegions });
   // Declared before the pipeline effect, so the pipeline always starts with the current regions
   useEffect(() => {
-    regionsRef.current = { pixelateRegions, splatterRegions };
+    regionsRef.current = { pixelateRegions, splatterRegions, invertRegions };
   });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);

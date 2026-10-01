@@ -212,7 +212,7 @@
     },
     "empty": "No files match this filter.",
     "gridLabel": "Media files",
-    "hint": "Click to select (Ctrl / Shift for several), double-click or Enter opens the mask editor. Masked images get pixelate and splatter only inside their regions.",
+    "hint": "Click to select (Ctrl / Shift for several), double-click or Enter opens the mask editor. Masked images get pixelate and splatter only inside their regions (or outside, if inverted); \"no regions\" images get no visual effects.",
     "tool": {
       "select": "Select",
       "rect": "Rectangle",
@@ -244,7 +244,9 @@
       "noRegions": "No regions needed – next",
       "previous": "Previous",
       "next": "Next",
-      "panHint": "+ drag to pan · mouse wheel to zoom · 0 resets"
+      "panHint": "+ drag to pan · mouse wheel to zoom · 0 resets",
+      "invert": "Invert mask",
+      "invertHint": "Effects go everywhere except inside the regions – e.g. draw a circle that stays sharp."
     }
   },
   "library": {

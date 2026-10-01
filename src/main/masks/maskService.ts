@@ -33,7 +33,12 @@ interface MaskServiceOptions {
 export interface MaskService {
   getMany: (hashes: readonly string[]) => Record<string, ImageMask>;
   /** Saves regions (status derived; `no_regions` only when explicitly requested and empty). */
-  save: (input: { imageHash: string; regions: MaskRegion[]; status?: MaskStatus }) => Promise<ImageMask>;
+  save: (input: {
+    imageHash: string;
+    regions: MaskRegion[];
+    inverted?: boolean;
+    status?: MaskStatus;
+  }) => Promise<ImageMask>;
   /** `no_regions` never overwrites existing regions; `clear` removes the masks. Returns changed count. */
   bulk: (hashes: readonly string[], action: MaskBulkAction) => Promise<number>;
   summary: () => Record<string, MaskFolderSummary>;
@@ -71,10 +76,11 @@ export async function createMaskService(options: MaskServiceOptions): Promise<Ma
         }),
       ),
 
-    save: async ({ imageHash, regions, status }) => {
+    save: async ({ imageHash, regions, inverted = false, status }) => {
       const normalized = normalizeMask({
         imageHash,
         regions,
+        inverted,
         status: status ?? statusOf(imageHash),
         updatedAt: now().toISOString(),
       });
@@ -103,6 +109,7 @@ export async function createMaskService(options: MaskServiceOptions): Promise<Ma
             imageHash: hash,
             status: 'no_regions',
             regions: [],
+            inverted: false,
             updatedAt: now().toISOString(),
           };
           changed++;

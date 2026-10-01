@@ -57,6 +57,7 @@ describe('cardEffectOptions', () => {
         imageHash: 'h'.repeat(40),
         status: 'masked' as const,
         regions: [region],
+        inverted: false,
         updatedAt: '',
       },
     };
@@ -65,6 +66,20 @@ describe('cardEffectOptions', () => {
       splatterSeed: 42,
       pixelateRegions: [region],
       splatterRegions: [],
+      invertRegions: false,
     });
+  });
+
+  it('gives "no regions needed" images no effects at all, even in "full" folders', () => {
+    const masks = {
+      ['h'.repeat(40)]: {
+        imageHash: 'h'.repeat(40),
+        status: 'no_regions' as const,
+        regions: [],
+        inverted: false,
+        updatedAt: '',
+      },
+    };
+    expect(cardEffectOptions(card('a', 42), pixelate, [folder('a', 'full')], masks)).toEqual(NO_EFFECTS);
   });
 });

@@ -137,7 +137,7 @@ export interface IpcInvokeContract {
   'masks:listFolder': { request: { folderId: string; filter: MaskFilter }; response: MaskedMediaEntry[] };
   'masks:getMany': { request: { hashes: string[] }; response: Record<string, ImageMask> };
   'masks:save': {
-    request: { imageHash: string; regions: MaskRegion[]; status?: MaskStatus };
+    request: { imageHash: string; regions: MaskRegion[]; inverted?: boolean; status?: MaskStatus };
     response: ImageMask;
   };
   'masks:bulk': { request: { hashes: string[]; action: MaskBulkAction }; response: number };

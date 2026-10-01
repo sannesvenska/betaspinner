@@ -129,7 +129,10 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
 
   const [index, setIndex] = useState(startIndex);
   const [history, setHistory] = useState<RegionHistory>(startHistory([]));
-  const [saved, setSaved] = useState<{ regions: MaskRegion[]; status: MaskStatus } | null>(null);
+  const [saved, setSaved] = useState<{ regions: MaskRegion[]; status: MaskStatus; inverted: boolean } | null>(
+    null,
+  );
+  const [inverted, setInverted] = useState(false);
   const [tool, setTool] = useState<Tool>('rect');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -146,7 +149,9 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
   const entry = entries[index];
   const regions = live ?? history.present;
   const selected = regions.find((region) => region.id === selectedId);
-  const dirty = saved !== null && JSON.stringify(history.present) !== JSON.stringify(saved.regions);
+  const dirty =
+    saved !== null &&
+    (JSON.stringify(history.present) !== JSON.stringify(saved.regions) || inverted !== saved.inverted);
 
   // Native modal dialog: traps focus, keeps the app's Esc-to-home from firing
   useEffect(() => {
@@ -175,6 +180,7 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
     setZoom(1);
     setPan({ x: 0, y: 0 });
     setVideoAspect(null);
+    setInverted(false);
     setIndex(target);
   }, []);
 
@@ -187,7 +193,8 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
       const mask = result.ok ? result.data[entry.hash] : undefined;
       const loaded = mask?.regions ?? [];
       setHistory(startHistory(loaded));
-      setSaved({ regions: loaded, status: mask?.status ?? 'unreviewed' });
+      setSaved({ regions: loaded, status: mask?.status ?? 'unreviewed', inverted: mask?.inverted ?? false });
+      setInverted(mask?.inverted ?? false);
     });
     return () => {
       cancelled = true;
@@ -209,14 +216,21 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
   }, [entry]);
 
   const save = useCallback(
-    async (status?: MaskStatus, next: MaskRegion[] = history.present): Promise<boolean> => {
+    async (
+      status?: MaskStatus,
+      next: MaskRegion[] = history.present,
+      nextInverted: boolean = inverted,
+    ): Promise<boolean> => {
       if (!entry || !saved) return false;
       const changed =
-        JSON.stringify(next) !== JSON.stringify(saved.regions) || (status && status !== saved.status);
+        JSON.stringify(next) !== JSON.stringify(saved.regions) ||
+        nextInverted !== saved.inverted ||
+        (status && status !== saved.status);
       if (!changed) return true;
       const result = await window.api.invoke('masks:save', {
         imageHash: entry.hash,
         regions: next,
+        inverted: nextInverted,
         ...(status ? { status } : {}),
       });
       if (!result.ok) {
@@ -224,12 +238,12 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
         return false;
       }
       setError(null);
-      setSaved({ regions: result.data.regions, status: result.data.status });
+      setSaved({ regions: result.data.regions, status: result.data.status, inverted: result.data.inverted });
       putMask(result.data.status === 'unreviewed' ? null : result.data, entry.hash);
       onSaved(entry.hash, result.data.status, result.data.regions.length);
       return true;
     },
-    [entry, saved, history.present, putMask, onSaved],
+    [entry, saved, history.present, inverted, putMask, onSaved],
   );
 
   const go = useCallback(
@@ -260,7 +274,8 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
 
   const markNoRegions = useCallback(async () => {
     setHistory((current) => commit(current, []));
-    if ((await save('no_regions', [])) && index < entries.length - 1) showIndex(index + 1);
+    setInverted(false);
+    if ((await save('no_regions', [], false)) && index < entries.length - 1) showIndex(index + 1);
   }, [save, index, entries.length, showIndex]);
 
   const finishPolygon = useCallback(() => {
@@ -572,6 +587,7 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
                 splatterSeed={previewSplatter ? PREVIEW_SPLATTER_SEED : null}
                 pixelateRegions={pixelateRegions}
                 splatterRegions={splatterRegions}
+                invertRegions={inverted}
               />
               <svg
                 ref={svgRef}
@@ -586,12 +602,33 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
                 onPointerUp={onPointerUp}
                 onDoubleClick={finishPolygon}
               >
+                {/* Inverted: the outside is shaded (that is where the effects go) */}
+                {inverted && (
+                  <>
+                    <defs>
+                      <mask id="cr-mask-outside">
+                        <rect x={0} y={0} width={1} height={1} fill="white" />
+                        {regions.map((region) => (
+                          <RegionShape key={region.id} region={region} className="fill-black" />
+                        ))}
+                      </mask>
+                    </defs>
+                    <rect
+                      x={0}
+                      y={0}
+                      width={1}
+                      height={1}
+                      mask="url(#cr-mask-outside)"
+                      className="fill-masked/20"
+                    />
+                  </>
+                )}
                 {regions.map((region) => (
                   <RegionShape
                     key={region.id}
                     region={region}
                     className={classNames(
-                      'fill-masked/20 stroke-2',
+                      inverted ? 'fill-none stroke-2' : 'fill-masked/20 stroke-2',
                       region.id === selectedId ? 'stroke-ink [stroke-dasharray:6_4]' : 'stroke-masked',
                     )}
                   />
@@ -721,6 +758,10 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
                     </button>
                   ))}
                 </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Switch label={t('media.editor.invert')} checked={inverted} onChange={setInverted} />
+                <span className="text-body-sm text-ink-muted">{t('media.editor.invertHint')}</span>
               </div>
               <Switch
                 label={t('media.editor.previewSplatter')}
