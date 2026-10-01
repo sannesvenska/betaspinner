@@ -10,6 +10,7 @@ import {
   EMPTY_DRAFT_ART,
   normalizeConfig,
   normalizeFolder,
+  normalizePackageContent,
 } from './appConfig';
 
 describe('config migration', () => {
@@ -19,10 +20,13 @@ describe('config migration', () => {
 
     expect(normalizeConfig(migrated)).toEqual({
       settings: { ...DEFAULT_SETTINGS, startFullscreen: false },
-      folders: [],
-      actionCards: DEFAULT_ACTION_CARDS,
-      game: DEFAULT_GAME_CONFIG,
-      draftArt: EMPTY_DRAFT_ART,
+      library: { root: null, activePackageId: null },
+      legacy: {
+        folders: [],
+        actionCards: DEFAULT_ACTION_CARDS,
+        game: DEFAULT_GAME_CONFIG,
+        draftArt: EMPTY_DRAFT_ART,
+      },
     });
   });
 
@@ -44,7 +48,8 @@ describe('config migration', () => {
         ],
       },
     };
-    const config = normalizeConfig(migrate(v2, CONFIG_SCHEMA_VERSION, CONFIG_MIGRATIONS));
+    const config = normalizeConfig(migrate(v2, CONFIG_SCHEMA_VERSION, CONFIG_MIGRATIONS)).legacy;
+    if (!config) throw new Error('legacy content missing');
     expect(config.folders.map(({ id, role, enabled }) => ({ id, role, enabled }))).toEqual([
       { id: 'a', role: 'content', enabled: false },
       { id: 'b', role: 'content', enabled: true },
@@ -76,7 +81,8 @@ describe('config migration', () => {
         },
       },
     };
-    const { game } = normalizeConfig(migrate(v5, CONFIG_SCHEMA_VERSION, CONFIG_MIGRATIONS));
+    const game = normalizeConfig(migrate(v5, CONFIG_SCHEMA_VERSION, CONFIG_MIGRATIONS)).legacy?.game;
+    if (!game) throw new Error('legacy content missing');
     expect(game).not.toHaveProperty('beta');
     expect(game.rules).toMatchObject({
       collectibleCount: [4, 4],
@@ -92,6 +98,33 @@ describe('config migration', () => {
   });
 });
 
+describe('config v7 (§5.4 content packages)', () => {
+  it('keeps the settings, moves the content into legacy and lowers the old default tiers', () => {
+    const v6 = {
+      schemaVersion: 6,
+      data: {
+        settings: { ...DEFAULT_SETTINGS, startFullscreen: false },
+        folders: [{ id: 'a', path: 'C:/pics', group: 'good' }],
+        game: {
+          rules: {
+            ...DEFAULT_GAME_CONFIG.rules,
+            collectibleTiers: [
+              { collected: 3, bonus: { type: 'convert_bad', count: 5 } },
+              { collected: 4, bonus: { type: 'release_chance', percent: 5 } },
+              { collected: 5, bonus: { type: 'release_chance', percent: 10 } },
+            ],
+          },
+        },
+      },
+    };
+    const config = normalizeConfig(migrate(v6, CONFIG_SCHEMA_VERSION, CONFIG_MIGRATIONS));
+    expect(config.settings.startFullscreen).toBe(false);
+    expect(config.library).toEqual({ root: null, activePackageId: null });
+    expect(config.legacy?.folders.map((folder) => folder.id)).toEqual(['a']);
+    expect(config.legacy?.game.rules.collectibleTiers.map((tier) => tier.collected)).toEqual([2, 3, 4]);
+  });
+});
+
 describe('normalizeActionCards (10.4)', () => {
   const image = {
     hash: 'a'.repeat(40),
@@ -101,7 +134,7 @@ describe('normalizeActionCards (10.4)', () => {
   };
 
   it('keeps every built-in, merges saved overrides and accepts user variants', () => {
-    const { actionCards } = normalizeConfig({
+    const { actionCards } = normalizePackageContent({
       actionCards: [
         { id: 'pixelate', builtIn: true, weight: 500, enabled: false, image },
         { id: 'squeeze-hard', type: 'squeeze_task', name: '  Squeeze hard ', params: { count: [30, 15] } },
@@ -125,7 +158,7 @@ describe('normalizeActionCards (10.4)', () => {
   });
 
   it('assigns an image to one card only and rejects malformed images', () => {
-    const { actionCards } = normalizeConfig({
+    const { actionCards } = normalizePackageContent({
       actionCards: [
         { id: 'pixelate', image },
         { id: 'splatter', image },
@@ -149,6 +182,7 @@ describe('normalizeFolder', () => {
       role: 'content',
       ...FOLDER_DEFAULTS,
       taskRange: [...FOLDER_DEFAULTS.taskRange],
+      sourcePath: null,
     });
   });
 
@@ -173,10 +207,9 @@ describe('normalizeFolder', () => {
   });
 });
 
-describe('normalizeConfig', () => {
+describe('normalizePackageContent', () => {
   it('drops broken and duplicate folders but keeps the rest', () => {
-    const config = normalizeConfig({
-      settings: {},
+    const config = normalizePackageContent({
       folders: [
         { id: 'a', path: 'p1', group: 'good' },
         { id: 'a', path: 'p2', group: 'good' },

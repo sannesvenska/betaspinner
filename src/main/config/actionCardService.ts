@@ -6,6 +6,7 @@ import { DEFAULT_ACTION_CARDS } from '@shared/session/defaults';
 import type { ActionCardDefinition } from '@shared/session/types';
 import { cardImages, type ActionArtStore } from '../content/actionArtStore';
 import { normalizeActionCards } from './actionCardsConfig';
+import type { PackageContent } from './appConfig';
 import type { ConfigService } from './configService';
 
 /** The four fields kept in config.json (dimensions are only needed while importing). */
@@ -37,7 +38,10 @@ export interface ActionCardService {
   clearImage: (id: string) => Promise<ActionCardDefinition[]>;
 }
 
-export function createActionCardService(config: ConfigService, art: ActionArtStore): ActionCardService {
+export function createActionCardService(
+  config: ConfigService<PackageContent>,
+  art: ActionArtStore,
+): ActionCardService {
   const list = () => config.get().actionCards;
 
   const find = (id: string): ActionCardDefinition => {

@@ -1,10 +1,6 @@
 import { existsSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { app, BrowserWindow, dialog, globalShortcut, shell } from 'electron';
-import type { LibraryIndex } from '@shared/content';
-import { DEFAULT_PROGRESSION } from '@shared/session/defaults';
-import type { SessionRecord } from '@shared/session/history';
-import type { Progression } from '@shared/session/types';
+import { app, BrowserWindow, dialog, globalShortcut, shell, type OpenDialogOptions } from 'electron';
 import type { IpcEvent, IpcEventContract } from '@shared/ipc';
 import {
   CONFIG_MIGRATIONS,
@@ -16,10 +12,7 @@ import {
 } from './config/appConfig';
 import { DEFAULT_GAME_CONFIG, hasErrors, validateGameSection } from '@shared/config/gameConfig';
 import { simulateSessions } from '@shared/session/simulateSessions';
-import { createActionCardService } from './config/actionCardService';
 import { createConfigService } from './config/configService';
-import { createDraftArtService } from './config/draftArtService';
-import { cardImages, createActionArtStore } from './content/actionArtStore';
 import {
   createMaskService,
   EMPTY_MASK_FILE,
@@ -27,25 +20,14 @@ import {
   normalizeMaskFile,
   type MaskFile,
 } from './masks/maskService';
-import { EMPTY_INDEX, INDEX_MIGRATIONS, INDEX_SCHEMA_VERSION, normalizeIndex } from './content/libraryIndex';
-import { createLibraryService } from './content/libraryService';
 import { IMAGE_EXTENSIONS, MEDIA_EXTENSIONS } from './content/mediaFormats';
 import { handleMediaProtocol, registerMediaScheme } from './content/mediaProtocol';
 import { runScanInWorker } from './content/runScanInWorker';
 import { registerIpcHandlers } from './ipc/registerIpcHandlers';
-import {
-  HISTORY_SCHEMA_VERSION,
-  normalizeHistory,
-  normalizeProgression,
-  normalizeSessionFile,
-  PROGRESSION_SCHEMA_VERSION,
-  SESSION_MIGRATIONS,
-  SESSION_SCHEMA_VERSION,
-  type StoredSession,
-} from './session/persistence';
-import { createSessionService } from './session/sessionService';
+import { createPackageManager } from './packages/packageManager';
 import { normalizeSettings } from './settings/normalizeSettings';
 import { createJsonStore } from './storage/jsonStore';
+import type { MediaEntry } from '@shared/content';
 import { createMainWindow } from './window';
 
 const isDev = !app.isPackaged;
@@ -93,75 +75,11 @@ async function startApp(): Promise<void> {
       migrations: CONFIG_MIGRATIONS,
       normalize: normalizeConfig,
     }),
+    DEFAULT_CONFIG,
   );
 
-  const library = await createLibraryService({
-    config,
-    indexStore: createJsonStore<LibraryIndex>({
-      directory: userData,
-      fileName: 'image-index.json',
-      schemaVersion: INDEX_SCHEMA_VERSION,
-      defaults: EMPTY_INDEX,
-      migrations: INDEX_MIGRATIONS,
-      normalize: normalizeIndex,
-    }),
-    runScan: runScanInWorker,
-    onProgress: (progress) => {
-      broadcast('library:scanProgress', progress);
-    },
-    onChanged: (snapshot) => {
-      broadcast('library:changed', snapshot);
-    },
-    trash: (path) => shell.trashItem(path),
-  });
-
-  const actionArt = createActionArtStore(userData);
-  const actionCards = createActionCardService(config, actionArt);
-  const draftArtStore = createActionArtStore(userData, 'draft-art');
-  const draftArt = createDraftArtService(config, draftArtStore);
-  // Library media first; action card and draft images come from the app-owned stores
-  handleMediaProtocol(
-    (hash) =>
-      library.resolveMedia(hash) ??
-      actionArt.resolve(hash, cardImages(actionCards.list())) ??
-      draftArtStore.resolve(
-        hash,
-        Object.values(draftArt.get()).map((entry) => entry?.image ?? null),
-      ),
-  );
-
-  const sessions = await createSessionService({
-    progressionStore: createJsonStore<Progression>({
-      directory: userData,
-      fileName: 'progression.json',
-      schemaVersion: PROGRESSION_SCHEMA_VERSION,
-      defaults: DEFAULT_PROGRESSION,
-      normalize: normalizeProgression,
-    }),
-    sessionStore: createJsonStore<StoredSession>({
-      directory: userData,
-      fileName: 'session-current.json',
-      schemaVersion: SESSION_SCHEMA_VERSION,
-      defaults: null,
-      migrations: SESSION_MIGRATIONS,
-      normalize: normalizeSessionFile,
-    }),
-    historyStore: createJsonStore<SessionRecord[]>({
-      directory: userData,
-      fileName: 'history.json',
-      schemaVersion: HISTORY_SCHEMA_VERSION,
-      defaults: [],
-      normalize: normalizeHistory,
-    }),
-    folders: () => config.get().folders,
-    media: library.mediaEntries,
-    actionCards: actionCards.list,
-    game: () => config.get().game,
-    onProgressionChanged: (progression) => {
-      broadcast('session:progression', progression);
-    },
-  });
-
+  // Masks are shared by all packages (keyed by content hash, §5.4 / §12.3)
+  let mediaOfActivePackage: () => readonly MediaEntry[] = () => [];
   const masks = await createMaskService({
     store: createJsonStore<MaskFile>({
       directory: userData,
@@ -170,19 +88,56 @@ async function startApp(): Promise<void> {
       defaults: EMPTY_MASK_FILE,
       normalize: normalizeMaskFile,
     }),
-    media: library.mediaEntries,
+    media: () => mediaOfActivePackage(),
   });
+
+  const packages = createPackageManager({
+    config,
+    userData,
+    masks: () => masks,
+    hooks: {
+      runScan: runScanInWorker,
+      trash: (path) => shell.trashItem(path),
+      onScanProgress: (progress) => {
+        broadcast('library:scanProgress', progress);
+      },
+      onImportProgress: (progress) => {
+        broadcast('library:importProgress', progress);
+      },
+      onLibraryChanged: (snapshot) => {
+        broadcast('library:changed', snapshot);
+      },
+      onProgressionChanged: (progression) => {
+        broadcast('session:progression', progression);
+      },
+    },
+    onProgress: (progress) => {
+      broadcast('packages:progress', progress);
+    },
+  });
+  await packages.start();
+  /** The active package; IPC calls before the setup fail with `no_package`. */
+  const ctx = () => packages.requireContext();
+  mediaOfActivePackage = () => packages.context()?.library.mediaEntries() ?? [];
+  handleMediaProtocol((hash) => packages.context()?.resolveMedia(hash));
 
   // game-design §13.3: decay lazily on start and every minute while running
   const runDecay = () => {
-    sessions.tickDecay().catch((error: unknown) => {
-      console.error('[progression] decay failed', error);
-    });
+    packages
+      .context()
+      ?.sessions.tickDecay()
+      .catch((error: unknown) => {
+        console.error('[progression] decay failed', error);
+      });
   };
   runDecay();
   const decayTimer = setInterval(runDecay, DECAY_CHECK_INTERVAL_MS);
 
   const getMainWindow = (): BrowserWindow | undefined => BrowserWindow.getAllWindows()[0];
+  const showOpen = (sender: Electron.WebContents, options: OpenDialogOptions) => {
+    const window = BrowserWindow.fromWebContents(sender);
+    return window ? dialog.showOpenDialog(window, options) : dialog.showOpenDialog(options);
+  };
 
   registerIpcHandlers({
     'app:getInfo': () => ({ version: app.getVersion(), isDev, userDataPath: userData }),
@@ -198,100 +153,91 @@ async function startApp(): Promise<void> {
       window.setFullScreen(!window.isFullScreen());
       return window.isFullScreen();
     },
-    'library:getSnapshot': () => library.snapshot(),
+    'library:getSnapshot': () => ctx().library.snapshot(),
     'library:pickFolders': async (_request, event) => {
-      const window = BrowserWindow.fromWebContents(event.sender);
       // Start next to the most recently added folder (siblings are usually the next categories)
-      const lastAdded = config.get().folders.at(-1)?.path;
-      const startDirectory = lastAdded ? dirname(lastAdded) : undefined;
-      const options: Electron.OpenDialogOptions = {
+      const last = ctx().packageConfig.config.get().folders.at(-1);
+      const lastSource = last ? (last.sourcePath ?? last.path) : undefined;
+      const startDirectory = lastSource ? dirname(lastSource) : undefined;
+      const result = await showOpen(event.sender, {
         properties: ['openDirectory', 'multiSelections'],
         ...(startDirectory && existsSync(startDirectory) ? { defaultPath: startDirectory } : {}),
-      };
-      const result = window
-        ? await dialog.showOpenDialog(window, options)
-        : await dialog.showOpenDialog(options);
-      return result.canceled ? [] : library.inspectFolders(result.filePaths);
+      });
+      return result.canceled ? [] : ctx().library.inspectFolders(result.filePaths);
     },
-    'library:addFolders': (inputs) => library.addFolders(inputs),
-    'library:updateFolder': ({ id, patch }) => library.updateFolder(id, patch),
-    'library:removeFolder': ({ id }) => library.removeFolder(id),
-    'library:rescan': () => library.rescan(),
-    'library:listMedia': ({ folderId, offset, limit }) => library.listMedia(folderId, offset, limit),
+    'library:addFolders': (inputs) => ctx().library.addFolders(inputs),
+    'library:updateFolder': ({ id, patch }) => ctx().library.updateFolder(id, patch),
+    'library:removeFolder': ({ id }) => ctx().library.removeFolder(id),
+    'library:rescan': () => ctx().library.rescan(),
+    'library:listMedia': ({ folderId, offset, limit }) => ctx().library.listMedia(folderId, offset, limit),
+    // Masks stay (keyed by content hash): re-importing the same image later brings them back (§12.3)
     'library:trashMedia': async ({ folderId, hashes }) => {
-      const result = await library.trashMedia(folderId, hashes);
-      if (result.orphanedHashes.length > 0) await masks.bulk(result.orphanedHashes, 'clear');
+      const result = await ctx().library.trashMedia(folderId, hashes);
       return { trashed: result.trashed, failed: result.failed };
     },
-    'session:getSnapshot': () => sessions.snapshot(),
-    'session:spin': () => sessions.spin(),
-    'session:dispatch': (event) => sessions.dispatch(event),
-    'session:close': () => sessions.close(),
-    'session:reroll': () => sessions.reroll(),
-    'draft:deal': () => sessions.dealDraft(),
-    'draft:pick': ({ index }) => sessions.pickDraft(index),
-    'draftArt:get': () => draftArt.get(),
+    'session:getSnapshot': () => ctx().sessions.snapshot(),
+    'session:spin': () => ctx().sessions.spin(),
+    'session:dispatch': (event) => ctx().sessions.dispatch(event),
+    'session:close': () => ctx().sessions.close(),
+    'session:reroll': () => ctx().sessions.reroll(),
+    'draft:deal': () => ctx().sessions.dealDraft(),
+    'draft:pick': ({ index }) => ctx().sessions.pickDraft(index),
+    'draftArt:get': () => ctx().draftArt.get(),
     'draftArt:pickImage': async ({ slot }, event) => {
-      const window = BrowserWindow.fromWebContents(event.sender);
-      const options: Electron.OpenDialogOptions = {
+      const result = await showOpen(event.sender, {
         properties: ['openFile'],
         filters: [{ name: 'Images', extensions: [...IMAGE_EXTENSIONS] }],
-      };
-      const result = window
-        ? await dialog.showOpenDialog(window, options)
-        : await dialog.showOpenDialog(options);
+      });
       const [path] = result.filePaths;
-      return result.canceled || !path ? draftArt.get() : draftArt.assign(slot, path);
+      return result.canceled || !path ? ctx().draftArt.get() : ctx().draftArt.assign(slot, path);
     },
-    'draftArt:setCrop': ({ slot, crop }) => draftArt.setCrop(slot, crop),
-    'draftArt:clear': ({ slot }) => draftArt.clear(slot),
-    'progression:reset': () => sessions.resetProgression(),
-    'config:getGame': () => config.get().game,
+    'draftArt:setCrop': ({ slot, crop }) => ctx().draftArt.setCrop(slot, crop),
+    'draftArt:clear': ({ slot }) => ctx().draftArt.clear(slot),
+    'progression:reset': () => ctx().sessions.resetProgression(),
+    'config:getGame': () => ctx().packageConfig.config.get().game,
     'config:updateGame': async (update) => {
       // Same field specs as the renderer: invalid input is rejected, never silently clamped
       if (hasErrors(validateGameSection(update))) throw new Error('invalid_config');
-      const saved = await config.update((current) => ({
+      const saved = await ctx().packageConfig.config.update((current) => ({
         ...current,
         game: normalizeGame({ ...current.game, [update.section]: update.value }),
       }));
       return saved.game;
     },
     'config:resetGame': async ({ section }) => {
-      const saved = await config.update((current) => ({
+      const saved = await ctx().packageConfig.config.update((current) => ({
         ...current,
         game: { ...current.game, [section]: DEFAULT_GAME_CONFIG[section] },
       }));
       return saved.game;
     },
-    'admin:simulate': ({ runs }) =>
-      simulateSessions(
+    'admin:simulate': ({ runs }) => {
+      const { packageConfig, actionCards, library, sessions } = ctx();
+      return simulateSessions(
         {
-          rules: config.get().game.rules,
+          rules: packageConfig.config.get().game.rules,
           actionCards: actionCards.list(),
-          folders: config.get().folders,
+          folders: packageConfig.config.get().folders,
           media: library.mediaEntries(),
           progression: sessions.snapshot().progression,
         },
         Math.min(Math.max(1, Math.round(runs)), MAX_SIMULATION_RUNS),
-      ),
-    'actionCards:list': () => actionCards.list(),
-    'actionCards:update': ({ id, patch }) => actionCards.update(id, patch),
-    'actionCards:duplicate': ({ id, name }) => actionCards.duplicate(id, name),
-    'actionCards:remove': ({ id }) => actionCards.remove(id),
-    'actionCards:reset': ({ id }) => actionCards.reset(id),
+      );
+    },
+    'actionCards:list': () => ctx().actionCards.list(),
+    'actionCards:update': ({ id, patch }) => ctx().actionCards.update(id, patch),
+    'actionCards:duplicate': ({ id, name }) => ctx().actionCards.duplicate(id, name),
+    'actionCards:remove': ({ id }) => ctx().actionCards.remove(id),
+    'actionCards:reset': ({ id }) => ctx().actionCards.reset(id),
     'actionCards:pickImage': async ({ id }, event) => {
-      const window = BrowserWindow.fromWebContents(event.sender);
-      const options: Electron.OpenDialogOptions = {
+      const result = await showOpen(event.sender, {
         properties: ['openFile'],
         filters: [{ name: 'Media', extensions: [...MEDIA_EXTENSIONS] }],
-      };
-      const result = window
-        ? await dialog.showOpenDialog(window, options)
-        : await dialog.showOpenDialog(options);
+      });
       const [path] = result.filePaths;
-      return result.canceled || !path ? actionCards.list() : actionCards.assignImage(id, path);
+      return result.canceled || !path ? ctx().actionCards.list() : ctx().actionCards.assignImage(id, path);
     },
-    'actionCards:clearImage': ({ id }) => actionCards.clearImage(id),
+    'actionCards:clearImage': ({ id }) => ctx().actionCards.clearImage(id),
     'masks:summary': () => masks.summary(),
     'masks:listFolder': ({ folderId, filter }) => masks.listFolder(folderId, filter),
     'masks:getMany': ({ hashes }) => masks.getMany(hashes),
@@ -300,17 +246,52 @@ async function startApp(): Promise<void> {
     'dev:placeAction': ({ action }) => {
       // Never available in packaged builds
       if (!isDev) throw new Error('Not available');
-      return sessions.devPlaceAction(action);
+      return ctx().sessions.devPlaceAction(action);
+    },
+    'packages:status': () => packages.status(),
+    'packages:chooseRoot': async (_request, event) => {
+      const result = await showOpen(event.sender, { properties: ['openDirectory', 'createDirectory'] });
+      const [path] = result.filePaths;
+      return result.canceled || !path ? packages.status() : packages.chooseRoot(path);
+    },
+    'packages:activate': ({ id }) => packages.activate(id),
+    'packages:create': ({ name }) => packages.create(name),
+    'packages:rename': ({ id, name }) => packages.rename(id, name),
+    'packages:duplicate': ({ id }) => packages.duplicate(id),
+    'packages:remove': ({ id }) => packages.remove(id),
+    'packages:export': async ({ id }, event) => {
+      const status = await packages.status();
+      const name = status.packages.find((entry) => entry.id === id)?.name ?? 'package';
+      const window = BrowserWindow.fromWebContents(event.sender);
+      const options = {
+        defaultPath: `${name}.zip`,
+        filters: [{ name: 'Betaspinner package', extensions: ['zip'] }],
+      };
+      const result = window
+        ? await dialog.showSaveDialog(window, options)
+        : await dialog.showSaveDialog(options);
+      if (result.canceled || !result.filePath) return false;
+      await packages.exportZip(id, result.filePath);
+      return true;
+    },
+    'packages:pickImport': async (_request, event) => {
+      const result = await showOpen(event.sender, {
+        properties: ['openFile'],
+        filters: [{ name: 'Betaspinner package', extensions: ['zip'] }],
+      });
+      const [path] = result.filePaths;
+      return result.canceled || !path ? null : packages.inspectZip(path);
+    },
+    'packages:import': ({ path, mode }) => packages.importZip(path, mode),
+    'packages:moveRoot': async (_request, event) => {
+      const result = await showOpen(event.sender, { properties: ['openDirectory', 'createDirectory'] });
+      const [path] = result.filePaths;
+      return result.canceled || !path ? packages.status() : packages.moveRoot(path);
     },
   });
 
   // Fullscreen by default, but not while developing
   createMainWindow({ fullscreen: config.get().settings.startFullscreen && !isDev, isDev });
-
-  // game-design §5.3: scan on startup (cached files are cheap)
-  void library.rescan().catch((error: unknown) => {
-    console.error('[library] startup scan failed', error);
-  });
 
   app.on('second-instance', () => {
     const window = getMainWindow();

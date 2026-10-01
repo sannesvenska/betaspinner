@@ -4,7 +4,9 @@ import { FOLDER_DEFAULTS, type FolderRole, type NewFolderInput, type PickedFolde
 import type { Group } from '@shared/game';
 import { Button } from '@renderer/ui/Button';
 import { Dialog } from '@renderer/ui/Dialog';
+import { useLibraryStore } from '@renderer/stores/libraryStore';
 import { Icon } from '@renderer/ui/icons/Icon';
+import { ProgressBar } from '@renderer/ui/ProgressBar';
 import { SegmentedControl } from '@renderer/ui/SegmentedControl';
 import { TextField } from '@renderer/ui/TextField';
 import { folderBaseName } from './folderLabels';
@@ -69,6 +71,7 @@ export function AddFoldersDialog({ picked, onCancel, onSubmit }: AddFoldersDialo
   );
   const [showErrors, setShowErrors] = useState(false);
   const [saving, setSaving] = useState(false);
+  const importing = useLibraryStore((state) => state.importing);
 
   const patchDraft = (index: number, patch: Partial<Draft>) => {
     setDrafts((current) => current.map((draft, i) => (i === index ? { ...draft, ...patch } : draft)));
@@ -154,6 +157,20 @@ export function AddFoldersDialog({ picked, onCancel, onSubmit }: AddFoldersDialo
           </section>
         ))}
       </div>
+      {saving && importing && (
+        <div className="flex flex-col gap-2 border-t border-line px-8 py-4">
+          <span className="text-body-sm text-ink-2">
+            {t('library.add.copying', {
+              folder: importing.folderName,
+              index: importing.folderIndex + 1,
+              count: importing.folderCount,
+              copied: importing.copied,
+              total: importing.total,
+            })}
+          </span>
+          <ProgressBar value={importing.copied} max={importing.total} label={t('library.add.copyingLabel')} />
+        </div>
+      )}
       <div className="flex justify-end gap-3 border-t border-line px-8 py-5">
         <Button variant="text" onClick={onCancel}>
           {drafts.length > 0 ? t('common.cancel') : t('common.close')}

@@ -255,11 +255,25 @@ Implements game-design **Revision 3** (all rules marked **[v2]**, decision log �
 | 11d.8 | Beta mode becomes the only mode (defaults, config v6 migration, admin section and flags removed); balancing bot aims for visible performer cards | ✅     |
 | 11d.9 | Action cards never get pixelate or splatter (renderer and splatter targets)                                                                      | ✅     |
 
+## AP13 – Content packages · L · ✅
+
+| #    | Task                                                                                                                       | Status |
+| ---- | -------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 13.1 | Model: config v7 (settings + library), `package.json` per package, generic config service, per-package state in `userData` | ✅     |
+| 13.2 | Package context (library, action cards, draft art, sessions) swapped on activation; IPC routes through the active package  | ✅     |
+| 13.3 | Folder import copies into the package (hash dedupe, progress); removing a folder trashes its copy; masks always kept       | ✅     |
+| 13.4 | Setup screen: library folder once; old content copied into "Default" (folder ids, progression, session, history kept)      | ✅     |
+| 13.5 | Management: create, rename, duplicate, delete, activate, move library; start screen + settings show the active package     | ✅     |
+| 13.6 | ZIP export / import (`yazl` / `yauzl`) with masks, replace or copy, zip-slip and foreign-path protection                   | ✅     |
+| 13.7 | Performer bonus tiers 2/3/4 (config v7 lowers stored 3/4/5)                                                                | ✅     |
+
+**Verified:** 219 tests; e2e in the running app: old config → setup → 7 folders / 210 files copied into "Default", new package, ZIP export, import as copy (conflict dialog), switch to another package (reload with its content). Balancing with tiers 2/3/4: Ø 83 rounds, Ø 39 % release chance.
+
 ## AP12 – Stats, backup, polish, release · M · ⬜
 
 1. Session stats collection + History screen (sortable table, summary).
 2. Session summary screen.
-3. Backup export/import (ZIP, path remapping; includes `action-art/`).
+3. Backup export/import of the app-wide data (settings, masks, per-package progress) – content is already exchangeable as package ZIP (AP13).
 4. Accessibility audit (keyboard, focus, contrast, reduced motion), performance audit (6,000 files).
 5. ~~Remove the dev component showcase~~ – done in AP11d.6.
 6. E2E driver: capture the Playwright walkthrough used for AP9 as a project script (clear `ELECTRON_RUN_AS_NODE` when launched from VS Code).

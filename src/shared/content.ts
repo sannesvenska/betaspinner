@@ -19,6 +19,18 @@ export interface FolderConfig {
   taskRange: [number, number];
   unmaskedEffectBehavior: UnmaskedEffectBehavior;
   minImages: number;
+  /** Where the files were copied from (duplicate check, picker start); never exported (§5.4) */
+  sourcePath: string | null;
+}
+
+/** Copy progress while folders are added to a package (§5.4). */
+export interface ImportProgress {
+  folderName: string;
+  /** 0-based index of the folder being copied */
+  folderIndex: number;
+  folderCount: number;
+  copied: number;
+  total: number;
 }
 
 /** A folder chosen in the picker, inspected before it is added (setup dialog). */
@@ -33,7 +45,7 @@ export interface PickedFolder {
 /** Fields the user picks when adding a folder; everything else starts at defaults. */
 export type NewFolderInput = Pick<FolderConfig, 'path' | 'displayName' | 'group' | 'role'>;
 
-export type FolderPatch = Partial<Omit<FolderConfig, 'id' | 'path'>>;
+export type FolderPatch = Partial<Omit<FolderConfig, 'id' | 'path' | 'sourcePath'>>;
 
 export const FOLDER_DEFAULTS = {
   enabled: true,

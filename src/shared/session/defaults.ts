@@ -36,9 +36,9 @@ export const DEFAULT_SESSION_RULES: SessionRules = {
   collectiblePixelateRelief: 1,
   collectibleRevisitTaskRange: [10, 25],
   collectibleTiers: [
-    { collected: 3, bonus: { type: 'convert_bad', count: 5 } },
-    { collected: 4, bonus: { type: 'release_chance', percent: 5 } },
-    { collected: 5, bonus: { type: 'release_chance', percent: 10 } },
+    { collected: 2, bonus: { type: 'convert_bad', count: 5 } },
+    { collected: 3, bonus: { type: 'release_chance', percent: 5 } },
+    { collected: 4, bonus: { type: 'release_chance', percent: 10 } },
   ],
 };
 

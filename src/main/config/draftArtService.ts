@@ -1,6 +1,6 @@
 import { centeredSquareCrop, type DraftArtSlot, type DraftCrop } from '@shared/draft';
 import type { ActionArtStore } from '../content/actionArtStore';
-import { normalizeDraftArt, type DraftArt } from './appConfig';
+import { normalizeDraftArt, type DraftArt, type PackageContent } from './appConfig';
 import { storedImage } from './actionCardService';
 import type { ConfigService } from './configService';
 
@@ -22,7 +22,10 @@ export interface DraftArtService {
 const usedImages = (art: DraftArt) => Object.values(art).map((entry) => entry?.image ?? null);
 
 /** game-design §6.0 draft card images: one per slot (back + 4 field types), shown as square crops. */
-export function createDraftArtService(config: ConfigService, store: ActionArtStore): DraftArtService {
+export function createDraftArtService(
+  config: ConfigService<PackageContent>,
+  store: ActionArtStore,
+): DraftArtService {
   const get = () => config.get().draftArt;
 
   async function save(next: DraftArt): Promise<DraftArt> {

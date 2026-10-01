@@ -1,5 +1,11 @@
 import { create } from 'zustand';
-import type { FolderPatch, LibrarySnapshot, NewFolderInput, ScanProgress } from '@shared/content';
+import type {
+  FolderPatch,
+  ImportProgress,
+  LibrarySnapshot,
+  NewFolderInput,
+  ScanProgress,
+} from '@shared/content';
 import type { IpcChannel, IpcInvokeContract, IpcRequest } from '@shared/ipc';
 
 /** Channels that answer with a fresh library snapshot. */
@@ -10,6 +16,8 @@ type SnapshotChannel = {
 interface LibraryState {
   snapshot: LibrarySnapshot | null;
   progress: ScanProgress | null;
+  /** Folders being copied into the package (§5.4) */
+  importing: ImportProgress | null;
   /** Last failed operation, shown inline until dismissed or the next success. */
   error: string | null;
   load: () => Promise<void>;
@@ -40,6 +48,7 @@ export const useLibraryStore = create<LibraryState>()((set) => {
   return {
     snapshot: null,
     progress: null,
+    importing: null,
     error: null,
     load: async () => {
       await applySnapshot('library:getSnapshot', undefined);
@@ -51,12 +60,20 @@ export const useLibraryStore = create<LibraryState>()((set) => {
       const offProgress = window.api.on('library:scanProgress', (progress) => {
         set({ progress });
       });
+      const offImport = window.api.on('library:importProgress', (importing) => {
+        set({ importing });
+      });
       return () => {
         offChanged();
         offProgress();
+        offImport();
       };
     },
-    addFolders: (inputs) => applySnapshot('library:addFolders', inputs),
+    addFolders: async (inputs) => {
+      const ok = await applySnapshot('library:addFolders', inputs);
+      set({ importing: null });
+      return ok;
+    },
     updateFolder: (id, patch) => applySnapshot('library:updateFolder', { id, patch }),
     removeFolder: (id) => applySnapshot('library:removeFolder', { id }),
     rescan: () => applySnapshot('library:rescan', undefined),

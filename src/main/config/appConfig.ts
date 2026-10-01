@@ -15,9 +15,8 @@ import type { Migration } from '../storage/jsonStore';
 import { normalizeSettings } from '../settings/normalizeSettings';
 import { normalizeActionArtImage, normalizeActionCards } from './actionCardsConfig';
 
-/** config.json (game-design §21). */
-export interface AppConfig {
-  settings: AppSettings;
+/** Everything a content package holds besides its files (game-design §5.4). */
+export interface PackageContent {
   folders: FolderConfig[];
   /** game-design §10.4 action card definitions */
   actionCards: ActionCardDefinition[];
@@ -25,6 +24,21 @@ export interface AppConfig {
   game: GameConfig;
   /** game-design §6.0 draft card images (square crops) */
   draftArt: DraftArt;
+}
+
+/** Where the packages live and which one is played (§5.4). */
+export interface LibrarySettings {
+  /** Library folder chosen once; null until the setup screen ran */
+  root: string | null;
+  activePackageId: string | null;
+}
+
+/** config.json (game-design §21): app-wide settings only – content lives in packages. */
+export interface AppConfig {
+  settings: AppSettings;
+  library: LibrarySettings;
+  /** Content of a pre-package install, moved into the "Default" package by the setup (then null) */
+  legacy: PackageContent | null;
 }
 
 export type DraftArt = Record<DraftArtSlot, DraftArtImage | null>;
@@ -42,15 +56,42 @@ export const EMPTY_DRAFT_ART: DraftArt = {
   double: null,
 };
 
-export const CONFIG_SCHEMA_VERSION = 6;
+export const CONFIG_SCHEMA_VERSION = 7;
 
-export const DEFAULT_CONFIG: AppConfig = {
-  settings: DEFAULT_SETTINGS,
+export const EMPTY_PACKAGE_CONTENT: PackageContent = {
   folders: [],
   actionCards: [...DEFAULT_ACTION_CARDS],
   game: DEFAULT_GAME_CONFIG,
   draftArt: EMPTY_DRAFT_ART,
 };
+
+export const DEFAULT_CONFIG: AppConfig = {
+  settings: DEFAULT_SETTINGS,
+  library: { root: null, activePackageId: null },
+  legacy: null,
+};
+
+/** Bonus tiers of the old defaults (3/4/5) move to 2/3/4 with 5 visible performer cards. */
+const OLD_TIER_THRESHOLDS = [3, 4, 5];
+const NEW_TIER_THRESHOLDS = [2, 3, 4];
+
+function lowerDefaultTiers(game: Record<string, unknown>): Record<string, unknown> {
+  const rules = isRecord(game.rules) ? game.rules : null;
+  const tiers: unknown[] | null =
+    rules && Array.isArray(rules.collectibleTiers) ? rules.collectibleTiers : null;
+  if (!rules || !tiers) return game;
+  const thresholds = tiers.map((tier) => (isRecord(tier) ? tier.collected : null));
+  if (JSON.stringify(thresholds) !== JSON.stringify(OLD_TIER_THRESHOLDS)) return game;
+  return {
+    ...game,
+    rules: {
+      ...rules,
+      collectibleTiers: tiers.map((tier, index) =>
+        isRecord(tier) ? { ...tier, collected: NEW_TIER_THRESHOLDS[index] } : tier,
+      ),
+    },
+  };
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -111,6 +152,16 @@ export const CONFIG_MIGRATIONS: Readonly<Record<number, Migration>> = {
       },
     };
   },
+  // v7 (§5.4 content packages): content moves into `legacy` until the setup copies it into "Default"
+  6: (data) => {
+    const root = isRecord(data) ? data : {};
+    const game = isRecord(root.game) ? lowerDefaultTiers(root.game) : {};
+    return {
+      settings: root.settings,
+      library: { root: null, activePackageId: null },
+      legacy: { folders: root.folders, actionCards: root.actionCards, game, draftArt: root.draftArt },
+    };
+  },
 };
 
 const MIN_TASK_COUNT = 1;
@@ -154,11 +205,12 @@ export function normalizeFolder(value: unknown): FolderConfig | null {
     taskRange: normalizeTaskRange(value.taskRange),
     unmaskedEffectBehavior: value.unmaskedEffectBehavior === 'none' ? 'none' : 'full',
     minImages: clampInt(value.minImages, 1, MAX_MIN_IMAGES, FOLDER_DEFAULTS.minImages),
+    sourcePath: nonEmptyString(value.sourcePath) ? value.sourcePath : null,
   };
 }
 
-export function normalizeConfig(data: unknown): AppConfig {
-  if (!isRecord(data)) throw new Error('Config root must be an object');
+export function normalizePackageContent(data: unknown): PackageContent {
+  if (!isRecord(data)) throw new Error('Package content must be an object');
   const rawFolders = Array.isArray(data.folders) ? data.folders : [];
   const seenIds = new Set<string>();
   const folders = rawFolders.flatMap((raw) => {
@@ -168,11 +220,23 @@ export function normalizeConfig(data: unknown): AppConfig {
     return [folder];
   });
   return {
-    settings: isRecord(data.settings) ? normalizeSettings(data.settings) : DEFAULT_SETTINGS,
     folders,
     actionCards: normalizeActionCards(data.actionCards),
     game: normalizeGame(data.game),
     draftArt: normalizeDraftArt(data.draftArt),
+  };
+}
+
+export function normalizeConfig(data: unknown): AppConfig {
+  if (!isRecord(data)) throw new Error('Config root must be an object');
+  const library = isRecord(data.library) ? data.library : {};
+  return {
+    settings: isRecord(data.settings) ? normalizeSettings(data.settings) : DEFAULT_SETTINGS,
+    library: {
+      root: nonEmptyString(library.root) ? library.root : null,
+      activePackageId: nonEmptyString(library.activePackageId) ? library.activePackageId : null,
+    },
+    legacy: isRecord(data.legacy) ? normalizePackageContent(data.legacy) : null,
   };
 }
 

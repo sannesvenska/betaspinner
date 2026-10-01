@@ -10,7 +10,9 @@ import { useAnimationScale, useUiStore } from '@renderer/stores/uiStore';
 import { Alert } from '@renderer/ui/Alert';
 import { Button } from '@renderer/ui/Button';
 import { KeyHint } from '@renderer/ui/KeyHint';
+import { PackagesDialog } from '@renderer/features/packages/PackagesDialog';
 import { SettingsDialog } from '@renderer/features/settings/SettingsDialog';
+import { usePackagesStore } from '@renderer/stores/packagesStore';
 import { playCue } from '@renderer/sound/sound';
 import { DraftBoard, DraftSummary } from '@renderer/features/draft/DraftBoard';
 import { draftOutcome, isDraftComplete } from '@shared/draft';
@@ -56,6 +58,8 @@ export function StartScreen() {
   const [spinning, setSpinning] = useState(false);
   const [result, setResult] = useState<SpinResult | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [packagesOpen, setPackagesOpen] = useState(false);
+  const packageName = usePackagesStore((state) => state.status?.activeName ?? null);
 
   const lockoutUntil = progression?.lockoutUntil ? new Date(progression.lockoutUntil).getTime() : 0;
   const decayAt = progression ? nextDecayAt(progression)?.getTime() : undefined;
@@ -176,6 +180,21 @@ export function StartScreen() {
       <section className="flex flex-col gap-6 pl-12">
         <div className="font-label text-label uppercase tracking-label text-ink-muted">
           {t('start.eyebrow', { number: String((progression?.sessionCounter ?? 0) + 1).padStart(3, '0') })}
+          {packageName && (
+            <>
+              {' · '}
+              <button
+                type="button"
+                title={t('packages.switch')}
+                onClick={() => {
+                  setPackagesOpen(true);
+                }}
+                className="text-collectible underline-offset-4 hover:underline"
+              >
+                {packageName}
+              </button>
+            </>
+          )}
         </div>
         <h1 className="font-display text-display font-bold uppercase">
           {drafting ? t('draft.title') : t('start.title')}
@@ -283,6 +302,14 @@ export function StartScreen() {
           setSettingsOpen(false);
         }}
       />
+      {packagesOpen && (
+        <PackagesDialog
+          open
+          onClose={() => {
+            setPackagesOpen(false);
+          }}
+        />
+      )}
     </main>
   );
 }

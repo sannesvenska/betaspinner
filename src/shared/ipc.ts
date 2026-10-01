@@ -13,7 +13,8 @@ import type { GenerationErrorCode } from './session/generateSession';
 import type { WheelResult } from './session/goalAndStart';
 import type { GameConfig } from './config/gameConfig';
 import type { DraftArtSlot, DraftCrop } from './draft';
-import type { ActionArtImage, PickedFolder } from './content';
+import type { ActionArtImage, ImportProgress, PickedFolder } from './content';
+import type { PackageImportMode, PackageProgress, PackagesStatus, PackageZipInfo } from './packages';
 import type { ImageMask, MaskRegion, MaskStatus } from './masks';
 import type { SimulationResult } from './session/simulateSessions';
 import type { ActionCardDefinition, Progression, SessionState } from './session/types';
@@ -114,7 +115,7 @@ export interface IpcInvokeContract {
   /** Resolves when the scan (and any follow-up scan) finished. */
   'library:rescan': { request: undefined; response: LibrarySnapshot };
   'library:listMedia': { request: { folderId: string; offset: number; limit: number }; response: MediaPage };
-  /** Moves media files of one folder to the recycle bin (§12.2); masks of vanished images go too. */
+  /** Moves media files of one folder to the recycle bin (§12.2); masks stay (keyed by content hash). */
   'library:trashMedia': {
     request: { folderId: string; hashes: string[] };
     response: { trashed: number; failed: string[] };
@@ -159,6 +160,22 @@ export interface IpcInvokeContract {
     response: ImageMask;
   };
   'masks:bulk': { request: { hashes: string[]; action: MaskBulkAction }; response: number };
+  /** §5.4 content packages */
+  'packages:status': { request: undefined; response: PackagesStatus };
+  /** Opens the folder picker for the library; unchanged status when cancelled. */
+  'packages:chooseRoot': { request: undefined; response: PackagesStatus };
+  'packages:activate': { request: { id: string }; response: PackagesStatus };
+  'packages:create': { request: { name: string }; response: PackagesStatus };
+  'packages:rename': { request: { id: string; name: string }; response: PackagesStatus };
+  'packages:duplicate': { request: { id: string }; response: PackagesStatus };
+  'packages:remove': { request: { id: string }; response: PackagesStatus };
+  /** Opens the save dialog; false when cancelled. */
+  'packages:export': { request: { id: string }; response: boolean };
+  /** Opens the file picker and reads the ZIP; null when cancelled. */
+  'packages:pickImport': { request: undefined; response: PackageZipInfo | null };
+  'packages:import': { request: { path: string; mode: PackageImportMode }; response: PackagesStatus };
+  /** Opens the folder picker and moves all packages there; unchanged status when cancelled. */
+  'packages:moveRoot': { request: undefined; response: PackagesStatus };
   /** Dev builds only (QA): puts an action card on both neighbour fields and enables a chosen roll. */
   'dev:placeAction': { request: { action: ActionId }; response: SessionView };
 }
@@ -171,6 +188,10 @@ export interface IpcEventContract {
   'app:togglePause': null;
   /** Progression changed without a request (hourly decay) */
   'session:progression': Progression;
+  /** Copying folders into the active package (§5.4) */
+  'library:importProgress': ImportProgress;
+  /** Setup copy, ZIP export / import, moving the library */
+  'packages:progress': PackageProgress;
 }
 
 export type IpcChannel = keyof IpcInvokeContract;
@@ -226,6 +247,17 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'masks:getMany',
   'masks:save',
   'masks:bulk',
+  'packages:status',
+  'packages:chooseRoot',
+  'packages:activate',
+  'packages:create',
+  'packages:rename',
+  'packages:duplicate',
+  'packages:remove',
+  'packages:export',
+  'packages:pickImport',
+  'packages:import',
+  'packages:moveRoot',
   'dev:placeAction',
 ];
 
@@ -234,4 +266,6 @@ export const IPC_EVENTS: readonly IpcEvent[] = [
   'library:changed',
   'app:togglePause',
   'session:progression',
+  'library:importProgress',
+  'packages:progress',
 ];

@@ -18,6 +18,7 @@ export function folder(
     role,
     ...FOLDER_DEFAULTS,
     taskRange: [...FOLDER_DEFAULTS.taskRange],
+    sourcePath: null,
     ...extra,
   };
 }

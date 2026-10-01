@@ -186,25 +186,25 @@ describe('collectibles (§9.4)', () => {
   it('collects on the first landing and grants each tier once', () => {
     const { session, context } = readyToRoll();
     // Goal placed like the helper does, so the count below only sees the tier conversion
-    let state: SessionState = { ...withGoal(session, wrapField(session.position + 50)), collected: 2 };
+    let state: SessionState = { ...withGoal(session, wrapField(session.position + 50)), collected: 1 };
     const badBefore = hiddenBad(state, wrapField(state.position + 1));
     state = landOnCollectible(state, context);
-    expect(state.collected).toBe(3);
-    expect(state.reachedTiers).toEqual([3]);
+    expect(state.collected).toBe(2);
+    expect(state.reachedTiers).toEqual([2]);
     expect(state.pending).toEqual([
       { kind: 'task', count: 9, pace: null },
       {
         kind: 'notice',
-        notice: { type: 'collectible_tier', collected: 3, bonus: { type: 'convert_bad', count: 5 } },
+        notice: { type: 'collectible_tier', collected: 2, bonus: { type: 'convert_bad', count: 5 } },
       },
     ]);
     expect(hiddenBad(state)).toBe(badBefore - 5);
     // Keep the collected counter consistent with the cards for the next landing
     state = run(state, context, { type: 'confirm' }, { type: 'confirm' });
     state = landOnCollectible(state, context);
-    expect(state.reachedTiers).toEqual([3, 4]);
+    expect(state.reachedTiers).toEqual([2, 3]);
     expect(state.pending.at(-1)).toMatchObject({
-      notice: { type: 'collectible_tier', collected: 4, bonus: { type: 'release_chance', percent: 5 } },
+      notice: { type: 'collectible_tier', collected: 3, bonus: { type: 'release_chance', percent: 5 } },
     });
   });
 

@@ -42,6 +42,8 @@ export interface MaskService {
   /** `no_regions` never overwrites existing regions; `clear` removes the masks. Returns changed count. */
   bulk: (hashes: readonly string[], action: MaskBulkAction) => Promise<number>;
   summary: () => Record<string, MaskFolderSummary>;
+  /** §5.4 package import: adds masks for images that have none yet (existing masks win). Returns the count. */
+  merge: (incoming: Readonly<Record<string, ImageMask>>) => Promise<number>;
   listFolder: (folderId: string, filter: MaskFilter) => MaskedMediaEntry[];
 }
 
@@ -117,6 +119,16 @@ export async function createMaskService(options: MaskServiceOptions): Promise<Ma
       }
       if (changed > 0) await write(masks);
       return changed;
+    },
+
+    merge: async (incoming) => {
+      const additions = Object.values(incoming).filter((mask) => !(mask.imageHash in file.masks));
+      if (additions.length > 0)
+        await write({
+          ...file.masks,
+          ...Object.fromEntries(additions.map((mask) => [mask.imageHash, mask])),
+        });
+      return additions.length;
     },
 
     summary: () => {

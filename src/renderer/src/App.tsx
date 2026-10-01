@@ -4,15 +4,44 @@ import { GameFlow } from './features/game/GameFlow';
 import { PauseScreen } from './features/game/PauseScreen';
 import { AdminScreen } from './features/admin/AdminScreen';
 import { HelpScreen } from './features/help/HelpScreen';
+import { SetupScreen } from './features/packages/SetupScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { configureSound, setSoundMuted } from './sound/sound';
 import { useActionCardsStore } from './stores/actionCardsStore';
 import { useGameConfigStore } from './stores/gameConfigStore';
 import { useLibraryStore } from './stores/libraryStore';
+import { usePackagesStore } from './stores/packagesStore';
 import { useSessionStore } from './stores/sessionStore';
 import { useUiStore } from './stores/uiStore';
 
+/**
+ * game-design §5.4: everything below belongs to the active content package – without a library folder
+ * (first start, or the first start after the package update) the setup screen comes first.
+ */
 export function App() {
+  const { t } = useTranslation();
+  const status = usePackagesStore((state) => state.status);
+  const error = usePackagesStore((state) => state.error);
+  const loadPackages = usePackagesStore((state) => state.load);
+  const subscribePackages = usePackagesStore((state) => state.subscribe);
+
+  useEffect(() => {
+    const unsubscribe = subscribePackages();
+    void loadPackages();
+    return unsubscribe;
+  }, [loadPackages, subscribePackages]);
+
+  if (!status) {
+    return error ? (
+      <div className="p-12 text-body text-bad">{t('app.loadError', { error })}</div>
+    ) : (
+      <div className="p-12 font-label text-label text-ink-muted">{t('app.loading')}</div>
+    );
+  }
+  return status.needsSetup ? <SetupScreen /> : <GameApp />;
+}
+
+function GameApp() {
   const { t } = useTranslation();
   const screen = useUiStore((state) => state.screen);
   const settingsState = useUiStore((state) => state.settingsState);

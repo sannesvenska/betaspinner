@@ -12,6 +12,7 @@ const folder = (id: string, behavior: 'full' | 'none'): FolderConfig => ({
   ...FOLDER_DEFAULTS,
   taskRange: [6, 18],
   unmaskedEffectBehavior: behavior,
+  sourcePath: null,
 });
 
 const card = (folderId: string, splatterSeed?: number): Card => ({

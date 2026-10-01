@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { resolve as resolvePath } from 'node:path';
+import { isAbsolute, join, relative, resolve as resolvePath } from 'node:path';
 import type {
   FolderConfig,
   FolderPatch,
+  ImportProgress,
   LibraryIndex,
   LibrarySnapshot,
   MediaEntry,
@@ -10,8 +11,9 @@ import type {
   PickedFolder,
   ScanProgress,
 } from '@shared/content';
-import { normalizeFolder } from '../config/appConfig';
+import { normalizeFolder, type PackageContent } from '../config/appConfig';
 import type { ConfigService } from '../config/configService';
+import { copyMediaFolder } from './copyMedia';
 import type { JsonStore } from '../storage/jsonStore';
 import type { ResolvedMedia } from './mediaProtocol';
 import { countMediaFiles, type ScanFolder } from './scanLibrary';
@@ -23,7 +25,11 @@ export type RunScan = (
 ) => Promise<LibraryIndex>;
 
 interface LibraryServiceOptions {
-  config: ConfigService;
+  /** The active package's content (§5.4) */
+  config: ConfigService<PackageContent>;
+  /** Package directory for copied folders (`<package>/folders`) */
+  foldersRoot: string;
+  onImportProgress?: (progress: ImportProgress) => void;
   indexStore: JsonStore<LibraryIndex>;
   runScan: RunScan;
   onProgress: (progress: ScanProgress) => void;
@@ -58,6 +64,25 @@ export interface LibraryService {
 
 /** Windows paths are case-insensitive. */
 const pathKey = (path: string): string => resolvePath(path).toLowerCase();
+
+const isInside = (parent: string, path: string): boolean => {
+  const relation = relative(parent, path);
+  return relation !== '' && !relation.startsWith('..') && !isAbsolute(relation);
+};
+
+const FOLDER_SLUG_LENGTH = 40;
+const ID_SUFFIX_LENGTH = 8;
+
+/** Readable, unique directory name for a copied folder. */
+export function folderDirName(displayName: string, id: string): string {
+  const slug = displayName
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, FOLDER_SLUG_LENGTH);
+  return `${slug || 'folder'}-${id.slice(0, ID_SUFFIX_LENGTH)}`;
+}
 
 export async function createLibraryService(options: LibraryServiceOptions): Promise<LibraryService> {
   let index: LibraryIndex;
@@ -126,9 +151,12 @@ export async function createLibraryService(options: LibraryServiceOptions): Prom
     return runningScan;
   }
 
+  /** Original location of a folder (copied folders remember where they came from). */
+  const originOf = (folder: FolderConfig): string => folder.sourcePath ?? folder.path;
+
   /** Setup dialog data: media count (same rules as the scan) and whether the path is already a folder. */
   async function inspectFolders(paths: readonly string[]): Promise<PickedFolder[]> {
-    const known = new Map(folders().map((folder) => [pathKey(folder.path), folder.displayName]));
+    const known = new Map(folders().map((folder) => [pathKey(originOf(folder)), folder.displayName]));
     return Promise.all(
       paths.map(async (path) => ({
         path,
@@ -138,15 +166,35 @@ export async function createLibraryService(options: LibraryServiceOptions): Prom
     );
   }
 
+  /**
+   * §5.4: the files are copied into the package (`folders/<name>-<id>`); the original stays untouched.
+   * Content that is already in the package is not copied again.
+   */
   async function addFolders(inputs: NewFolderInput[]): Promise<LibrarySnapshot> {
-    const knownPaths = new Set(folders().map((folder) => pathKey(folder.path)));
-    const added = inputs.flatMap((input) => {
+    const knownSources = new Set(folders().map((folder) => pathKey(originOf(folder))));
+    const fresh = inputs.filter((input) => {
       const key = pathKey(input.path);
-      if (knownPaths.has(key)) return [];
-      knownPaths.add(key);
-      const folder = normalizeFolder({ ...input, id: randomUUID(), path: resolvePath(input.path) });
-      return folder ? [folder] : [];
+      if (knownSources.has(key)) return false;
+      knownSources.add(key);
+      return true;
     });
+    const knownHashes = new Set(index.entries.map((entry) => entry.hash));
+    const added: FolderConfig[] = [];
+    for (const [folderIndex, input] of fresh.entries()) {
+      const id = randomUUID();
+      const source = resolvePath(input.path);
+      const target = join(options.foldersRoot, folderDirName(input.displayName, id));
+      await copyMediaFolder(source, target, knownHashes, (progress) => {
+        options.onImportProgress?.({
+          folderName: input.displayName,
+          folderIndex,
+          folderCount: fresh.length,
+          ...progress,
+        });
+      });
+      const folder = normalizeFolder({ ...input, id, path: target, sourcePath: source });
+      if (folder) added.push(folder);
+    }
     if (added.length === 0) return snapshot();
 
     await options.config.update((config) => ({ ...config, folders: [...config.folders, ...added] }));
@@ -171,7 +219,9 @@ export async function createLibraryService(options: LibraryServiceOptions): Prom
     return snapshot();
   }
 
+  /** Removes the folder; its copy inside the package goes to the recycle bin (the original stays). */
   async function removeFolder(id: string): Promise<LibrarySnapshot> {
+    const removed = folders().find((folder) => folder.id === id);
     await options.config.update((config) => ({
       ...config,
       folders: config.folders.filter((folder) => folder.id !== id),
@@ -182,6 +232,11 @@ export async function createLibraryService(options: LibraryServiceOptions): Prom
     };
     rebuildLookup();
     await options.indexStore.write(index);
+    if (removed && isInside(options.foldersRoot, removed.path)) {
+      await options.trash(removed.path).catch((error: unknown) => {
+        console.error('[library] could not move the folder copy to the recycle bin', removed.path, error);
+      });
+    }
     emitChanged();
     return snapshot();
   }

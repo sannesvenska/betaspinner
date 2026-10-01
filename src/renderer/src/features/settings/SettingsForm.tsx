@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isValidAccelerator, type AppSettings } from '@shared/settings';
 import { playCue } from '@renderer/sound/sound';
+import { PackagesDialog } from '@renderer/features/packages/PackagesDialog';
+import { usePackagesStore } from '@renderer/stores/packagesStore';
 import { useUiStore } from '@renderer/stores/uiStore';
 import { Alert } from '@renderer/ui/Alert';
 import { Button } from '@renderer/ui/Button';
@@ -151,6 +153,42 @@ export function SettingsForm({ showHotkey = false }: { showHotkey?: boolean }) {
       />
       {showHotkey && (
         <HotkeyField value={settings.pauseHotkey} onChange={(pauseHotkey) => void update({ pauseHotkey })} />
+      )}
+      <ActivePackage />
+    </div>
+  );
+}
+
+/** §5.4: the active content package with access to all packages. */
+function ActivePackage() {
+  const { t } = useTranslation();
+  const activeName = usePackagesStore((state) => state.status?.activeName ?? null);
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
+      <div className="flex flex-col gap-1">
+        <span className="font-label text-label uppercase tracking-label text-ink-muted">
+          {t('packages.current')}
+        </span>
+        <span className="font-display text-chip font-semibold uppercase tracking-chip">
+          {activeName ?? '–'}
+        </span>
+      </div>
+      <Button
+        variant="outline"
+        onClick={() => {
+          setOpen(true);
+        }}
+      >
+        {t('packages.manage')}
+      </Button>
+      {open && (
+        <PackagesDialog
+          open
+          onClose={() => {
+            setOpen(false);
+          }}
+        />
       )}
     </div>
   );

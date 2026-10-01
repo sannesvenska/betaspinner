@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ActionArtImage } from '@shared/content';
 import type { ActionArtStore } from '../content/actionArtStore';
 import { createActionCardService } from './actionCardService';
-import { DEFAULT_CONFIG, type AppConfig } from './appConfig';
+import { EMPTY_PACKAGE_CONTENT, type PackageContent } from './appConfig';
 import type { ConfigService } from './configService';
 
 const imageFor = (letter: string): ActionArtImage => ({
@@ -13,8 +13,8 @@ const imageFor = (letter: string): ActionArtImage => ({
 });
 
 function setup() {
-  let config: AppConfig = DEFAULT_CONFIG;
-  const configService: ConfigService = {
+  let config: PackageContent = EMPTY_PACKAGE_CONTENT;
+  const configService: ConfigService<PackageContent> = {
     get: () => config,
     update: (change) => {
       config = change(config);

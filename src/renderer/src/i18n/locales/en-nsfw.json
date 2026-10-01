@@ -287,13 +287,13 @@
     },
     "remove": {
       "title": "Remove folder?",
-      "body": "\"{{name}}\" is removed from the library. Files on disk are not touched.",
+      "body": "\"{{name}}\" is removed from the package. Its copied files go to the recycle bin – the original folder stays untouched.",
       "confirm": "Remove"
     },
     "add": {
       "title_one": "Set up folder",
       "title_other": "Set up {{count}} folders",
-      "intro": "Choose whether each folder holds normal cards (content: good or bad) or the gallery of one performer (collectibles).",
+      "intro": "The files are copied into the active content package; the original folders stay untouched. Choose whether each folder holds normal cards (content: good or bad) or the gallery of one performer (collectibles).",
       "submit_one": "Add folder",
       "submit_other": "Add {{count}} folders",
       "nameRequired": "Enter a display name.",
@@ -305,7 +305,9 @@
       "unreadable": "The folder cannot be read.",
       "alreadyAdded": "Already in the library as \"{{name}}\" – it is skipped.",
       "allAdded_one": "This folder is already in the library.",
-      "allAdded_other": "All these folders are already in the library."
+      "allAdded_other": "All these folders are already in the library.",
+      "copying": "Copying {{folder}} ({{index}}/{{count}}) – {{copied}} of {{total}} files",
+      "copyingLabel": "Copying files"
     },
     "empty": {
       "eyebrow": "First start",
@@ -951,6 +953,46 @@
       "endEarly": "Hold to end the session early (counts as a loss)",
       "pause": "Pause instantly – the screen turns neutral",
       "escape": "Back to the start screen (outside a session)"
+    }
+  },
+  "packages": {
+    "title": "Content packages",
+    "intro": "A content package holds folders with their images, masks, action card images, draft card images and the game rules. Each package keeps its own game progress. The active package is played and edited in the admin.",
+    "active": "Active",
+    "meta": "{{folders}} folders · {{files}} files · {{size}}",
+    "name": "Name",
+    "activate": "Activate",
+    "rename": "Rename",
+    "duplicate": "Duplicate",
+    "export": "Export ZIP",
+    "exported": "Exported",
+    "remove": "Delete",
+    "removeConfirm": "The package folder goes to the recycle bin and its game progress is deleted.",
+    "newName": "New package",
+    "create": "Create",
+    "import": "Import ZIP",
+    "conflict": "The package \"{{name}}\" is already in the library.",
+    "replace": "Replace it (keeps its game progress)",
+    "importCopy": "Import as copy",
+    "library": "Library folder",
+    "move": "Move library…",
+    "current": "Content package",
+    "manage": "Manage packages",
+    "switch": "Switch content package",
+    "progress": {
+      "setup": "Copying {{label}}",
+      "export": "Exporting {{label}}",
+      "import": "Importing {{label}}",
+      "move": "Moving {{label}}",
+      "count": "{{done}} / {{total}}"
+    },
+    "setup": {
+      "eyebrow": "Content packages",
+      "title": "Choose your library",
+      "body": "Betaspinner keeps its content in packages inside one library folder: copies of your images, masks, card images and rules. Choose an empty folder with enough space – you can move it later.",
+      "migrate": "Your current folders, masks, action cards and rules are copied into the package \"Default\". The original folders stay untouched, your game progress continues.",
+      "fresh": "An empty package \"Default\" is created – add your folders in the admin afterwards.",
+      "choose": "Choose library folder"
     }
   }
 }

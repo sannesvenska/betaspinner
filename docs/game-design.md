@@ -112,7 +112,22 @@ On startup and on demand ("Rescan"), the main process scans all folders and buil
 - **[RULE] Animated media:** GIF, WebM and MP4 autoplay, loop and are **muted**. When a visual effect applies, animated media are rendered frame by frame through the effect canvas (§12.4). If rendering exceeds the frame budget (`animatedEffectFallback default true`), the renderer falls back to a static first frame for that card.
 - Each file gets a **content hash** (SHA-1), cached by `path + size + mtime` so rescans are fast. Images hash the full file bytes; videos hash `size + first 1 MB + last 1 MB` to keep scans fast on large files.
 - **[RULE]** Folders are scanned **non-recursively** (one folder = one category). Hidden files are ignored. Images whose header cannot be parsed are skipped and counted as unreadable – they never appear on a card.
-- The hash is the stable key for masks and recency tracking, so renaming or moving a file does not lose its data.
+- The hash is the stable key for masks and recency tracking, so renaming or moving a file does not lose its data. **Masks survive** removing a folder, moving files to the recycle bin and re-importing the same image elsewhere (also in another package).
+
+### 5.4 Content Packages (Revision 7, 2026-10-01)
+
+**[RULE]** All content lives in **content packages** inside one **library folder**, chosen once on the setup screen (and movable later). Exactly one package is active: it is played, shown on the start screen (click = switch) and edited in the admin.
+
+| Belongs to the package                                                                                                                                   | Stays app-wide (`config.json`, `masks.json`)                                                                                          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Folders with their settings and **copied** media, action cards + images, draft card images, game rules (session rules, draft, penalties, visual effects) | Sound, animation, fullscreen, pause hotkey, mask editor choices, the **mask library** (keyed by content hash, shared by all packages) |
+
+- **Layout:** `<library>/<name>-<id>/package.json` (manifest + content, folder paths relative), `folders/<folder>-<id>/…`, `action-art/`, `draft-art/`.
+- **Game progress per package** (penalty fields, good chance, lockout, running session, history, image rotation) lives in `userData/packages/<id>/` – never exported. Switching packages is only possible without a running session; a started draft belongs to its package.
+- **Adding folders copies** the media into the package (originals untouched); content already in the package (same hash) is stored once. Removing a folder sends its copy to the recycle bin. The original location (`sourcePath`) is kept for the duplicate warning and the picker start, and is stripped on export.
+- **ZIP export / import** (settings → content packages): the package folder plus `masks.json` with the masks of its images. Import reads the manifest first; an existing package can be replaced (keeps its progress) or imported as copy. Imported masks are merged (existing masks win). Entry names and folder paths are checked so a ZIP can never write or point outside its package.
+- **Management:** activate, rename, duplicate (fresh progress), export, delete (recycle bin; never the active package), new package, import, move library.
+- **Migration:** the first start after this revision shows the setup; the content of the old install (folders, action cards, draft art, rules) is copied into the package **"Default"** (folder ids kept), progression, session and history continue there.
 
 ---
 
@@ -985,17 +1000,19 @@ interface ImageMask {
 
 ## 21. Storage Layout
 
-All files live in `app.getPath('userData')` (e.g. `%APPDATA%/Betaspinner/`):
+App-wide files live in `app.getPath('userData')` (e.g. `%APPDATA%/Betaspinner/`), content in the packages of the library folder (§5.4):
 
-| File                   | Contents                                                           |
-| ---------------------- | ------------------------------------------------------------------ |
-| `config.json`          | Folders, action cards, session rules, effects, penalties, settings |
-| `progression.json`     | §15                                                                |
-| `session-current.json` | Active session (autosave)                                          |
-| `history.json`         | Past session stats                                                 |
-| `masks.json`           | ImageMask records keyed by hash                                    |
-| `image-index.json`     | Cached scan (path, size, mtime, hash, dimensions)                  |
-| `action-art/`          | Copied action card images, file name = content hash + extension    |
+| File                                            | Contents                                                         |
+| ----------------------------------------------- | ---------------------------------------------------------------- |
+| `config.json`                                   | Settings, library folder, active package                         |
+| `masks.json`                                    | ImageMask records keyed by hash (shared by all packages)         |
+| `packages/<id>/progression.json`                | §15, per package                                                 |
+| `packages/<id>/session-current.json`            | Active session of the package (autosave)                         |
+| `packages/<id>/history.json`                    | Past session stats of the package                                |
+| `packages/<id>/image-index.json`                | Cached scan of the package (path, size, mtime, hash, dimensions) |
+| `<library>/<package>/package.json`              | Manifest, folders, action cards, rules, draft art                |
+| `<library>/<package>/folders/`                  | Copied media per folder                                          |
+| `<library>/<package>/action-art/`, `draft-art/` | Card images, file name = content hash + extension                |
 
 **[RULE]** Writes are atomic (write to temp file, then rename). Every file has a `schemaVersion` field; a migration function runs on load.
 
