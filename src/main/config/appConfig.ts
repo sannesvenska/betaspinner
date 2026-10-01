@@ -1,5 +1,6 @@
 import {
   DEFAULT_GAME_CONFIG,
+  normalizeBeta,
   normalizeDraft,
   normalizePenaltyRules,
   normalizeSessionRules,
@@ -33,7 +34,14 @@ export interface DraftArtImage {
   crop: DraftCrop;
 }
 
-export const EMPTY_DRAFT_ART: DraftArt = { back: null, bad: null, good: null, pixelate: null, double: null };
+export const EMPTY_DRAFT_ART: DraftArt = {
+  back: null,
+  bad: null,
+  good: null,
+  pixelate: null,
+  splash: null,
+  double: null,
+};
 
 export const CONFIG_SCHEMA_VERSION = 5;
 
@@ -172,5 +180,6 @@ export function normalizeGame(value: unknown): GameConfig {
     penalties: normalizePenaltyRules(game.penalties),
     visualEffects: normalizeVisualEffects(game.visualEffects),
     draft: normalizeDraft(game.draft),
+    beta: normalizeBeta(game.beta),
   };
 }

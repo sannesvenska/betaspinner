@@ -35,6 +35,8 @@ export interface SessionRecord {
   winCheck: (ReleaseChance & { result: 'allowed' | 'denied' }) | null;
   outcome: EndReason;
   progressionChange: ProgressionChange;
+  /** Played in the beta mode (§6.7); missing on older records = normal mode */
+  betaMode?: boolean;
 }
 
 export function toSessionRecord(
@@ -77,5 +79,6 @@ export function toSessionRecord(
         : null,
     outcome: session.endReason ?? 'ended_early',
     progressionChange: change,
+    betaMode: session.rules.betaMode,
   };
 }

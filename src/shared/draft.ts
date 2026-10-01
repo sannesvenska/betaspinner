@@ -6,8 +6,8 @@ import { randInt, shuffle, type Rng } from './session/rng';
  * pixelate level and an extra win multiplier for the coming session.
  */
 
-export type DraftFieldType = 'bad' | 'good' | 'pixelate' | 'double';
-export const DRAFT_FIELD_TYPES: readonly DraftFieldType[] = ['bad', 'good', 'pixelate', 'double'];
+export type DraftFieldType = 'bad' | 'good' | 'pixelate' | 'splash' | 'double';
+export const DRAFT_FIELD_TYPES: readonly DraftFieldType[] = ['bad', 'good', 'pixelate', 'splash', 'double'];
 
 export interface DraftConfig {
   enabled: boolean;
@@ -23,17 +23,20 @@ export interface DraftConfig {
   pixelateLevels: { one: number; two: number; three: number };
   /** Extra release chance factor per revealed "double" field (stacks with Hail Mary) */
   winMultiplier: number;
+  /** Share of the cards splattered per revealed "splash" field (cumulative, beta) */
+  splashShare: number;
 }
 
 export const DEFAULT_DRAFT_CONFIG: DraftConfig = {
   enabled: true,
   fieldCount: 12,
   picks: 6,
-  composition: { bad: 6, pixelate: 3, good: 2, double: 1 },
+  composition: { bad: 6, pixelate: 3, good: 2, splash: 0, double: 1 },
   goodShift: 1 / 3,
   badShift: 1 / 6,
   pixelateLevels: { one: 1, two: 3, three: 5 },
   winMultiplier: 2,
+  splashShare: 0.3,
 };
 
 /** Persisted until a session actually starts (§6.0: lockouts and restarts never re-roll it). */
@@ -53,6 +56,8 @@ export interface DraftOutcome {
   goodShare: number;
   pixelLevel: number;
   winMultiplier: number;
+  /** Share of the non-goal cards that start splattered (0..1) */
+  splatterShare: number;
 }
 
 const DRAFT_ID_MAX = 2 ** 31 - 1;
@@ -80,7 +85,7 @@ export function pickDraftField(draft: DraftState, index: number): DraftState | n
 }
 
 export function countPicks(draft: DraftState): Record<DraftFieldType, number> {
-  const counts: Record<DraftFieldType, number> = { bad: 0, good: 0, pixelate: 0, double: 0 };
+  const counts: Record<DraftFieldType, number> = { bad: 0, good: 0, pixelate: 0, splash: 0, double: 0 };
   for (const index of draft.picked) {
     const type = draft.board[index];
     if (type) counts[type]++;
@@ -118,6 +123,7 @@ export function draftOutcome(draft: DraftState, config: DraftConfig, baseGoodCha
     goodShare: draftGoodShare(baseGoodChance, counts.good, counts.bad, config),
     pixelLevel: draftPixelLevel(counts.pixelate, config.pixelateLevels),
     winMultiplier: config.winMultiplier ** counts.double,
+    splatterShare: Math.min(1, counts.splash * config.splashShare),
   };
 }
 
@@ -130,7 +136,14 @@ export interface DraftCrop {
 }
 
 export type DraftArtSlot = 'back' | DraftFieldType;
-export const DRAFT_ART_SLOTS: readonly DraftArtSlot[] = ['back', 'bad', 'good', 'pixelate', 'double'];
+export const DRAFT_ART_SLOTS: readonly DraftArtSlot[] = [
+  'back',
+  'bad',
+  'good',
+  'pixelate',
+  'splash',
+  'double',
+];
 
 /** Largest centered square of an image with the given natural size. */
 export function centeredSquareCrop(width: number | null, height: number | null): DraftCrop {

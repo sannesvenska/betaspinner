@@ -11,6 +11,7 @@ import { Button } from '@renderer/ui/Button';
 import { classNames } from '@renderer/ui/classNames';
 import { Icon } from '@renderer/ui/icons/Icon';
 import {
+  BetaSection,
   PenaltiesSection,
   PerformersSection,
   SessionRulesSection,
@@ -24,6 +25,7 @@ const SECTIONS: readonly AdminSection[] = [
   'rules',
   'performers',
   'draft',
+  'beta',
   'visualEffects',
   'penalties',
   'controls',
@@ -70,6 +72,9 @@ export function AdminScreen() {
       break;
     case 'draft':
       content = <DraftAdminSection />;
+      break;
+    case 'beta':
+      content = <BetaSection />;
       break;
     case 'visualEffects':
       content = <VisualEffectsSection />;

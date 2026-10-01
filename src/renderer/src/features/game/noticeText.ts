@@ -6,6 +6,7 @@ import { actionCardName } from '@renderer/stores/actionCardsStore';
 export const isBoardNotice = (notice: Notice): boolean =>
   notice.type === 'goal_drifted' ||
   notice.type === 'collectible_tier' ||
+  notice.type === 'pixelate_relief' ||
   (notice.type === 'cards_converted' && notice.source !== 'redemption');
 
 /** Human text for an engine notice (acknowledge-only step). */
@@ -53,5 +54,11 @@ export function noticeText(t: TFunction, notice: Notice, cards: readonly ActionC
       return t('notice.switcherooUnavailable');
     case 'penalty_fields_removed':
       return t('notice.penaltyFieldsRemoved', { count: notice.count });
+    case 'pixelate_relief':
+      return notice.level > 0
+        ? t('notice.pixelateRelief', { level: notice.level })
+        : t('notice.pixelateReliefGone');
+    case 'splatter_cleaned':
+      return t('notice.splatterCleaned', { count: notice.count });
   }
 }

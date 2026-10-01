@@ -13,6 +13,7 @@ import { KeyHint } from '@renderer/ui/KeyHint';
 import { SettingsDialog } from '@renderer/features/settings/SettingsDialog';
 import { playCue } from '@renderer/sound/sound';
 import { DraftBoard, DraftSummary } from '@renderer/features/draft/DraftBoard';
+import { effectiveGameConfig } from '@shared/config/gameConfig';
 import { draftOutcome, isDraftComplete } from '@shared/draft';
 import { StartWheel, type StartWheelHandle } from './StartWheel';
 
@@ -72,7 +73,8 @@ export function StartScreen() {
     eligible.some((folder) => folder.group === 'good') && eligible.some((folder) => folder.group === 'bad');
 
   // §6.0: the draft comes before the wheel
-  const draftConfig = useGameConfigStore((state) => state.config.draft);
+  const gameConfig = useGameConfigStore((state) => state.config);
+  const { draft: draftConfig, rules: effectiveRules } = effectiveGameConfig(gameConfig);
   const pendingDraft = progression?.pendingDraft ?? null;
   const draftSeen = useUiStore((state) =>
     pendingDraft ? state.seenDraftIds.includes(pendingDraft.id) : false,
@@ -178,13 +180,17 @@ export function StartScreen() {
       <section className="flex flex-col gap-6 pl-12">
         <div className="font-label text-label uppercase tracking-label text-ink-muted">
           {t('start.eyebrow', { number: String((progression?.sessionCounter ?? 0) + 1).padStart(3, '0') })}
+          {effectiveRules.betaMode && <span className="text-collectible"> · {t('draft.beta')}</span>}
         </div>
         <h1 className="font-display text-display font-bold uppercase">
           {drafting ? t('draft.title') : t('start.title')}
         </h1>
         <p className="max-w-md text-body text-ink-2">
           {drafting
-            ? t('draft.body', { picks: draftConfig.picks, total: draftConfig.fieldCount })
+            ? t(effectiveRules.betaMode ? 'draft.bodyBeta' : 'draft.body', {
+                picks: draftConfig.picks,
+                total: draftConfig.fieldCount,
+              })
             : t('start.body')}
         </p>
         {draftResult && <DraftSummary outcome={draftResult} />}

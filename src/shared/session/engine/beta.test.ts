@@ -1,0 +1,212 @@
+import { describe, expect, it } from 'vitest';
+import {
+  DEFAULT_GAME_CONFIG,
+  effectiveGameConfig,
+  normalizeBeta,
+  validateBeta,
+} from '../../config/gameConfig';
+import { DEFAULT_DRAFT_CONFIG, draftOutcome, type DraftOutcome, type DraftState } from '../../draft';
+import { DEFAULT_SESSION_RULES } from '../defaults';
+import { generateSession } from '../generateSession';
+import { standardInput } from '../testFixtures';
+import { wrapField } from '../track';
+import type { ActiveEffect, SessionState } from '../types';
+import { head, landOnAction, readyToRoll, run, withCard } from './engineTestKit';
+import { getPixelLevel, hasEffect } from './effects';
+import { reduce } from './reduce';
+import type { EngineContext } from './context';
+
+const BETA_RULES = { ...DEFAULT_SESSION_RULES, collectiblePixelateRelief: 1, betaMode: true };
+const pixelate = (value: number): ActiveEffect => ({
+  id: 'pixelate',
+  type: 'pixelate',
+  value,
+  createdRound: 0,
+});
+const splatter: ActiveEffect = { id: 'splatter', type: 'splatter', createdRound: 0 };
+const splattered = (state: SessionState) => state.cards.filter((card) => card.splatterSeed !== undefined);
+
+/** Splatters the first `count` non-goal cards. */
+function withSplatter(state: SessionState, count: number): SessionState {
+  let marked = 0;
+  const cards = state.cards.map((card) => {
+    if (card.kind === 'goal' || marked >= count) return card;
+    marked++;
+    return { ...card, splatterSeed: marked };
+  });
+  return {
+    ...state,
+    cards,
+    effects: [...state.effects.filter((effect) => effect.type !== 'splatter'), splatter],
+  };
+}
+
+function landOnCollectible(state: SessionState, context: EngineContext): SessionState {
+  const target = wrapField(state.position + 1);
+  const prepared = withCard(
+    { ...state, phase: 'roll', chooseNextRoll: true, forcedDirection: null },
+    {
+      field: target,
+      kind: 'collectible',
+      folderId: 'perf-a',
+      imageHash: `perf-${target}`.padEnd(40, '0'),
+      taskCount: 9,
+      discovered: false,
+    },
+  );
+  return run(
+    prepared,
+    context,
+    { type: 'chooseRoll', value: 1 },
+    { type: 'chooseDirection', direction: 'right' },
+  );
+}
+
+describe('beta mode config (§6.7)', () => {
+  it('leaves the game untouched while inactive', () => {
+    expect(effectiveGameConfig(DEFAULT_GAME_CONFIG)).toBe(DEFAULT_GAME_CONFIG);
+  });
+
+  it('overrides performer cards and the draft while active', () => {
+    const game = { ...DEFAULT_GAME_CONFIG, beta: { ...DEFAULT_GAME_CONFIG.beta, active: true } };
+    const effective = effectiveGameConfig(game);
+    expect(effective.rules).toMatchObject({
+      collectibleCount: [5, 5],
+      collectiblesVisible: true,
+      collectiblePixelateRelief: 1,
+      betaMode: true,
+    });
+    expect(effective.draft).toMatchObject({
+      enabled: true,
+      fieldCount: 12,
+      picks: 6,
+      composition: { pixelate: 6, splash: 3, bad: 2, good: 0, double: 1 },
+      splashShare: 0.3,
+    });
+    // The base values stay as they are
+    expect(game.draft.composition).toEqual(DEFAULT_DRAFT_CONFIG.composition);
+  });
+
+  it('needs at least two draft fields', () => {
+    const empty = { pixelate: 0, splash: 0, bad: 1, good: 0, double: 0 };
+    expect(validateBeta({ ...DEFAULT_GAME_CONFIG.beta, draftComposition: empty })).toEqual({
+      'draftComposition.pixelate': 'compositionTooSmall',
+    });
+    expect(normalizeBeta({ draftComposition: empty }).draftComposition).toEqual(
+      DEFAULT_GAME_CONFIG.beta.draftComposition,
+    );
+  });
+});
+
+describe('beta draft (§6.7)', () => {
+  const draftWith = (picked: DraftState['board']): DraftState => ({
+    id: 'draft',
+    board: picked,
+    picked: picked.map((_, index) => index),
+    picks: picked.length,
+  });
+  const config = { ...DEFAULT_DRAFT_CONFIG, splashShare: 0.3 };
+
+  it('splatters 30 % per splash field and caps pixelate at level 5', () => {
+    const outcome = draftOutcome(
+      draftWith(['pixelate', 'pixelate', 'pixelate', 'pixelate', 'splash', 'splash']),
+      config,
+      0.4,
+    );
+    expect(outcome.pixelLevel).toBe(5);
+    expect(outcome.splatterShare).toBeCloseTo(0.6);
+    const capped = draftOutcome(draftWith(['splash', 'splash', 'splash', 'splash']), config, 0.4);
+    expect(capped.splatterShare).toBe(1);
+  });
+
+  it('starts the session with splattered cards and a splatter effect', () => {
+    const draft: DraftOutcome = {
+      counts: { bad: 0, good: 0, pixelate: 0, splash: 1, double: 0 },
+      goodShare: 0.4,
+      pixelLevel: 0,
+      winMultiplier: 1,
+      splatterShare: 0.3,
+    };
+    const { session } = generateSession(standardInput({ draft }));
+    expect(splattered(session)).toHaveLength(30);
+    expect(splattered(session).every((card) => card.kind !== 'goal')).toBe(true);
+    expect(hasEffect(session.effects, 'splatter')).toBe(true);
+  });
+
+  it('offers Freshen Up only in beta sessions', () => {
+    const inPool = (betaMode: boolean) =>
+      Array.from(
+        { length: 40 },
+        (_, seed) =>
+          generateSession(standardInput({ seed, rules: { ...DEFAULT_SESSION_RULES, betaMode } })).session
+            .actionPool,
+      ).some((pool) => pool.includes('freshen_up'));
+    expect(inPool(false)).toBe(false);
+    expect(inPool(true)).toBe(true);
+  });
+});
+
+describe('beta performer cards (§6.7)', () => {
+  it('lowers pixelate by one on the first landing', () => {
+    const { session, context } = readyToRoll({ rules: BETA_RULES });
+    const state = landOnCollectible({ ...session, effects: [pixelate(3)] }, context);
+    expect(getPixelLevel(state.effects)).toBe(2);
+    expect(state.pending).toContainEqual({ kind: 'notice', notice: { type: 'pixelate_relief', level: 2 } });
+  });
+
+  it('has only the normal effect at pixelate 0', () => {
+    const { session, context } = readyToRoll({ rules: BETA_RULES });
+    const state = landOnCollectible({ ...session, effects: [] }, context);
+    expect(state.collected).toBe(1);
+    expect(
+      state.pending.some((step) => step.kind === 'notice' && step.notice.type === 'pixelate_relief'),
+    ).toBe(false);
+  });
+
+  it('never lowers pixelate outside the beta mode', () => {
+    const { session, context } = readyToRoll();
+    const state = landOnCollectible({ ...session, effects: [pixelate(3)] }, context);
+    expect(getPixelLevel(state.effects)).toBe(3);
+  });
+});
+
+describe('Freshen Up (§6.7)', () => {
+  it('lets the player choose when pixelate and splatter are active', () => {
+    const { session, context } = readyToRoll({ rules: BETA_RULES });
+    const prepared = withSplatter({ ...session, effects: [pixelate(2)] }, 20);
+    const state = landOnAction(prepared, context, 'freshen_up');
+    expect(head(state)).toEqual({
+      kind: 'pick_effect',
+      options: ['pixelate', 'splatter'],
+      splatterShare: 0.3,
+    });
+
+    const cleaned = run(state, context, { type: 'pickEffect', effect: 'splatter' });
+    expect(splattered(cleaned)).toHaveLength(14);
+    expect(getPixelLevel(cleaned.effects)).toBe(2);
+    expect(head(cleaned)).toEqual({ kind: 'notice', notice: { type: 'splatter_cleaned', count: 6 } });
+
+    const lowered = run(state, context, { type: 'pickEffect', effect: 'pixelate' });
+    expect(getPixelLevel(lowered.effects)).toBe(1);
+    expect(splattered(lowered)).toHaveLength(20);
+  });
+
+  it('applies the only possible effect directly and ends splatter with the last card', () => {
+    const { session, context } = readyToRoll({ rules: BETA_RULES });
+    const state = landOnAction(withSplatter({ ...session, effects: [] }, 2), context, 'freshen_up');
+    expect(head(state)).toEqual({ kind: 'notice', notice: { type: 'splatter_cleaned', count: 1 } });
+    expect(splattered(state)).toHaveLength(1);
+    expect(hasEffect(state.effects, 'splatter')).toBe(true);
+
+    const last = landOnAction(run(state, context, { type: 'confirm' }), context, 'freshen_up');
+    expect(splattered(last)).toHaveLength(0);
+    expect(hasEffect(last.effects, 'splatter')).toBe(false);
+  });
+
+  it('reports nothing to remove without negative visual effects', () => {
+    const { session, context } = readyToRoll({ rules: BETA_RULES });
+    const state = landOnAction({ ...session, effects: [] }, context, 'freshen_up');
+    expect(head(state)).toEqual({ kind: 'notice', notice: { type: 'nothing_to_remove' } });
+    expect(reduce(state, { type: 'pickEffect', effect: 'pixelate' }, context).error).toBe('invalid_event');
+  });
+});

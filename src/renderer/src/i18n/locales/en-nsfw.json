@@ -183,6 +183,10 @@
     "speed_it_up": {
       "name": "Speed it Up",
       "description": "Fast and hard for a few rounds."
+    },
+    "freshen_up": {
+      "name": "Freshen Up",
+      "description": "Beta mode only. Choose: pixelation drops one level or 30 % of the splattered cards get cleaned."
     }
   },
   "media": {
@@ -496,7 +500,8 @@
     "switcherooPool": "Which category do you want to replace?",
     "switcherooFolder": "Replace {{category}} with",
     "poolCards_one": "{{count}} card",
-    "poolCards_other": "{{count}} cards"
+    "poolCards_other": "{{count}} cards",
+    "cleanShare": "{{percent}} % of the cards"
   },
   "notice": {
     "effectApplied": {
@@ -536,7 +541,11 @@
       "convert": "{{collected}} collected – {{count}} bad fields turned good",
       "chance": "{{collected}} collected – release chance +{{percent}} %",
       "convertNone": "{{collected}} collected – no bad fields left to turn"
-    }
+    },
+    "pixelateRelief": "Pixelation lowered to level {{level}}",
+    "pixelateReliefGone": "Pixelation removed",
+    "splatterCleaned_one": "{{count}} card cleaned of splatter",
+    "splatterCleaned_other": "{{count}} cards cleaned of splatter"
   },
   "pause": {
     "title": "Paused",
@@ -624,7 +633,8 @@
       "penalties": "Penalties & progression",
       "controls": "Sound & controls",
       "mediaLibrary": "Media library",
-      "draft": "Session draft"
+      "draft": "Session draft",
+      "beta": "Beta mode"
     },
     "intro": {
       "rules": "How a session is built and played. Changes apply to the next session – a running session keeps its rules.",
@@ -632,7 +642,8 @@
       "penalties": "Penalty fields on the start wheel, what losses and outcomes change, and the good chance between sessions.",
       "visualEffects": "Pixelate block size per level, as share of the short image side. Levels must grow.",
       "controls": "Sound cues, animations, window and the global pause hotkey.",
-      "draft": "Before the start wheel the player turns over some hidden fields. Their mix decides the good share of the normal cards, a start pixelate level and an extra win factor for the coming session."
+      "draft": "Before the start wheel the player turns over some hidden fields. Their mix decides the good share of the normal cards, a start pixelate level and an extra win factor for the coming session.",
+      "beta": "A test variant to compare against the normal game. While active, the performer cards are visible on the ring from the start, collecting one also lowers pixelate, the draft uses the mix below (splash fields splatter a share of the cards) and the action card Freshen Up can appear. The normal settings stay untouched; history marks beta sessions."
     },
     "group": {
       "setup": "Start wheel",
@@ -652,7 +663,10 @@
       "draft": "Draft",
       "draftFields": "Fields per type",
       "draftEffects": "Effects",
-      "draftArt": "Card images"
+      "draftArt": "Card images",
+      "beta": "Beta mode",
+      "betaPerformer": "Visible performer cards",
+      "betaDraft": "Draft fields in beta mode"
     },
     "field": {
       "wheelRange": "Wheel range",
@@ -714,7 +728,17 @@
       "pixelateLevels_one": "Pixelate with 1 field",
       "pixelateLevels_two": "Pixelate with 2 fields",
       "pixelateLevels_three": "Pixelate with 3+ fields",
-      "winMultiplier": "Win factor per ×2 field"
+      "winMultiplier": "Win factor per ×2 field",
+      "composition_splash": "Splash fields",
+      "splashShare": "Splatter per splash field",
+      "active": "Beta mode active",
+      "visibleCollectibles": "Performer cards on the ring",
+      "collectiblePixelateRelief": "Pixelate levels removed per first hit",
+      "draftComposition_pixelate": "Pixelate fields",
+      "draftComposition_splash": "Splash fields",
+      "draftComposition_bad": "Bad fields",
+      "draftComposition_good": "Good fields",
+      "draftComposition_double": "Win ×2 fields"
     },
     "option": {
       "actionRetrigger": {
@@ -743,7 +767,8 @@
       "driftMax": "Must be at least the max. drift distance",
       "invalid": "Some values are invalid – nothing was saved.",
       "compositionSum": "Must equal the sum of the fields per type",
-      "picksAboveFields": "Cannot be more than the hidden fields"
+      "picksAboveFields": "Cannot be more than the hidden fields",
+      "compositionTooSmall": "The draft needs at least 2 fields"
     },
     "min": "Min",
     "max": "Max",
@@ -806,7 +831,8 @@
       "multiplierStep": "Multiplier step",
       "alternatives": "Alternatives",
       "safetyZone": "Safety zone (fields)",
-      "shieldEnabled": "Shield when nothing to remove"
+      "shieldEnabled": "Shield when nothing to remove",
+      "splatterShare": "Cleaned share of splattered cards"
     }
   },
   "draft": {
@@ -820,20 +846,24 @@
       "bad": "Bad cards",
       "good": "Good cards",
       "pixelate": "Pixelate",
-      "double": "Win ×2"
+      "double": "Win ×2",
+      "splash": "Splash"
     },
     "slot": {
       "back": "Card back",
       "bad": "Bad cards",
       "good": "Good cards",
       "pixelate": "Pixelate",
-      "double": "Win ×2"
+      "double": "Win ×2",
+      "splash": "Splash"
     },
     "summary": {
       "goodShare": "Good cards",
       "pixelate": "Start pixelate",
       "winChance": "Win chance",
-      "level": "Level {{level}}"
+      "level": "Level {{level}}",
+      "splatter": "Start splatter",
+      "splatterShare": "{{percent}} % of the cards"
     },
     "admin": {
       "artIntro": "One square image per card type and one for the hidden back. Images are copied into the app; choose the square part with \"Crop\".",
@@ -843,6 +873,8 @@
       "cropHint": "Drag the square to move it, drag its corner to resize.",
       "unsupported": "Only images can be used (no videos)."
     },
-    "continue": "Continue to the wheel"
+    "continue": "Continue to the wheel",
+    "beta": "Beta mode",
+    "bodyBeta": "Turn over {{picks}} of {{total}} hidden fields. They decide a start pixelate, splatter on the cards, bad cards and maybe a doubled win chance."
   }
 }

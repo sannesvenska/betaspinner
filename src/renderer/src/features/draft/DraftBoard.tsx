@@ -9,11 +9,18 @@ import { Icon } from '@renderer/ui/icons/Icon';
 import { CroppedImage } from './CroppedImage';
 
 const PERCENT = 100;
-const TYPE_ICON = { bad: 'warning', good: 'check', pixelate: 'pixelate', double: 'hail_mary' } as const;
+const TYPE_ICON = {
+  bad: 'warning',
+  good: 'check',
+  pixelate: 'pixelate',
+  splash: 'splatter',
+  double: 'hail_mary',
+} as const satisfies Record<DraftFieldType, string>;
 const TYPE_TONE: Readonly<Record<DraftFieldType, string>> = {
   bad: 'text-bad border-bad',
   good: 'text-good border-good',
   pixelate: 'text-ink border-ink',
+  splash: 'text-ink-2 border-ink-2',
   double: 'text-collectible border-collectible',
 };
 
@@ -47,9 +54,11 @@ export function DraftBoard({ draft }: { draft: DraftState | null }) {
   useEffect(() => {
     void loadArt();
   }, [loadArt]);
+  // Deals a missing draft, or re-deals an untouched one whose mix no longer matches the config
+  // (admin change, beta mode switched) – main decides, so calling it on every mount is safe
   useEffect(() => {
-    if (!draft) void dealDraft();
-  }, [draft, dealDraft]);
+    void dealDraft();
+  }, [dealDraft]);
 
   if (!draft) return <div className="font-label text-label text-ink-muted">{t('app.loading')}</div>;
   const complete = isDraftComplete(draft);
@@ -107,6 +116,12 @@ export function DraftSummary({ outcome }: { outcome: DraftOutcome }) {
     [
       t('draft.summary.pixelate'),
       outcome.pixelLevel > 0 ? t('draft.summary.level', { level: outcome.pixelLevel }) : '–',
+    ],
+    [
+      t('draft.summary.splatter'),
+      outcome.splatterShare > 0
+        ? t('draft.summary.splatterShare', { percent: Math.round(outcome.splatterShare * PERCENT) })
+        : '–',
     ],
     [t('draft.summary.winChance'), outcome.winMultiplier > 1 ? `×${outcome.winMultiplier}` : '–'],
   ] as const;

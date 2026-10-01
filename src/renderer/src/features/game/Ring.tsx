@@ -22,6 +22,7 @@ const BLOCK_ARC_MARGIN_DEG = 6;
 const BLOCK_ICON_SIZE = 22;
 const STAR_SIZE = 6;
 const STAR_WAIST = 1.8;
+const HIDDEN_COLLECTIBLE_OPACITY = 0.45;
 
 interface RingProps {
   cards: readonly Card[];
@@ -38,6 +39,8 @@ interface RingProps {
   blocked: { side: Direction; reason: 'u_turn' | 'forced' } | null;
   /** Goal Teleport or goal drift just happened – the goal segment pulses. */
   goalPulse: boolean;
+  /** Beta mode (§6.7): performer cards are shown before they are discovered */
+  collectiblesVisible?: boolean;
   center: ReactNode;
 }
 
@@ -80,6 +83,7 @@ export function Ring({
   center,
   blocked,
   goalPulse,
+  collectiblesVisible = false,
 }: RingProps) {
   const { t } = useTranslation();
   const hatchId = useId();
@@ -143,7 +147,10 @@ export function Ring({
             const isGoal = card.field === goalField;
             const isTarget = targetSet.has(card.field);
             let fill = 'var(--color-ring-empty)';
-            if (card.discovered && card.kind === 'collectible') fill = 'var(--color-collectible)';
+            // Visible but not yet collected performer cards stay translucent (design-system §10)
+            const hiddenCollectible = card.kind === 'collectible' && !card.discovered && collectiblesVisible;
+            if (card.kind === 'collectible' && (card.discovered || collectiblesVisible))
+              fill = 'var(--color-collectible)';
             else if (card.discovered && card.kind !== 'goal')
               fill = card.group === 'good' ? 'var(--color-good)' : `url(#${hatchId})`;
             if (isCurrent) fill = 'var(--color-ink)';
@@ -162,6 +169,7 @@ export function Ring({
                 fill={fill}
                 stroke={stroke}
                 strokeWidth={stroke === 'none' ? 0 : 2}
+                fillOpacity={hiddenCollectible && !isCurrent ? HIDDEN_COLLECTIBLE_OPACITY : undefined}
                 className={isGoal && goalPulse ? 'animate-[cr-pulse_800ms_ease-in-out_infinite]' : undefined}
                 onPointerEnter={
                   previewable
@@ -204,7 +212,12 @@ export function Ring({
               );
             })}
           {cards
-            .filter((card) => card.kind === 'collectible' && card.discovered && card.field !== position)
+            .filter(
+              (card) =>
+                card.kind === 'collectible' &&
+                (card.discovered || collectiblesVisible) &&
+                card.field !== position,
+            )
             .map((card) => {
               const [x, y] = polar(MARKER_RADIUS, fieldAngle(card.field));
               // 4-point star = collectible (design-system §10), distinct from circle/diamond
@@ -213,6 +226,7 @@ export function Ring({
                   key={card.field}
                   d={`M${x} ${y - STAR_SIZE}L${x + STAR_WAIST} ${y - STAR_WAIST}L${x + STAR_SIZE} ${y}L${x + STAR_WAIST} ${y + STAR_WAIST}L${x} ${y + STAR_SIZE}L${x - STAR_WAIST} ${y + STAR_WAIST}L${x - STAR_SIZE} ${y}L${x - STAR_WAIST} ${y - STAR_WAIST}Z`}
                   fill="var(--color-collectible)"
+                  fillOpacity={card.discovered ? undefined : HIDDEN_COLLECTIBLE_OPACITY}
                 />
               );
             })}

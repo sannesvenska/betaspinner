@@ -64,7 +64,7 @@ describe('session draft (§6.0)', () => {
       picked: [0, 1, 2, 3, 4, 5],
       picks: 6,
     };
-    expect(countPicks(draft)).toEqual({ bad: 2, good: 1, pixelate: 2, double: 1 });
+    expect(countPicks(draft)).toEqual({ bad: 2, good: 1, pixelate: 2, splash: 0, double: 1 });
     expect(draftOutcome(draft, DEFAULT_DRAFT_CONFIG, 0.4)).toMatchObject({ pixelLevel: 3, winMultiplier: 2 });
   });
 

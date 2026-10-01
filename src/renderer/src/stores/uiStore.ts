@@ -9,6 +9,7 @@ export type AdminSection =
   | 'rules'
   | 'performers'
   | 'draft'
+  | 'beta'
   | 'visualEffects'
   | 'penalties'
   | 'controls';

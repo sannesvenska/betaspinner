@@ -15,6 +15,7 @@
 | **M4 – Gameplay v2**           | AP9           | Game-design Revision 3: release chance, conversions, performers, action cards |
 | **M5 – Configurable**          | AP10          | Admin covers every `default` value                                            |
 | **M6 – Masks**                 | AP11          | Media Library + Mask Editor                                                   |
+| **M6b – Beta variant**         | AP11c         | Switchable beta mode to compare a game variant                                |
 | **v1.0**                       | AP12          | Stats, backup, audit, installer                                               |
 
 Order note: win flow (AP6) comes **before** actions (AP7) so a complete session loop is testable early. The pause hotkey ships in AP5 (privacy). Gameplay v2 (AP9) comes **before** the admin (AP10) so the admin is built once against the final rule set.
@@ -228,9 +229,21 @@ Implements game-design **Revision 3** (all rules marked **[v2]**, decision log �
 
 **Verified:** 190 tests; e2e in the running app: draft image assigned and cropped, 6 picks, full reveal + summary, session started with the drawn good share, start pixelate and win factor; inverted mask preview. Found and fixed: the first good-share formula applied the shifts one after another (average 30 % instead of the agreed 40 %).
 
+## AP11c – Beta mode · M · ✅
+
+| #     | Task                                                                                                                                                       | Status |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 11c.1 | Config: `beta` section (active, visible performer cards, pixelate relief, draft mix, splash share) + `effectiveGameConfig` used by sessions and simulation | ✅     |
+| 11c.2 | Draft field type "Splash" (cumulative share of splattered cards at the start); card image slot                                                             | ✅     |
+| 11c.3 | Engine: pixelate relief on the first collection; action card Freshen Up (pixelate −1 or clean 30 % of the splatter), beta sessions only                    | ✅     |
+| 11c.4 | Ring shows the performer cards before discovery; start screen marks the beta mode; admin section "Beta mode"                                               | ✅     |
+| 11c.5 | Session schema v5 (beta fields in rules snapshot and draft outcome), `betaMode` in history                                                                 | ✅     |
+
+**Verified:** 204 tests; e2e in the running app: beta switched on in the admin, untouched draft re-dealt with the beta mix (6 pixelate / 3 splash / 2 bad / 1 win), 4 pixelate picks → start level 5, 5 performer cards visible on the ring, beta marker on the start screen. Found and fixed: an untouched pending draft was only re-dealt when none existed, so admin mix changes (and switching the beta mode) did not reach it.
+
 ## AP12 – Stats, backup, polish, release · M · ⬜
 
-1. Session stats collection + History screen (sortable table, summary).
+1. Session stats collection + History screen (sortable table, summary; normal vs. beta mode comparison).
 2. Session summary screen.
 3. Backup export/import (ZIP, path remapping; includes `action-art/`).
 4. Accessibility audit (keyboard, focus, contrast, reduced motion), performance audit (6,000 files).

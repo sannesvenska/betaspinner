@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  BETA_FIELDS,
   MAX_COLLECTIBLE_TIERS,
   PENALTY_RULE_FIELDS,
   PERFORMER_RULE_FIELDS,
   PIXELATE_LEVELS,
   SESSION_RULE_FIELDS,
+  validateBeta,
   validatePenaltyRules,
   validateSessionRules,
   validateVisualEffects,
@@ -254,6 +256,25 @@ export function VisualEffectsSection() {
           <p className="max-w-3xl text-body-sm text-ink-muted">{t('admin.pixelHint')}</p>
         </section>
       )}
+    />
+  );
+}
+
+/** game-design §6.7: switchable test variant; overrides performer cards and the draft while active. */
+export function BetaSection() {
+  const { t } = useTranslation();
+  const beta = useGameConfigStore((state) => state.config.beta);
+  const update = useGameConfigStore((state) => state.update);
+  const reset = useGameConfigStore((state) => state.reset);
+  return (
+    <SectionEditor
+      title={t('admin.section.beta')}
+      intro={t('admin.intro.beta')}
+      value={beta}
+      fields={BETA_FIELDS}
+      validate={validateBeta}
+      onSave={(value) => update({ section: 'beta', value })}
+      onReset={() => reset('beta')}
     />
   );
 }

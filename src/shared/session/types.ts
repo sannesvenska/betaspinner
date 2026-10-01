@@ -90,6 +90,12 @@ export interface SessionRules {
   collectibleCount: Range;
   collectibleRevisitTaskRange: Range;
   collectibleTiers: readonly CollectibleTier[];
+  /** Beta mode (§6.7): collectibles are shown on the ring before they are discovered */
+  collectiblesVisible: boolean;
+  /** Beta mode: pixelate levels removed when a collectible is collected for the first time */
+  collectiblePixelateRelief: number;
+  /** The session was generated with the beta mode (history comparison) */
+  betaMode: boolean;
 }
 
 /** game-design §13 / §14.3 – admin-configurable (AP10). */
@@ -204,6 +210,8 @@ export type Notice =
   | { type: 'cards_converted'; count: number; source: ConversionSource }
   | { type: 'nothing_to_convert' }
   | { type: 'collectible_tier'; collected: number; bonus: CollectibleBonus }
+  | { type: 'pixelate_relief'; level: number }
+  | { type: 'splatter_cleaned'; count: number }
   | { type: 'switcheroo_done'; categoryId: string; folderId: string; changed: number; total: number }
   | { type: 'switcheroo_unavailable' }
   | { type: 'penalty_fields_removed'; count: number };
@@ -225,7 +233,12 @@ export type ResolutionStep =
     }
   | { kind: 'hold'; seconds: number; thenPickEffect: boolean }
   | { kind: 'timed_task'; seconds: number; pace: Pace | null }
-  | { kind: 'pick_effect'; options: EffectType[] }
+  | {
+      kind: 'pick_effect';
+      options: EffectType[];
+      /** Freshen Up: choosing splatter cleans only this share of the splattered cards */
+      splatterShare?: number;
+    }
   | { kind: 'notice'; notice: Notice }
   | { kind: 'guess' }
   | { kind: 'choose_reward'; canRemoveEffect: boolean }

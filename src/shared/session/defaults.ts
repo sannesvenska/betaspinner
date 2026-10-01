@@ -32,6 +32,9 @@ export const DEFAULT_SESSION_RULES: SessionRules = {
   strokeTierMax: 3,
   forcedReversalChance: 0.1,
   collectibleCount: [6, 8],
+  collectiblesVisible: false,
+  collectiblePixelateRelief: 0,
+  betaMode: false,
   collectibleRevisitTaskRange: [10, 25],
   collectibleTiers: [
     { collected: 3, bonus: { type: 'convert_bad', count: 5 } },
@@ -103,6 +106,8 @@ export const DEFAULT_ACTION_CARDS: readonly ActionCardDefinition[] = [
   builtIn('hail_mary', 10, { multiplier: [1.5, 3], multiplierStep: 0.5 }),
   builtIn('switcheroo', 10, { alternatives: 3 }),
   builtIn('redemption', 10, { count: [3, 5] }),
+  // Beta mode only (§6.7): pixelate -1 or clean a share of the splattered cards
+  builtIn('freshen_up', 15, { splatterShare: 0.3 }),
   // Bad
   builtIn('pixelate', 15),
   builtIn('splatter', 10, { cardCount: [3, 10] }),

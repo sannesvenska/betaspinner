@@ -8,6 +8,7 @@ export const GOOD_ACTION_IDS = [
   'hail_mary',
   'switcheroo',
   'redemption',
+  'freshen_up',
 ] as const;
 
 export const BAD_ACTION_IDS = [

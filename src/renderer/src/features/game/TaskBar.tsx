@@ -28,6 +28,7 @@ import { isBoardNotice, noticeText } from './noticeText';
 import { PickTile } from './PickTile';
 
 const DIE_FACES = [1, 2, 3, 4, 5, 6] as const;
+const PERCENT = 100;
 
 export interface TaskBarHandlers {
   confirm: () => void;
@@ -395,7 +396,11 @@ export function TaskBar({
                 key={effect}
                 title={t(`effect.${effect}.name`)}
                 icon={<Icon name={EFFECT_ICONS[effect]} size={20} />}
-                meta={effectMeta(effect)}
+                meta={
+                  effect === 'splatter' && step.splatterShare !== undefined
+                    ? t('step.cleanShare', { percent: Math.round(step.splatterShare * PERCENT) })
+                    : effectMeta(effect)
+                }
                 tone={GOOD_EFFECTS.includes(effect) ? 'good' : 'bad'}
                 keyHint={String(index + 1)}
                 onClick={() => {

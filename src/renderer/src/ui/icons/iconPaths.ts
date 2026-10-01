@@ -10,6 +10,8 @@ export const ACTION_ICON_PATHS: Readonly<Record<ActionId, string>> = {
   hail_mary: 'M4 17l6-6 4 4 6-8M15 7h5v5',
   switcheroo: 'M4 8h14l-3-3M20 16H6l3 3',
   redemption: 'M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3M18 3v4h-4M6 21v-4h4',
+  freshen_up:
+    'M10 4c2.5 3.5 5 6 5 9.5a5 5 0 0 1-10 0C5 10 7.5 7.5 10 4zM8 14a2 2 0 0 0 2 2M18 3l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z',
   pixelate: 'M4 4h5v5H4zM15 4h5v5h-5zM9.5 9.5h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5z',
   splatter: 'M12 5c2 3 6 3 6 7s-3 4-3 7-3 1-4-1-5-2-5-5 3-5 4-6 2-2 2-2zM5 5v.01M20 20v.01M20 6v.01',
   squeeze_task: 'M3 12h6M6 9l3 3-3 3M21 12h-6M18 9l-3 3 3 3M12 5v14',

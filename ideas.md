@@ -1,7 +1,14 @@
-1- stroke field ->choice of normal = 1 dice, x2 = 2 dice, x3 = 3 dice
-2. randomly only revers direction allowed (opposed to last one)
-3. "endgame" jumping around the final goal field, always seeing the same fields is boring. new rule: jumping over the goal moves the goal randomly 1 to 6 fields to randomly left or right?
-alternatively teleport more common? 
+when using +Add Folders, the windows explorer opens - is it possible to show the contents of a folder, so i know how many files lie in there? 
 
-4. board is filled from more than 2 categories. 
-5. remove component showcase
+after adding a folder, the focus should be on the new folder to edit it
+
+give a warning if importing the same folder again
+
+on the set up folder modal, show how many images are in the folder
+
+add the option to delete an image/asset 
+
+persist the smask selection (rectangle, ellipse, polygon, lasso) and invert mask setting, preview splatter setting, preview pixelate level
+
+add invert mask and preview splatter as buttons in the top bar after lasso, but with a bigger space between lasso and invert or any other sign of differentiation. 
+

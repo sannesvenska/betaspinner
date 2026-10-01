@@ -3,7 +3,7 @@ import { shortDistance, wrapField } from '../track';
 import type { Card, Direction, ResolutionStep, SessionRules, SessionState } from '../types';
 import { freshNormalCard } from './cardImages';
 import type { EngineContext } from './context';
-import { directionSign } from './effects';
+import { directionSign, getPixelLevel, removeEffect } from './effects';
 import { swapGoal } from './relocation';
 
 const isHiddenBadNormal = (card: Card): boolean =>
@@ -101,6 +101,12 @@ export function applyGoalDrift(draft: SessionState, rng: Rng, context: EngineCon
 export function collect(draft: SessionState, rng: Rng, context: EngineContext): ResolutionStep[] {
   draft.collected++;
   const steps: ResolutionStep[] = [];
+  // §6.7 beta: the first landing on a performer card also lowers pixelate (nothing extra at level 0)
+  const relief = Math.min(context.rules.collectiblePixelateRelief, getPixelLevel(draft.effects));
+  if (relief > 0) {
+    for (let step = 0; step < relief; step++) draft.effects = removeEffect(draft.effects, 'pixelate');
+    steps.push({ kind: 'notice', notice: { type: 'pixelate_relief', level: getPixelLevel(draft.effects) } });
+  }
   for (const tier of context.rules.collectibleTiers) {
     if (tier.collected > draft.collected || draft.reachedTiers.includes(tier.collected)) continue;
     draft.reachedTiers.push(tier.collected);

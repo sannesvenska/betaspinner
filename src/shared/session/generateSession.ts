@@ -8,7 +8,7 @@ import { placeActions } from './placeActions';
 import { createRng, randInt, shuffle, type Rng } from './rng';
 import { cardGroup, selectActionPool } from './selectActionPool';
 import { selectCategories } from './selectCategories';
-import { ALL_FIELDS, wrapField } from './track';
+import { ALL_FIELDS, TRACK_LENGTH, wrapField } from './track';
 import type {
   ActionCardDefinition,
   Card,
@@ -20,6 +20,7 @@ import type {
 
 const GROUPS: readonly Group[] = ['good', 'bad'];
 const STROKE_TIER_SLOTS = 3;
+const SPLATTER_SEED_MAX = 2 ** 31 - 1;
 
 export type GenerationErrorCode = 'no_good_category' | 'no_bad_category';
 
@@ -152,9 +153,11 @@ export function generateSession(input: GenerateSessionInput): GenerateSessionRes
   const plannedGood = Math.round(plannedActions * goodShare);
   const collectibleCount = performerFolderId ? rollCount(rng, rules.collectibleCount) : 0;
 
-  // §6.4 action pool, then slots (unfillable slots become normal cards)
+  // §6.4 action pool, then slots (unfillable slots become normal cards); Freshen Up is beta-only (§6.7)
   const pool = selectActionPool(rng, {
-    cards: input.actionCards,
+    cards: rules.betaMode
+      ? input.actionCards
+      : input.actionCards.filter((card) => card.type !== 'freshen_up'),
     blocked: progression.blockedActionsNextSession,
     size: rules.actionPoolSize,
   });
@@ -241,7 +244,17 @@ export function generateSession(input: GenerateSessionInput): GenerateSessionRes
     folderById,
     categoryBags,
   };
-  const cards: Card[] = ALL_FIELDS.map((field) => buildCard(rng, field, context));
+  const builtCards: Card[] = ALL_FIELDS.map((field) => buildCard(rng, field, context));
+  // §6.7 draft splash: a share of the cards starts splattered (a normal, removable splatter effect)
+  const splatterTargets = new Set(
+    shuffle(
+      rng,
+      builtCards.filter((card) => card.kind !== 'goal').map((card) => card.field),
+    ).slice(0, Math.round((input.draft?.splatterShare ?? 0) * (TRACK_LENGTH - 1))),
+  );
+  const cards = builtCards.map((card) =>
+    splatterTargets.has(card.field) ? { ...card, splatterSeed: randInt(rng, 1, SPLATTER_SEED_MAX) } : card,
+  );
 
   const startPixelate = input.draft?.pixelLevel ?? 0;
   const categoryUsage: Progression['categoryUsage'] = { ...progression.categoryUsage };
@@ -278,10 +291,12 @@ export function generateSession(input: GenerateSessionInput): GenerateSessionRes
       actionPool: pool.map((card) => card.id),
       cards,
       // §6.0 start pixelate: a normal, removable pixelate effect
-      effects:
-        startPixelate > 0
-          ? [{ id: 'pixelate', type: 'pixelate', value: startPixelate, createdRound: 0 }]
-          : [],
+      effects: [
+        ...(startPixelate > 0
+          ? [{ id: 'pixelate', type: 'pixelate', value: startPixelate, createdRound: 0 } as const]
+          : []),
+        ...(splatterTargets.size > 0 ? [{ id: 'splatter', type: 'splatter', createdRound: 0 } as const] : []),
+      ],
       round: 0,
       phase: 'initial_task',
       pending: [],

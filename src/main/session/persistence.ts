@@ -5,8 +5,11 @@ import type { Progression, SessionState } from '@shared/session/types';
 import { DRAFT_FIELD_TYPES, type DraftFieldType, type DraftState } from '@shared/draft';
 
 export const PROGRESSION_SCHEMA_VERSION = 1;
-/** v2 = gameplay v2 (older sessions cannot be resumed), v3 = rules snapshot (AP10), v4 = draft (§6.0). */
-export const SESSION_SCHEMA_VERSION = 4;
+/**
+ * v2 = gameplay v2 (older sessions cannot be resumed), v3 = rules snapshot (AP10), v4 = draft (§6.0),
+ * v5 = beta mode (§6.7).
+ */
+export const SESSION_SCHEMA_VERSION = 5;
 export const HISTORY_SCHEMA_VERSION = 1;
 
 /** Marker for a session of an older schema: discarded without scoring on load (§8.3 v2). */
@@ -25,6 +28,22 @@ export const SESSION_MIGRATIONS: Readonly<Record<number, (data: unknown) => unkn
   // v4: sessions started before the draft existed
   3: (data) =>
     isRecord(data) && data.legacyDiscarded !== true ? { draft: null, draftMultiplier: 1, ...data } : data,
+  // v5: rules snapshot and draft outcome gain the beta fields (off / no splatter)
+  4: (data) => {
+    if (!isRecord(data) || data.legacyDiscarded === true) return data;
+    const rules = isRecord(data.rules) ? data.rules : {};
+    const draft = isRecord(data.draft) ? { splatterShare: 0, ...data.draft } : null;
+    return {
+      ...data,
+      rules: {
+        collectiblesVisible: false,
+        collectiblePixelateRelief: 0,
+        betaMode: false,
+        ...rules,
+      },
+      draft,
+    };
+  },
 };
 
 export const isLegacySessionMarker = (value: StoredSession): value is LegacySessionMarker =>

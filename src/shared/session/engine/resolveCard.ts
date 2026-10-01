@@ -19,6 +19,7 @@ import { enterFinalWheel } from './winFlow';
 const SPLATTER_SEED_MAX = 2 ** 31 - 1;
 const DEFAULT_SAFETY_ZONE = 12;
 const DEFAULT_ALTERNATIVES = 3;
+const DEFAULT_FRESHEN_SPLATTER_SHARE = 0.3;
 
 type TaskStep = Extract<ResolutionStep, { kind: 'task' }>;
 
@@ -44,6 +45,40 @@ function removeSplatterFromCards(draft: SessionState): void {
     delete cleaned.splatterSeed;
     return cleaned;
   });
+}
+
+/**
+ * Cleans a share of the splattered cards (at least one); the splatter effect ends with the last one.
+ * Returns the number of cleaned cards.
+ */
+export function cleanSplatterShare(draft: SessionState, rng: Rng, share: number): number {
+  const splattered = draft.cards.filter((card) => card.splatterSeed !== undefined).map((card) => card.field);
+  if (splattered.length === 0) return 0;
+  const count = Math.min(splattered.length, Math.max(1, Math.round(splattered.length * share)));
+  const targets = new Set(shuffle(rng, splattered).slice(0, count));
+  draft.cards = draft.cards.map((card) => {
+    if (!targets.has(card.field)) return card;
+    const cleaned = { ...card };
+    delete cleaned.splatterSeed;
+    return cleaned;
+  });
+  if (count === splattered.length) draft.effects = removeEffect(draft.effects, 'splatter');
+  return count;
+}
+
+/** Freshen Up (§6.7): pixelate loses one level or a share of the splattered cards is cleaned. */
+export function freshenUp(
+  draft: SessionState,
+  rng: Rng,
+  effect: 'pixelate' | 'splatter',
+  splatterShare: number,
+): ResolutionStep[] {
+  if (effect === 'pixelate') {
+    draft.effects = removeEffect(draft.effects, 'pixelate');
+    return [{ kind: 'notice', notice: { type: 'pixelate_relief', level: getPixelLevel(draft.effects) } }];
+  }
+  const count = cleanSplatterShare(draft, rng, splatterShare);
+  return [{ kind: 'notice', notice: { type: 'splatter_cleaned', count } }];
 }
 
 /** Removes one negative effect chosen by the player (§11); splatter also clears the cards. */
@@ -118,6 +153,14 @@ export function triggerAction(
               : { type: 'nothing_to_remove' },
         },
       ];
+    }
+    case 'freshen_up': {
+      const share = numberParam(definition, 'splatterShare', DEFAULT_FRESHEN_SPLATTER_SHARE);
+      const options = (['pixelate', 'splatter'] as const).filter((type) => hasEffect(draft.effects, type));
+      const [only] = options;
+      if (only === undefined) return [{ kind: 'notice', notice: { type: 'nothing_to_remove' } }];
+      if (options.length > 1) return [{ kind: 'pick_effect', options: [...options], splatterShare: share }];
+      return freshenUp(draft, rng, only, share);
     }
     case 'hail_mary': {
       const value = rollMultiplier(rng, definition);

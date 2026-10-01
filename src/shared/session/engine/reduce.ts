@@ -5,7 +5,7 @@ import { applyDetour, applyGoalDrift, isDetour, passesOver } from './boardChange
 import type { EngineContext } from './context';
 import { activeNegativeEffects, directionSign, getBlockedDirection, hasEffect, tickRound } from './effects';
 import { findRelocationTarget, swapGoal } from './relocation';
-import { afterClearingEdges, landOn, normalTask, removeChosenEffect } from './resolveCard';
+import { afterClearingEdges, freshenUp, landOn, normalTask, removeChosenEffect } from './resolveCard';
 import { applySwitcheroo, drawSwitcherooAlternatives } from './switcheroo';
 import { applyWinFlow, type WinFlowEvent } from './winFlow';
 
@@ -210,7 +210,9 @@ function resolveStep(
     case 'pick_effect':
       if (event.type !== 'pickEffect') return 'invalid_event';
       if (!head.options.includes(event.effect)) return 'invalid_value';
-      removeChosenEffect(draft, event.effect);
+      if (head.splatterShare !== undefined && (event.effect === 'pixelate' || event.effect === 'splatter'))
+        next = freshenUp(draft, rng, event.effect, head.splatterShare);
+      else removeChosenEffect(draft, event.effect);
       break;
     case 'guess': {
       if (event.type !== 'guess') return 'invalid_event';
