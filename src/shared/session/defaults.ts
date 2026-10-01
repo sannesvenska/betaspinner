@@ -23,6 +23,7 @@ export const DEFAULT_SESSION_RULES: SessionRules = {
   actionHint: 'split_by_side',
   winChanceBounds: [1, 95],
   chancePerDiscovered: 0.5,
+  revisitChancePenalty: 0.5,
   holdSecondsCap: 60,
   detourConversion: 1,
   maxDetourConversions: null,

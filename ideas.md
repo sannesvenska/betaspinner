@@ -1,14 +1,13 @@
-when using +Add Folders, the windows explorer opens - is it possible to show the contents of a folder, so i know how many files lie in there? 
+speichere die masken mit dem hash, wenn ich später einmal das selbe bild (vielleicht in einem anderen ordner) importiere, sollten die maskeneinstellung wieder vorhanden sein, wenn ich einmal welche angelegt hatte. 
 
-after adding a folder, the focus should be on the new folder to edit it
+erweitere das content-system um packages. ein content-package ist ein set von bildern, ordnern, maskeneinstellungen, actionkartenbildern, kartenbackground und den relevanten settings. 
 
-give a warning if importing the same folder again
+content packages sollten als .zip exportierbar und importierbar sein, mit allen dazugehörigen dateien, so dass sie austauschbar und weitergebbar sind. 
 
-on the set up folder modal, show how many images are in the folder
+ich möchte dann das in settings eine option haben, die vorhandenen content packages zu sehen und ein aktives auszuwählen, dass dann in den einstellungen wie jetzt und für das spiel aktiv ist. 
 
-add the option to delete an image/asset 
+das aktive content package sollte einen namen haben können und beim start der session mit angezeigt oder wechselbar. ein content package sollte auf der festplatte jeweils einen eigenen ordner haben, mit einer einstellungsdatei, allen assets und den bilderordnern. 
 
-persist the smask selection (rectangle, ellipse, polygon, lasso) and invert mask setting, preview splatter setting, preview pixelate level
+das heisst auch, dass wir von nun an (du kannst gerne resetten) beim import von dateien diese nicht vom remote ort anzeigen, sondern in ein verzeichnis kopieren, das einmal angegeben werden muss. 
 
-add invert mask and preview splatter as buttons in the top bar after lasso, but with a bigger space between lasso and invert or any other sign of differentiation. 
-
+fragen dazu?

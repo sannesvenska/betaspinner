@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import type { PickedFolder } from '@shared/content';
 import { useLibraryStore } from '@renderer/stores/libraryStore';
 import { AddFoldersDialog } from './AddFoldersDialog';
 
@@ -10,9 +11,10 @@ interface AddFoldersFlow {
   pickError: string | null;
 }
 
-export function useAddFolders(onAdded?: () => void): AddFoldersFlow {
+/** `onAdded` receives the ids of the folders that were actually added (in pick order). */
+export function useAddFolders(onAdded?: (folderIds: string[]) => void): AddFoldersFlow {
   const addFolders = useLibraryStore((state) => state.addFolders);
-  const [paths, setPaths] = useState<string[] | null>(null);
+  const [picked, setPicked] = useState<PickedFolder[] | null>(null);
   const [pickError, setPickError] = useState<string | null>(null);
 
   const start = async () => {
@@ -22,20 +24,24 @@ export function useAddFolders(onAdded?: () => void): AddFoldersFlow {
       return;
     }
     setPickError(null);
-    if (result.data.length > 0) setPaths(result.data);
+    if (result.data.length > 0) setPicked(result.data);
   };
 
-  const dialog = paths ? (
+  const dialog = picked ? (
     <AddFoldersDialog
-      paths={paths}
+      picked={picked}
       onCancel={() => {
-        setPaths(null);
+        setPicked(null);
       }}
       onSubmit={async (inputs) => {
+        const before = new Set(useLibraryStore.getState().snapshot?.folders.map((folder) => folder.id));
         // Errors surface through the library store's error state
         if (await addFolders(inputs)) {
-          setPaths(null);
-          onAdded?.();
+          setPicked(null);
+          const added = (useLibraryStore.getState().snapshot?.folders ?? []).filter(
+            (folder) => !before.has(folder.id),
+          );
+          onAdded?.(added.map((folder) => folder.id));
         }
       }}
     />

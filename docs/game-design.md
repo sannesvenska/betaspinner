@@ -100,6 +100,8 @@ Every registered folder has exactly one **role**; content folders also have a **
 | `unmaskedEffectBehavior` | `full` \| `none`         | `full`      | How visual effects apply to images without a defined mask (see §12).                                                       |
 | `minImages`              | number                   | 5           | Folder is only eligible for selection if it contains at least this many images.                                            |
 
+**Adding folders (admin):** the native folder picker starts next to the most recently added folder. The setup dialog then shows per folder how many playable files lie directly inside (non-recursive, like the scan) and warns below `minImages`. A path that is already in the library is listed with a warning and skipped. After adding, the first new folder is selected with its display name focused. Subfolders and parent folders of existing folders are allowed without a warning: the scan is non-recursive, so no file can be counted twice.
+
 > **Change vs. original concept:** the single "weight" property was ambiguous (it meant both "how often is this folder picked" and "how many images does it contribute"). It is split into `selectionWeight` and `shareWeight`.
 
 ### 5.3 Image Index
@@ -424,7 +426,8 @@ The console stats and the direction buttons show how many action cards are still
 
 - Applies to good and bad normal cards (bad cards also get a new image), the start field and consumed action cards.
 - **Exceptions:** collectible cards (§9.4), action cards that still trigger (`actionRetrigger: always`), the Goal Field.
-- The discovered count and the release chance do not change (the field was already counted).
+- The discovered count does not change (the field was already counted).
+- **Revisit penalty (Revision 5):** a revisited field that was **good** costs `revisitChancePenalty` (`default 0.5` percentage points, i.e. the value of one discovered card) of the release chance (§14.1). Bad fields cost nothing extra. The task bar says so on the card, the console and the final wheel list the deduction. Measured with the balancing bot (avoids good revisits when it has a choice): Ø 85 rounds, Ø 41.5 % (1 % would give Ø 100 rounds).
 - Effect: lingering around the goal gets progressively worse, but the images never repeat.
 
 ### 8.6 Stroke Tier
@@ -634,7 +637,7 @@ A dedicated admin screen to review all images and manage masks:
   - `masked` (blue) – has ≥ 1 region, shows count
   - `no_regions` (green) – explicitly marked as "no regions needed"
 - **Filters:** all / unreviewed / masked / no regions.
-- **Actions:** open editor (double-click), mark selected as "no regions", clear masks for selected.
+- **Actions:** open editor (double-click), mark selected as "no regions", clear masks for selected, **move selected to the recycle bin** (confirmation; Windows recycle bin via `shell.trashItem`, the files leave the index, masks of images no other file uses are removed; a file that cannot be moved stays and is reported).
 
 ### 12.3 Mask Editor
 
@@ -660,6 +663,8 @@ Opens an image in a full-screen editor.
 - Navigation: previous/next image in the folder (`←` / `→`), autosave on navigation.
 - `C` = copy regions from the previous image (useful for series with similar composition).
 - `N` = mark current image as "no regions needed" and go to next.
+- Top bar: the drawing tools, then – set apart by a divider – the toggles **Invert mask** (`I`) and **Preview splatter** (`S`).
+- **Remembered between images and app starts** (`settings.maskEditor`): the last drawing tool, preview splatter, the pixelate preview level and the invert setting (as start value for images without a saved mask; saved masks keep their own).
 
 **[RULE] Storage:** regions are stored in **normalized coordinates** (0–1 relative to the image's natural width/height), keyed by the image's content hash. This makes masks independent of display size and survives file renames.
 
@@ -716,8 +721,8 @@ A `Denied` result on the final wheel is **not** a loss (see §14.3).
 **[RULE]** There is no win-check roll. The chance is deterministic and shown live in the console (§7.1) during the whole session:
 
 ```
-base        = discovered × chancePerDiscovered + collectibleBonus   // percent
-finalChance = clamp(floor(base × successMultiplier), minChance, maxChance)
+base        = discovered × chancePerDiscovered + collectibleBonus − revisits × revisitChancePenalty   // percent, ≥ 0
+finalChance = clamp(floor(base × successMultiplier × draftFactor), minChance, maxChance)
 ```
 
 - `chancePerDiscovered` `default 0.5`. All discovered cards count the same (good, bad, action, collectible, start).
@@ -730,7 +735,8 @@ finalChance = clamp(floor(base × successMultiplier), minChance, maxChance)
 
 - Wheel with a white area (= `finalChance` %) and a red area (rest).
 - "Start Task" → wheel starts spinning.
-- Button changes to "Hold Position"; pressing it starts a countdown of `min(discovered, holdSecondsCap)` seconds (`holdSecondsCap default 60`). The wheel decelerates so that it stops exactly at 0.
+- Button changes to "Hold Position"; pressing it starts a countdown of `min(discovered, holdSecondsCap)` seconds (`holdSecondsCap default 60`).
+- **Choreography (Revision 5):** before the hold the wheel spins calmly (240°/s). The hold speeds it up within 1.5 s to cruise speed (720°/s) and keeps it there; only in the last 1.2–1.8 s (drawn per spin) it brakes hard (constant deceleration) and stops exactly at 0. With 1–2 turns left when the brake starts, the result cannot be read seconds in advance. The cruise speed is tuned by a fraction of a turn so the stop hits the decided angle.
 - **[RULE]** The result is determined by the seeded RNG when "Start Task" is pressed; the animation is choreographed to land on it.
 - Result: `Success Allowed` (white) or `Denied` (red).
 

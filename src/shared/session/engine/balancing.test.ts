@@ -17,7 +17,7 @@ describe(`balancing simulation – ${GAMES} bot games (AP9.9)`, () => {
 
       // Almost every game reaches the goal (the rest ends by Mistress Says No)
       expect(summary.reachedGoal).toBeGreaterThan(GAMES * 0.85);
-      // Product target 80–100 rounds and ≈ 40 % (ROADMAP AP9.9); measured 81 rounds / 41 % with 0.5 % and 1 conversion
+      // Product target 80–100 rounds and ≈ 40 % (ROADMAP AP9.9); measured 85 rounds / 41.5 % with 0.5 %, 1 conversion and 0.5 % revisit penalty
       expect(summary.avgRounds).toBeGreaterThan(70);
       expect(summary.avgRounds).toBeLessThan(105);
       expect(summary.avgFinalChance).toBeGreaterThan(35);

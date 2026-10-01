@@ -19,9 +19,11 @@ interface FolderDetailProps {
   folder: FolderConfig;
   status: FolderScanStatus | undefined;
   scanning: boolean;
+  /** Just added: the display name gets the focus so the folder can be set up right away */
+  focusName?: boolean;
 }
 
-export function FolderDetail({ folder, status, scanning }: FolderDetailProps) {
+export function FolderDetail({ folder, status, scanning, focusName = false }: FolderDetailProps) {
   const { t } = useTranslation();
   const updateFolder = useLibraryStore((state) => state.updateFolder);
   const removeFolder = useLibraryStore((state) => state.removeFolder);
@@ -68,6 +70,7 @@ export function FolderDetail({ folder, status, scanning }: FolderDetailProps) {
         <TextField
           label={t('library.field.displayName')}
           value={nameDraft ?? folder.displayName}
+          autoFocus={focusName}
           onChange={(event) => {
             setNameDraft(event.target.value);
           }}

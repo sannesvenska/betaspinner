@@ -13,7 +13,7 @@ import type { GenerationErrorCode } from './session/generateSession';
 import type { WheelResult } from './session/goalAndStart';
 import type { GameConfig } from './config/gameConfig';
 import type { DraftArtSlot, DraftCrop } from './draft';
-import type { ActionArtImage } from './content';
+import type { ActionArtImage, PickedFolder } from './content';
 import type { ImageMask, MaskRegion, MaskStatus } from './masks';
 import type { SimulationResult } from './session/simulateSessions';
 import type { ActionCardDefinition, Progression, SessionState } from './session/types';
@@ -107,13 +107,18 @@ export interface IpcInvokeContract {
   'window:toggleFullscreen': { request: undefined; response: boolean };
   'library:getSnapshot': { request: undefined; response: LibrarySnapshot };
   /** Opens the native folder picker; empty array when cancelled. */
-  'library:pickFolders': { request: undefined; response: string[] };
+  'library:pickFolders': { request: undefined; response: PickedFolder[] };
   'library:addFolders': { request: NewFolderInput[]; response: LibrarySnapshot };
   'library:updateFolder': { request: { id: string; patch: FolderPatch }; response: LibrarySnapshot };
   'library:removeFolder': { request: { id: string }; response: LibrarySnapshot };
   /** Resolves when the scan (and any follow-up scan) finished. */
   'library:rescan': { request: undefined; response: LibrarySnapshot };
   'library:listMedia': { request: { folderId: string; offset: number; limit: number }; response: MediaPage };
+  /** Moves media files of one folder to the recycle bin (§12.2); masks of vanished images go too. */
+  'library:trashMedia': {
+    request: { folderId: string; hashes: string[] };
+    response: { trashed: number; failed: string[] };
+  };
   'session:getSnapshot': { request: undefined; response: SessionSnapshot };
   /** Spins the start wheel and, unless a penalty field is hit, generates the session. */
   'session:spin': { request: undefined; response: SpinResult };
@@ -192,6 +197,7 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'library:removeFolder',
   'library:rescan',
   'library:listMedia',
+  'library:trashMedia',
   'session:getSnapshot',
   'session:spin',
   'session:dispatch',

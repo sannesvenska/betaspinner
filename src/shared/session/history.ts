@@ -29,6 +29,8 @@ export interface SessionRecord {
   detours: number;
   detourConversions: number;
   revisitConversions: number;
+  /** Missing on older records */
+  revisitPenalties?: number;
   goalDrifts: number;
   forcedReversals: number;
   strokeTiers: SessionStats['strokeTiers'];
@@ -70,6 +72,7 @@ export function toSessionRecord(
     detours: stats.detours,
     detourConversions: stats.detourConversions,
     revisitConversions: stats.revisitConversions,
+    revisitPenalties: stats.revisitPenalties,
     goalDrifts: stats.goalDrifts,
     forcedReversals: stats.forcedReversals,
     strokeTiers: stats.strokeTiers,

@@ -2,7 +2,10 @@ import {
   DEFAULT_SETTINGS,
   isValidAccelerator,
   LANGUAGE_PACKS,
+  MASK_DRAW_TOOLS,
+  MASK_PREVIEW_LEVELS,
   type AppSettings,
+  type MaskDrawTool,
   type LanguagePackId,
 } from '@shared/settings';
 
@@ -23,6 +26,9 @@ const numberOr = (value: unknown, fallback: number): number =>
 const isLanguagePack = (value: unknown): value is LanguagePackId =>
   LANGUAGE_PACKS.some((pack) => pack === value);
 
+const isMaskDrawTool = (value: unknown): value is MaskDrawTool =>
+  MASK_DRAW_TOOLS.some((tool) => tool === value);
+
 /**
  * Tolerant settings reader: unknown or invalid fields fall back to defaults field by field,
  * so one bad value never resets the whole file. Throws only if the root is not an object.
@@ -30,6 +36,8 @@ const isLanguagePack = (value: unknown): value is LanguagePackId =>
 export function normalizeSettings(data: unknown): AppSettings {
   if (!isRecord(data)) throw new Error('Settings root must be an object');
   const sound = isRecord(data.sound) ? data.sound : {};
+  const maskEditor = isRecord(data.maskEditor) ? data.maskEditor : {};
+  const maskDefaults = DEFAULT_SETTINGS.maskEditor;
 
   return {
     languagePack: isLanguagePack(data.languagePack) ? data.languagePack : DEFAULT_SETTINGS.languagePack,
@@ -48,5 +56,13 @@ export function normalizeSettings(data: unknown): AppSettings {
       typeof data.pauseHotkey === 'string' && isValidAccelerator(data.pauseHotkey)
         ? data.pauseHotkey
         : DEFAULT_SETTINGS.pauseHotkey,
+    maskEditor: {
+      tool: isMaskDrawTool(maskEditor.tool) ? maskEditor.tool : maskDefaults.tool,
+      inverted: booleanOr(maskEditor.inverted, maskDefaults.inverted),
+      previewSplatter: booleanOr(maskEditor.previewSplatter, maskDefaults.previewSplatter),
+      previewLevel: Math.round(
+        clamp(numberOr(maskEditor.previewLevel, maskDefaults.previewLevel), 0, MASK_PREVIEW_LEVELS),
+      ),
+    },
   };
 }

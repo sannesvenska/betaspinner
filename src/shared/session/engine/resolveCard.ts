@@ -267,11 +267,13 @@ export function normalTask(
   context: EngineContext,
   baseCount: number,
   revisit = false,
+  revisitPenalty = 0,
 ): ResolutionStep {
   return {
     ...task(draft, baseCount),
     ...(context.rules.strokeTierMax > 1 ? { tierable: true } : {}),
     ...(revisit ? { revisit: 'converted' as const } : {}),
+    ...(revisitPenalty > 0 ? { revisitPenalty } : {}),
   };
 }
 
@@ -296,6 +298,7 @@ export function landOn(
   if (!original) return [];
   let card: Card = { ...original };
   let revisit = false;
+  let revisitPenalty = 0;
 
   if (card.discovered && card.kind === 'collectible') {
     // §9.4 revisit: no bonus again, only a stroke task
@@ -306,7 +309,12 @@ export function landOn(
     return [{ ...task(draft, card.taskCount ?? 0), revisit: 'collectible' }];
   }
   if (card.discovered && card.kind === 'normal') {
-    // §8.5 revisit conversion: the field turns into a bad card with a new image
+    // §8.5 revisit conversion: the field turns into a bad card with a new image;
+    // a good field lost this way also costs release chance (§14.1)
+    if (card.group === 'good' && context.rules.revisitChancePenalty > 0) {
+      draft.stats.revisitPenalties++;
+      revisitPenalty = context.rules.revisitChancePenalty;
+    }
     card = freshNormalCard(draft, rng, context, card, 'bad');
     draft.stats.revisitConversions++;
     revisit = true;
@@ -326,5 +334,5 @@ export function landOn(
     return steps;
   }
   if (card.kind === 'collectible') return [task(draft, card.taskCount ?? 0), ...collect(draft, rng, context)];
-  return [normalTask(draft, context, card.taskCount ?? 0, revisit)];
+  return [normalTask(draft, context, card.taskCount ?? 0, revisit, revisitPenalty)];
 }

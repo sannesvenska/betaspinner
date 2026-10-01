@@ -21,7 +21,9 @@ import {
   type Point,
 } from '@shared/masks';
 import { EffectMedia } from '@renderer/effects/EffectMedia';
+import { DEFAULT_SETTINGS, type MaskEditorSettings } from '@shared/settings';
 import { useMasksStore } from '@renderer/stores/masksStore';
+import { useUiStore } from '@renderer/stores/uiStore';
 import { Button } from '@renderer/ui/Button';
 import { classNames } from '@renderer/ui/classNames';
 import { Icon } from '@renderer/ui/icons/Icon';
@@ -126,14 +128,20 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
   const stageRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const putMask = useMasksStore((state) => state.put);
+  const saveSettings = useUiStore((state) => state.saveSettings);
+  // Remembered choices (§12.3); read once – later changes are written back by `remember`
+  const [prefs] = useState(() => {
+    const settingsState = useUiStore.getState().settingsState;
+    return settingsState.status === 'ready' ? settingsState.settings.maskEditor : DEFAULT_SETTINGS.maskEditor;
+  });
 
   const [index, setIndex] = useState(startIndex);
   const [history, setHistory] = useState<RegionHistory>(startHistory([]));
   const [saved, setSaved] = useState<{ regions: MaskRegion[]; status: MaskStatus; inverted: boolean } | null>(
     null,
   );
-  const [inverted, setInverted] = useState(false);
-  const [tool, setTool] = useState<Tool>('rect');
+  const [inverted, setInverted] = useState(prefs.inverted);
+  const [tool, setTool] = useState<Tool>(prefs.tool);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [live, setLive] = useState<MaskRegion[] | null>(null);
@@ -141,8 +149,8 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 });
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
   const [spaceHeld, setSpaceHeld] = useState(false);
-  const [previewLevel, setPreviewLevel] = useState(0);
-  const [previewSplatter, setPreviewSplatter] = useState(false);
+  const [previewLevel, setPreviewLevel] = useState(prefs.previewLevel);
+  const [previewSplatter, setPreviewSplatter] = useState(prefs.previewSplatter);
   const [videoAspect, setVideoAspect] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -152,6 +160,37 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
   const dirty =
     saved !== null &&
     (JSON.stringify(history.present) !== JSON.stringify(saved.regions) || inverted !== saved.inverted);
+
+  /** Writes changed editor choices to the settings (survive image changes and restarts). */
+  const remember = useCallback(
+    (patch: Partial<MaskEditorSettings>) => {
+      const settingsState = useUiStore.getState().settingsState;
+      if (settingsState.status !== 'ready') return;
+      const { settings } = settingsState;
+      void saveSettings({ ...settings, maskEditor: { ...settings.maskEditor, ...patch } });
+    },
+    [saveSettings],
+  );
+  const chooseTool = useCallback(
+    (next: Tool) => {
+      setTool(next);
+      setDraft(null);
+      if (next !== 'select') remember({ tool: next });
+    },
+    [remember],
+  );
+  const toggleInverted = useCallback(() => {
+    setInverted(!inverted);
+    remember({ inverted: !inverted });
+  }, [inverted, remember]);
+  const togglePreviewSplatter = useCallback(() => {
+    setPreviewSplatter(!previewSplatter);
+    remember({ previewSplatter: !previewSplatter });
+  }, [previewSplatter, remember]);
+  const choosePreviewLevel = (level: number) => {
+    setPreviewLevel(level);
+    remember({ previewLevel: level });
+  };
 
   // Native modal dialog: traps focus, keeps the app's Esc-to-home from firing
   useEffect(() => {
@@ -180,7 +219,6 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
     setZoom(1);
     setPan({ x: 0, y: 0 });
     setVideoAspect(null);
-    setInverted(false);
     setIndex(target);
   }, []);
 
@@ -192,9 +230,14 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
       if (cancelled) return;
       const mask = result.ok ? result.data[entry.hash] : undefined;
       const loaded = mask?.regions ?? [];
+      // Without a saved mask the remembered "invert" applies (not dirty until something is drawn)
+      const settingsState = useUiStore.getState().settingsState;
+      const startInverted =
+        mask?.inverted ??
+        (settingsState.status === 'ready' ? settingsState.settings.maskEditor.inverted : false);
       setHistory(startHistory(loaded));
-      setSaved({ regions: loaded, status: mask?.status ?? 'unreviewed', inverted: mask?.inverted ?? false });
-      setInverted(mask?.inverted ?? false);
+      setSaved({ regions: loaded, status: mask?.status ?? 'unreviewed', inverted: startInverted });
+      setInverted(startInverted);
     });
     return () => {
       cancelled = true;
@@ -316,8 +359,15 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
       }
       const nextTool = TOOL_BY_KEY[key];
       if (nextTool) {
-        setTool(nextTool);
-        setDraft(null);
+        chooseTool(nextTool);
+        return;
+      }
+      if (key === 'i') {
+        toggleInverted();
+        return;
+      }
+      if (key === 's') {
+        togglePreviewSplatter();
         return;
       }
       if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId) {
@@ -343,7 +393,19 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
     };
-  }, [draft, selectedId, history.present, update, go, copyPrevious, markNoRegions, finishPolygon]);
+  }, [
+    draft,
+    selectedId,
+    history.present,
+    update,
+    go,
+    copyPrevious,
+    markNoRegions,
+    finishPolygon,
+    chooseTool,
+    toggleInverted,
+    togglePreviewSplatter,
+  ]);
 
   if (!entry) return null;
 
@@ -526,26 +588,48 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
         else void close();
       }}
     >
-      <div className="grid h-full grid-rows-[auto_minmax(0,1fr)]">
-        <header className="flex items-center gap-3 border-b border-line px-6 py-3">
+      <div className="grid h-full grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)]">
+        <header className="flex flex-wrap items-center gap-2 border-b border-line px-6 py-3">
           {TOOLS.map(({ tool: entryTool, key }) => (
             <Button
+              size="compact"
               key={entryTool}
               variant={tool === entryTool ? 'primary' : 'outline'}
               keyHint={key}
               aria-pressed={tool === entryTool}
               onClick={() => {
-                setTool(entryTool);
-                setDraft(null);
+                chooseTool(entryTool);
               }}
             >
               {t(`media.tool.${entryTool}`)}
             </Button>
           ))}
+          {/* Mask options, set apart from the drawing tools by a wider gap and a divider */}
+          <span className="mx-4 h-8 w-px bg-line-strong" />
+          <Button
+            size="compact"
+            variant={inverted ? 'primary' : 'outline'}
+            keyHint="I"
+            aria-pressed={inverted}
+            title={t('media.editor.invertHint')}
+            onClick={toggleInverted}
+          >
+            {t('media.editor.invert')}
+          </Button>
+          <Button
+            size="compact"
+            variant={previewSplatter ? 'primary' : 'outline'}
+            keyHint="S"
+            aria-pressed={previewSplatter}
+            onClick={togglePreviewSplatter}
+          >
+            {t('media.editor.previewSplatter')}
+          </Button>
           <span className="mx-2 h-8 w-px bg-line" />
           <Button
+            size="compact"
             variant="text"
-            keyHint="Ctrl+Z"
+            title="Ctrl+Z"
             disabled={history.past.length === 0}
             onClick={() => {
               setHistory(undo);
@@ -554,8 +638,9 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
             {t('media.editor.undo')}
           </Button>
           <Button
+            size="compact"
             variant="text"
-            keyHint="Ctrl+Y"
+            title="Ctrl+Y"
             disabled={history.future.length === 0}
             onClick={() => {
               setHistory(redo);
@@ -563,10 +648,10 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
           >
             {t('media.editor.redo')}
           </Button>
-          <span className="ml-auto font-label text-label text-ink-muted tabular-nums">
+          <span className="ml-auto font-label text-label whitespace-nowrap text-ink-muted tabular-nums">
             {t('media.editor.zoom', { zoom: Math.round(zoom * PERCENT) })}
           </span>
-          <Button variant="primary" keyHint="Esc" onClick={() => void close()}>
+          <Button variant="primary" size="compact" keyHint="Esc" onClick={() => void close()}>
             {t('common.close')}
           </Button>
         </header>
@@ -747,7 +832,7 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
                       type="button"
                       aria-pressed={previewLevel === level}
                       onClick={() => {
-                        setPreviewLevel(level);
+                        choosePreviewLevel(level);
                       }}
                       className={classNames(
                         'h-10 flex-1 border border-line-strong font-display text-button font-semibold not-first:-ml-px first:rounded-l-panel last:rounded-r-panel',
@@ -759,15 +844,7 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
                   ))}
                 </div>
               </div>
-              <div className="flex flex-col gap-1">
-                <Switch label={t('media.editor.invert')} checked={inverted} onChange={setInverted} />
-                <span className="text-body-sm text-ink-muted">{t('media.editor.invertHint')}</span>
-              </div>
-              <Switch
-                label={t('media.editor.previewSplatter')}
-                checked={previewSplatter}
-                onChange={setPreviewSplatter}
-              />
+              {inverted && <p className="text-body-sm text-ink-muted">{t('media.editor.invertHint')}</p>}
             </section>
 
             <section className="mt-auto flex flex-col gap-2">

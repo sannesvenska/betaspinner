@@ -155,6 +155,7 @@ export const SESSION_RULE_FIELDS: readonly FieldSpec[] = [
   },
   int('imageRecencySessions', 'categories', 0, 20),
   float('chancePerDiscovered', 'release', 0.1, 2, 0.05),
+  float('revisitChancePenalty', 'release', 0, 10, 0.25),
   range('winChanceBounds', 'release', 0, 100),
   int('holdSecondsCap', 'release', 5, 300),
   int('detourConversion', 'board', 0, 10),

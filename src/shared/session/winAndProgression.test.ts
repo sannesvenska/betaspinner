@@ -35,6 +35,7 @@ describe('win flow (§14)', () => {
       chancePerDiscovered: 0.4,
       winChanceBounds: [1, 95] as const,
       collectibleTiers: [{ collected: 4, bonus: { type: 'release_chance' as const, percent: 5 } }],
+      revisitChancePenalty: 1,
     };
     const discoveredCards = (count: number) =>
       state.cards.map((card, index) => ({ ...card, discovered: index < count }));
@@ -45,10 +46,20 @@ describe('win flow (§14)', () => {
       rate: 0.4,
       base: 35 * 0.4,
       bonus: 0,
+      revisits: 0,
+      penalty: 0,
       multiplier: 1,
       draftMultiplier: 1,
       finalChance: 14,
     });
+    // §8.5: each revisited good field costs the penalty before the multipliers
+    const revisited = { ...state.stats, revisitPenalties: 3 };
+    expect(
+      computeReleaseChance(
+        { cards: discoveredCards(35), effects: [], reachedTiers: [], stats: revisited },
+        rules,
+      ),
+    ).toMatchObject({ revisits: 3, penalty: 3, finalChance: 11 });
     const multiplied = applyEffect([], { type: 'success_multiplier', value: 2 }, 0);
     expect(
       computeReleaseChance({ cards: discoveredCards(41), effects: multiplied, reachedTiers: [4] }, rules)
@@ -89,7 +100,12 @@ describe('win flow (§14)', () => {
   });
 
   it('stacks the draft factor with Hail Mary (§6.0)', () => {
-    const rules = { chancePerDiscovered: 0.5, winChanceBounds: [1, 95] as const, collectibleTiers: [] };
+    const rules = {
+      chancePerDiscovered: 0.5,
+      winChanceBounds: [1, 95] as const,
+      collectibleTiers: [],
+      revisitChancePenalty: 1,
+    };
     const { state } = reachGoal();
     const cards = state.cards.map((card, index) => ({ ...card, discovered: index < 20 }));
     const hailMary = applyEffect([], { type: 'success_multiplier', value: 1.5 }, 0);
@@ -122,6 +138,8 @@ describe('win flow (§14)', () => {
             rate: 1,
             base: 30,
             bonus: 0,
+            revisits: 0,
+            penalty: 0,
             multiplier: 1,
             draftMultiplier: 1,
             finalChance: 30,

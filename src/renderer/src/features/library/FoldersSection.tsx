@@ -22,7 +22,17 @@ export function FoldersSection() {
   const { t } = useTranslation();
   const { snapshot, progress, error, rescan, dismissError } = useLibraryStore();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const addFlow = useAddFolders();
+  // §5 admin: a newly added folder is selected right away so it can be set up
+  const [justAddedId, setJustAddedId] = useState<string | null>(null);
+  const addFlow = useAddFolders((folderIds) => {
+    const [first] = folderIds;
+    if (!first) return;
+    setSelectedId(first);
+    setJustAddedId(first);
+    requestAnimationFrame(() => {
+      document.querySelector(`[data-folder-id="${first}"]`)?.scrollIntoView({ block: 'nearest' });
+    });
+  });
 
   const folders = snapshot?.folders ?? [];
   const selected: FolderConfig | undefined = folders.find((folder) => folder.id === selectedId) ?? folders[0];
@@ -90,9 +100,11 @@ export function FoldersSection() {
                         <li key={folder.id}>
                           <button
                             type="button"
+                            data-folder-id={folder.id}
                             aria-current={isSelected ? 'true' : undefined}
                             onClick={() => {
                               setSelectedId(folder.id);
+                              setJustAddedId(null);
                             }}
                             className={classNames(
                               'flex w-full flex-col items-start gap-0.5 rounded-panel px-4 py-2.5 text-left transition-colors duration-150',
@@ -127,6 +139,7 @@ export function FoldersSection() {
             <FolderDetail
               key={selected.id}
               folder={selected}
+              focusName={selected.id === justAddedId}
               status={snapshot?.status[selected.id]}
               scanning={scanning}
             />

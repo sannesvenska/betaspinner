@@ -241,13 +241,24 @@ Implements game-design **Revision 3** (all rules marked **[v2]**, decision log �
 
 **Verified:** 204 tests; e2e in the running app: beta switched on in the admin, untouched draft re-dealt with the beta mix (6 pixelate / 3 splash / 2 bad / 1 win), 4 pixelate picks → start level 5, 5 performer cards visible on the ring, beta marker on the start screen. Found and fixed: an untouched pending draft was only re-dealt when none existed, so admin mix changes (and switching the beta mode) did not reach it.
 
+## AP11d – Library comfort, revisit penalty, final wheel · M · ✅
+
+| #     | Task                                                                                                                             | Status |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 11d.1 | Add folders: media count per folder in the setup dialog, warning + skip for folders already in the library, new folder selected  | ✅     |
+| 11d.2 | Media library: move selected files to the recycle bin (index and orphaned masks cleaned up)                                      | ✅     |
+| 11d.3 | Mask editor: invert + preview splatter as top-bar toggles (`I` / `S`); tool, invert start value, previews remembered in settings | ✅     |
+| 11d.4 | Revisit penalty: a revisited good field costs 0.5 % release chance; console, task bar and final wheel show it; session schema v6 | ✅     |
+| 11d.5 | Final wheel: accelerate → cruise → short random hard brake instead of a long readable deceleration                               | ✅     |
+| 11d.6 | Dev component showcase removed (was AP12.5)                                                                                      | ✅     |
+
 ## AP12 – Stats, backup, polish, release · M · ⬜
 
 1. Session stats collection + History screen (sortable table, summary; normal vs. beta mode comparison).
 2. Session summary screen.
 3. Backup export/import (ZIP, path remapping; includes `action-art/`).
 4. Accessibility audit (keyboard, focus, contrast, reduced motion), performance audit (6,000 files).
-5. Remove the dev component showcase (AP1.9 / AP8.5).
+5. ~~Remove the dev component showcase~~ – done in AP11d.6.
 6. E2E driver: capture the Playwright walkthrough used for AP9 as a project script (clear `ELECTRON_RUN_AS_NODE` when launched from VS Code).
 7. electron-builder installer (NSIS) + portable build; app icon.
 

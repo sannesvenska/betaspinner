@@ -102,6 +102,15 @@ export function GameConsole({
         })}
       </span>
       {releaseChance.bonus > 0 && <span>{t('console.chance.bonus', { bonus: releaseChance.bonus })}</span>}
+      {releaseChance.penalty > 0 && (
+        <span>
+          {t('console.chance.penalty', {
+            count: releaseChance.revisits,
+            penalty: releaseChance.penalty,
+            rate: rules.revisitChancePenalty,
+          })}
+        </span>
+      )}
       {releaseChance.draftMultiplier > 1 && (
         <span>{t('console.chance.draft', { multiplier: releaseChance.draftMultiplier })}</span>
       )}

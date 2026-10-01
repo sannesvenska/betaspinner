@@ -7,13 +7,14 @@ import type {
   LibrarySnapshot,
   MediaEntry,
   NewFolderInput,
+  PickedFolder,
   ScanProgress,
 } from '@shared/content';
 import { normalizeFolder } from '../config/appConfig';
 import type { ConfigService } from '../config/configService';
 import type { JsonStore } from '../storage/jsonStore';
 import type { ResolvedMedia } from './mediaProtocol';
-import type { ScanFolder } from './scanLibrary';
+import { countMediaFiles, type ScanFolder } from './scanLibrary';
 
 export type RunScan = (
   folders: ScanFolder[],
@@ -27,13 +28,26 @@ interface LibraryServiceOptions {
   runScan: RunScan;
   onProgress: (progress: ScanProgress) => void;
   onChanged: (snapshot: LibrarySnapshot) => void;
+  /** Moves a file to the OS recycle bin (Electron `shell.trashItem`). */
+  trash: (path: string) => Promise<void>;
+}
+
+export interface TrashResult {
+  trashed: number;
+  /** File names that could not be moved to the recycle bin (still indexed) */
+  failed: string[];
+  /** Hashes no indexed file has any more (their masks can go) */
+  orphanedHashes: string[];
 }
 
 export interface LibraryService {
   snapshot: () => LibrarySnapshot;
+  inspectFolders: (paths: readonly string[]) => Promise<PickedFolder[]>;
   addFolders: (inputs: NewFolderInput[]) => Promise<LibrarySnapshot>;
   updateFolder: (id: string, patch: FolderPatch) => Promise<LibrarySnapshot>;
   removeFolder: (id: string) => Promise<LibrarySnapshot>;
+  /** game-design §12.2: moves media files of one folder to the recycle bin and drops them from the index. */
+  trashMedia: (folderId: string, hashes: readonly string[]) => Promise<TrashResult>;
   /** Single-flight: a call during a running scan schedules exactly one follow-up scan. */
   rescan: () => Promise<LibrarySnapshot>;
   listMedia: (folderId: string, offset: number, limit: number) => { entries: MediaEntry[]; total: number };
@@ -112,6 +126,18 @@ export async function createLibraryService(options: LibraryServiceOptions): Prom
     return runningScan;
   }
 
+  /** Setup dialog data: media count (same rules as the scan) and whether the path is already a folder. */
+  async function inspectFolders(paths: readonly string[]): Promise<PickedFolder[]> {
+    const known = new Map(folders().map((folder) => [pathKey(folder.path), folder.displayName]));
+    return Promise.all(
+      paths.map(async (path) => ({
+        path,
+        mediaCount: await countMediaFiles(path),
+        alreadyAdded: known.get(pathKey(path)) ?? null,
+      })),
+    );
+  }
+
   async function addFolders(inputs: NewFolderInput[]): Promise<LibrarySnapshot> {
     const knownPaths = new Set(folders().map((folder) => pathKey(folder.path)));
     const added = inputs.flatMap((input) => {
@@ -160,6 +186,43 @@ export async function createLibraryService(options: LibraryServiceOptions): Prom
     return snapshot();
   }
 
+  async function trashMedia(folderId: string, hashes: readonly string[]): Promise<TrashResult> {
+    const wanted = new Set(hashes);
+    const targets = index.entries.filter((entry) => entry.folderId === folderId && wanted.has(entry.hash));
+    const trashedPaths = new Set<string>();
+    const failed: string[] = [];
+    for (const entry of targets) {
+      try {
+        await options.trash(entry.path);
+        trashedPaths.add(entry.path);
+      } catch (error) {
+        console.error('[library] could not move to the recycle bin', entry.path, error);
+        failed.push(entry.fileName);
+      }
+    }
+    if (trashedPaths.size > 0) {
+      const status = index.folders[folderId];
+      index = {
+        entries: index.entries.filter((entry) => !trashedPaths.has(entry.path)),
+        folders: status
+          ? {
+              ...index.folders,
+              [folderId]: { ...status, mediaCount: Math.max(0, status.mediaCount - trashedPaths.size) },
+            }
+          : index.folders,
+      };
+      rebuildLookup();
+      await options.indexStore.write(index);
+      emitChanged();
+    }
+    const remaining = new Set(index.entries.map((entry) => entry.hash));
+    return {
+      trashed: trashedPaths.size,
+      failed,
+      orphanedHashes: [...wanted].filter((hash) => !remaining.has(hash)),
+    };
+  }
+
   function listMedia(folderId: string, offset: number, limit: number) {
     const entries = index.entries.filter((entry) => entry.folderId === folderId);
     return { entries: entries.slice(offset, offset + limit), total: entries.length };
@@ -174,5 +237,16 @@ export async function createLibraryService(options: LibraryServiceOptions): Prom
 
   const mediaEntries = (): readonly MediaEntry[] => index.entries;
 
-  return { snapshot, addFolders, updateFolder, removeFolder, rescan, listMedia, resolveMedia, mediaEntries };
+  return {
+    snapshot,
+    inspectFolders,
+    addFolders,
+    updateFolder,
+    removeFolder,
+    trashMedia,
+    rescan,
+    listMedia,
+    resolveMedia,
+    mediaEntries,
+  };
 }

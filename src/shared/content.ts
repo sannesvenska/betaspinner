@@ -21,6 +21,15 @@ export interface FolderConfig {
   minImages: number;
 }
 
+/** A folder chosen in the picker, inspected before it is added (setup dialog). */
+export interface PickedFolder {
+  path: string;
+  /** Playable files directly inside (non-recursive, like the scan); null = not readable */
+  mediaCount: number | null;
+  /** Display name of the library folder with the same path – it would not be added again */
+  alreadyAdded: string | null;
+}
+
 /** Fields the user picks when adding a folder; everything else starts at defaults. */
 export type NewFolderInput = Pick<FolderConfig, 'path' | 'displayName' | 'group' | 'role'>;
 

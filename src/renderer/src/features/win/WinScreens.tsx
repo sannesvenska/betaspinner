@@ -11,10 +11,11 @@ import { playCue } from '@renderer/sound/sound';
 import { FinalWheel, type FinalWheelHandle } from './FinalWheel';
 import {
   landingAngle,
-  planDeceleration,
+  planSpin,
+  randomBrakeMs,
   rotationAt,
   SPIN_DEG_PER_SECOND,
-  type Deceleration,
+  type SpinPlan,
 } from './finalWheelMotion';
 
 const MS_PER_SECOND = 1000;
@@ -114,8 +115,8 @@ function WinLayout({
 type WheelStage = 'ready' | 'spinning' | 'holding' | 'stopped';
 
 /**
- * §14.1 v2 + §14.2 – the release chance is fixed on landing (no roll); constant spin, then Hold Position
- * decelerates the wheel onto the decided result at t = 0.
+ * §14.1 v2 + §14.2 – the release chance is fixed on landing (no roll); calm spin, then Hold Position
+ * speeds the wheel up and brakes it hard onto the decided result at t = 0.
  */
 export function FinalWheelScreen({ session }: { session: SessionState }) {
   const { t } = useTranslation();
@@ -124,7 +125,7 @@ export function FinalWheelScreen({ session }: { session: SessionState }) {
   const scale = useAnimationScale();
   const wheelRef = useRef<FinalWheelHandle>(null);
   const rotation = useRef(0);
-  const plan = useRef<Deceleration | null>(null);
+  const plan = useRef<SpinPlan | null>(null);
   const elapsed = useRef(0);
   const lastSecond = useRef(-1);
   const [stage, setStage] = useState<WheelStage>(session.finalWheel ? 'spinning' : 'ready');
@@ -177,7 +178,7 @@ export function FinalWheelScreen({ session }: { session: SessionState }) {
   const hold = useCallback(() => {
     if (!wheel || !check) return;
     const target = landingAngle(wheel.result, wheel.landing, check.finalChance);
-    plan.current = planDeceleration(rotation.current, target, wheel.holdSeconds * MS_PER_SECOND);
+    plan.current = planSpin(rotation.current, target, wheel.holdSeconds * MS_PER_SECOND, randomBrakeMs());
     elapsed.current = 0;
     setSecondsLeft(wheel.holdSeconds);
     setStage('holding');
@@ -260,6 +261,14 @@ export function FinalWheelScreen({ session }: { session: SessionState }) {
               label={t('win.bonus')}
               value={`+${check.bonus} %`}
               detail={t('win.bonusDetail', { collected: session.collected })}
+              tone="muted"
+            />
+          )}
+          {check.penalty > 0 && (
+            <Stat
+              label={t('win.revisitPenalty')}
+              value={`−${check.penalty} %`}
+              detail={t('win.revisitPenaltyDetail', { count: check.revisits })}
               tone="muted"
             />
           )}

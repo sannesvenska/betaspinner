@@ -1,3 +1,4 @@
+import type { Dirent } from 'node:fs';
 import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { FolderConfig, FolderScanStatus, LibraryIndex, MediaEntry, ScanProgress } from '@shared/content';
@@ -29,12 +30,25 @@ const cacheKey = (path: string, size: number, mtimeMs: number): string => `${pat
 
 const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
+const isMediaFile = (entry: Dirent): boolean =>
+  entry.isFile() && !entry.name.startsWith('.') && mediaFormatOf(entry.name) !== undefined;
+
+/** Files the scan would pick up (setup dialog); null when the folder cannot be read. */
+export async function countMediaFiles(path: string): Promise<number | null> {
+  try {
+    const entries = await readdir(path, { withFileTypes: true });
+    return entries.filter(isMediaFile).length;
+  } catch {
+    return null;
+  }
+}
+
 async function listMediaFiles(folder: ScanFolder): Promise<PendingFile[]> {
   // Non-recursive: one folder = one category
   const entries = await readdir(folder.path, { withFileTypes: true });
   const files: PendingFile[] = [];
   for (const entry of entries) {
-    if (!entry.isFile() || entry.name.startsWith('.') || !mediaFormatOf(entry.name)) continue;
+    if (!isMediaFile(entry)) continue;
     const path = join(folder.path, entry.name);
     try {
       const info = await stat(path);

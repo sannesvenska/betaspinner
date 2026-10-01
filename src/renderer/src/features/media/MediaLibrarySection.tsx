@@ -7,6 +7,9 @@ import { useMasksStore } from '@renderer/stores/masksStore';
 import { Alert } from '@renderer/ui/Alert';
 import { Button } from '@renderer/ui/Button';
 import { classNames } from '@renderer/ui/classNames';
+import { Dialog } from '@renderer/ui/Dialog';
+import { DIALOG_AUTOFOCUS } from '@renderer/ui/dialogAutofocus';
+import { Icon } from '@renderer/ui/icons/Icon';
 import { Media } from '@renderer/ui/Media';
 import { ProgressBar } from '@renderer/ui/ProgressBar';
 import { SegmentedControl } from '@renderer/ui/SegmentedControl';
@@ -56,6 +59,7 @@ export function MediaLibrarySection() {
   const [anchor, setAnchor] = useState<number | null>(null);
   const [editorIndex, setEditorIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmTrash, setConfirmTrash] = useState(false);
   const activeFolder = folders.find((folder) => folder.id === folderId) ?? folders[0];
 
   const loadSummary = useCallback(async () => {
@@ -129,6 +133,25 @@ export function MediaLibrarySection() {
       return;
     }
     forgetMasks(hashes);
+    await Promise.all([loadEntries(), loadSummary()]);
+  };
+
+  /** §12.2: selected files go to the Windows recycle bin and leave the game. */
+  const trashSelection = async () => {
+    setConfirmTrash(false);
+    if (!activeFolder) return;
+    const hashes = [...selection];
+    const result = await window.api.invoke('library:trashMedia', { folderId: activeFolder.id, hashes });
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    if (result.data.failed.length > 0)
+      setError(
+        t('media.trash.failed', { count: result.data.failed.length, files: result.data.failed.join(', ') }),
+      );
+    forgetMasks(hashes);
+    clearSelection();
     await Promise.all([loadEntries(), loadSummary()]);
   };
 
@@ -222,6 +245,16 @@ export function MediaLibrarySection() {
             <Button variant="outline" disabled={selection.size === 0} onClick={() => void bulk('clear')}>
               {t('media.bulk.clear')}
             </Button>
+            <Button
+              variant="outline"
+              disabled={selection.size === 0}
+              onClick={() => {
+                setConfirmTrash(true);
+              }}
+            >
+              <Icon name="trash" size={16} />
+              {t('media.trash.action')}
+            </Button>
           </div>
         </div>
         {error && (
@@ -274,6 +307,30 @@ export function MediaLibrarySection() {
         )}
         <p className="text-body-sm text-ink-muted">{t('media.hint')}</p>
       </section>
+
+      <Dialog
+        open={confirmTrash}
+        onClose={() => {
+          setConfirmTrash(false);
+        }}
+        title={t('media.trash.title', { count: selection.size })}
+      >
+        <p className="px-8 py-4 text-body text-ink-2">{t('media.trash.body', { count: selection.size })}</p>
+        <div className="flex justify-end gap-3 px-8 pb-7">
+          <Button
+            variant="text"
+            {...DIALOG_AUTOFOCUS}
+            onClick={() => {
+              setConfirmTrash(false);
+            }}
+          >
+            {t('common.cancel')}
+          </Button>
+          <Button variant="primary" onClick={() => void trashSelection()}>
+            {t('media.trash.confirm', { count: selection.size })}
+          </Button>
+        </div>
+      </Dialog>
 
       {editorIndex !== null && (
         <MaskEditor

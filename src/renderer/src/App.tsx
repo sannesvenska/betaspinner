@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Showcase } from './dev/Showcase';
 import { GameFlow } from './features/game/GameFlow';
 import { PauseScreen } from './features/game/PauseScreen';
 import { AdminScreen } from './features/admin/AdminScreen';
@@ -98,8 +97,7 @@ export function App() {
 
   const session = sessionSnapshot?.session ?? null;
   let content;
-  if (screen === 'showcase' && import.meta.env.DEV) content = <Showcase />;
-  else if (screen === 'admin') content = <AdminScreen />;
+  if (screen === 'admin') content = <AdminScreen />;
   else if (!hasLoadedSession)
     content = <div className="p-12 font-label text-label text-ink-muted">{t('app.loading')}</div>;
   else if (session) content = <GameFlow session={session} />;

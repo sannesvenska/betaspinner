@@ -72,6 +72,8 @@ export interface SessionRules {
   winChanceBounds: Range;
   /** Release chance in percent per discovered card (§14.1 v2) */
   chancePerDiscovered: number;
+  /** Percentage points lost per revisited good field that turns bad (§8.5, §14.1) */
+  revisitChancePenalty: number;
   /** Final wheel Hold Position countdown cap in seconds (§14.2 v2) */
   holdSecondsCap: number;
   /** Bad → good conversions per detour (§8.4) */
@@ -230,6 +232,8 @@ export type ResolutionStep =
       tierable?: boolean;
       /** Revisit: the field turned into a bad card (§8.5) or a collected card shows a plain task (§9.4) */
       revisit?: 'converted' | 'collectible';
+      /** Release chance points this revisit cost (a good field turned bad, §8.5) */
+      revisitPenalty?: number;
     }
   | { kind: 'hold'; seconds: number; thenPickEffect: boolean }
   | { kind: 'timed_task'; seconds: number; pace: Pace | null }
@@ -264,6 +268,10 @@ export interface ReleaseChance {
   base: number;
   /** Collectible tier bonus in percent */
   bonus: number;
+  /** Revisited good fields that turned bad (§8.5) */
+  revisits: number;
+  /** revisits × penalty, percent */
+  penalty: number;
   /** Hail Mary success multiplier */
   multiplier: number;
   /** Draft "double the win chance" factor (§6.0), stacks with Hail Mary */
@@ -296,6 +304,8 @@ export interface SessionStats {
   detours: number;
   /** Revisited fields turned bad (§8.5) */
   revisitConversions: number;
+  /** Of those, fields that were good – each costs release chance (§14.1) */
+  revisitPenalties: number;
   goalDrifts: number;
   forcedReversals: number;
   /** Confirmed normal-card tasks per stroke tier, index 0 = ×1 */

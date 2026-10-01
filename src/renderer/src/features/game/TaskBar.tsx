@@ -275,7 +275,11 @@ export function TaskBar({
             <Title>{t('task.count', { count: step.count * tier })}</Title>
             <div className="text-body text-ink-2">
               {[
-                step.revisit === 'converted' ? t('task.revisit') : null,
+                step.revisit === 'converted'
+                  ? step.revisitPenalty
+                    ? t('task.revisitPenalty', { penalty: step.revisitPenalty })
+                    : t('task.revisit')
+                  : null,
                 step.revisit === 'collectible' ? t('task.collectibleRevisit') : null,
                 actionTitle ? actionDescription : null,
                 multiplied ? t('task.base', { base: step.count / 2 }) : null,

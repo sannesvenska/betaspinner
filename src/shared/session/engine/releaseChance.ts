@@ -16,21 +16,26 @@ export function collectibleBonusPercent(
 
 /**
  * game-design §14.1 – deterministic release chance, shown live in the console:
- * `clamp(floor((discovered × rate + bonus) × Hail Mary × draft factor), min, max)`.
+ * `clamp(floor((discovered × rate + bonus − revisits × penalty) × Hail Mary × draft factor), min, max)`.
  */
 export function computeReleaseChance(
   state: Pick<SessionState, 'cards' | 'effects' | 'reachedTiers'> &
-    Partial<Pick<SessionState, 'draftMultiplier'>>,
-  rules: Pick<SessionRules, 'chancePerDiscovered' | 'winChanceBounds' | 'collectibleTiers'>,
+    Partial<Pick<SessionState, 'draftMultiplier' | 'stats'>>,
+  rules: Pick<
+    SessionRules,
+    'chancePerDiscovered' | 'winChanceBounds' | 'collectibleTiers' | 'revisitChancePenalty'
+  >,
 ): ReleaseChance {
   const discovered = state.cards.filter((card) => card.discovered).length;
   const rate = rules.chancePerDiscovered;
   const base = discovered * rate;
   const bonus = collectibleBonusPercent(state.reachedTiers, rules.collectibleTiers);
+  const revisits = state.stats?.revisitPenalties ?? 0;
+  const penalty = revisits * rules.revisitChancePenalty;
   const multiplier = getSuccessMultiplier(state.effects);
   const draftMultiplier = state.draftMultiplier ?? 1;
   const [min, max] = rules.winChanceBounds;
-  const raw = (base + bonus) * multiplier * draftMultiplier;
+  const raw = Math.max(0, base + bonus - penalty) * multiplier * draftMultiplier;
   const finalChance = Math.min(max, Math.max(min, Math.floor(raw + FLOOR_EPSILON)));
-  return { discovered, rate, base, bonus, multiplier, draftMultiplier, finalChance };
+  return { discovered, rate, base, bonus, revisits, penalty, multiplier, draftMultiplier, finalChance };
 }

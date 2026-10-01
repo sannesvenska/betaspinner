@@ -167,18 +167,18 @@ Reference mockup: `Chance Runner Game Screen v0.3.html` (local mockup folder) �
 
 Framer Motion. Every animation is skippable (`Space`/click → end state), every result is decided before the animation starts. `animationSpeed` multiplies all durations. With `prefers-reduced-motion` or the `reducedMotion` setting, all movement becomes a 150 ms crossfade and wheels/dice jump to their result.
 
-| Element       | Duration                   | Easing                        | Choreography                                                                                                               |
-| ------------- | -------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Dice roll     | 900 ms                     | `cubic-bezier(.2,.8,.2,1)`    | Ring center cycles 10–12 numbers, decelerating, lands with scale 1.06 → 1 (160 ms). Direction buttons fade in 150 ms after |
-| Marker move   | 120 ms / field             | linear per step               | Ring rotates one segment per step; passed segments flash `ink-muted` outline, stay undiscovered                            |
-| Card reveal   | 420 ms                     | easeInOut                     | Landed segment fills; media crossfades in (240 ms); task bar slides up 8px + fades (200 ms, 80 ms delay)                   |
-| Start wheel   | 4.5–6 s                    | `cubic-bezier(.12,.72,.18,1)` | Precomputed target angle + 4–6 turns. Penalty landing: segment pulses once, then lockout countdown replaces the hub        |
-| Final wheel   | = discovered s             | custom decel to t = 0         | Constant spin until Hold Position, then decelerates to stop exactly at 0                                                   |
-| Countdown     | 1 s ticks                  | none                          | Number swaps, last 3 s `bad`                                                                                               |
-| Effect chip   | 200 ms                     | easeOut                       | Enter fade + y 6 → 0; counter crossfade; exit 160 ms, siblings reflow (layout animation)                                   |
-| Action reveal | 320 ms                     | easeOut                       | Banner scales 0.96 → 1; bad actions: single 1px `bad` flash on the task bar top border                                     |
-| Drawer        | 220 ms enter / 160 ms exit | easeOut / easeIn              | Slide from right 24px + fade                                                                                               |
-| Pause         | 0 ms                       | –                             | Instant both ways                                                                                                          |
+| Element       | Duration                   | Easing                         | Choreography                                                                                                               |
+| ------------- | -------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Dice roll     | 900 ms                     | `cubic-bezier(.2,.8,.2,1)`     | Ring center cycles 10–12 numbers, decelerating, lands with scale 1.06 → 1 (160 ms). Direction buttons fade in 150 ms after |
+| Marker move   | 120 ms / field             | linear per step                | Ring rotates one segment per step; passed segments flash `ink-muted` outline, stay undiscovered                            |
+| Card reveal   | 420 ms                     | easeInOut                      | Landed segment fills; media crossfades in (240 ms); task bar slides up 8px + fades (200 ms, 80 ms delay)                   |
+| Start wheel   | 4.5–6 s                    | `cubic-bezier(.12,.72,.18,1)`  | Precomputed target angle + 4–6 turns. Penalty landing: segment pulses once, then lockout countdown replaces the hub        |
+| Final wheel   | = discovered s             | accelerate, cruise, hard brake | Calm spin until Hold Position, then speeds up to cruise and brakes hard in the last 1.2–1.8 s to stop exactly at 0         |
+| Countdown     | 1 s ticks                  | none                           | Number swaps, last 3 s `bad`                                                                                               |
+| Effect chip   | 200 ms                     | easeOut                        | Enter fade + y 6 → 0; counter crossfade; exit 160 ms, siblings reflow (layout animation)                                   |
+| Action reveal | 320 ms                     | easeOut                        | Banner scales 0.96 → 1; bad actions: single 1px `bad` flash on the task bar top border                                     |
+| Drawer        | 220 ms enter / 160 ms exit | easeOut / easeIn               | Slide from right 24px + fade                                                                                               |
+| Pause         | 0 ms                       | –                              | Instant both ways                                                                                                          |
 
 ---
 

@@ -4,11 +4,8 @@
     "loading": "Loading…",
     "loadError": "Could not load settings: {{error}}"
   },
-  "home": {
-    "openShowcase": "Component showcase"
-  },
+  "home": {},
   "common": {
-    "done": "Done",
     "close": "Close",
     "cancel": "Cancel",
     "back": "Back",
@@ -35,7 +32,9 @@
       "bonus": "+{{bonus}} % performer bonus",
       "multiplier": "× {{multiplier}} Hail Mary",
       "cap": "Always between {{min}} and {{max}} %",
-      "draft": "× {{multiplier}} draft"
+      "draft": "× {{multiplier}} draft",
+      "penalty_one": "−{{penalty}} % for {{count}} revisited good field",
+      "penalty_other": "−{{penalty}} % for {{count}} revisited good fields ({{rate}} % each)"
     }
   },
   "countdown": {
@@ -75,29 +74,6 @@
       "name": "Shield",
       "description": "Blocks the next bad action (not Mistress Says No)."
     }
-  },
-  "showcase": {
-    "title": "Component showcase",
-    "buttons": "Buttons",
-    "chips": "Effect chips",
-    "stats": "Stats",
-    "countdown": "Countdown",
-    "holdToConfirm": "Hold to confirm",
-    "confirmed": "Confirmed",
-    "icons": "Action icons",
-    "overlays": "Dialog & drawer",
-    "openDialog": "Open dialog",
-    "openDrawer": "Open drawer",
-    "dialogTitle": "Example dialog",
-    "dialogBody": "Focus is trapped inside. Press Esc to close.",
-    "drawerTitle": "Discovered cards",
-    "drawerBody": "The gallery grid lands here in AP5.",
-    "restart": "Restart",
-    "primary": "Roll",
-    "text": "Text",
-    "disabled": "Disabled",
-    "openFolderSetup": "Folder setup dialog",
-    "effects": "Visual effects"
   },
   "action": {
     "clearing_edges": {
@@ -252,6 +228,17 @@
       "panHint": "+ drag to pan · mouse wheel to zoom · 0 resets",
       "invert": "Invert mask",
       "invertHint": "Effects go everywhere except inside the regions – e.g. draw a circle that stays sharp."
+    },
+    "trash": {
+      "action": "Move to recycle bin",
+      "title_one": "Move {{count}} file to the recycle bin?",
+      "title_other": "Move {{count}} files to the recycle bin?",
+      "body_one": "The file goes to the Windows recycle bin and is no longer used in the game. Its mask is removed. You can restore it from the recycle bin; a rescan then adds it again.",
+      "body_other": "The files go to the Windows recycle bin and are no longer used in the game. Their masks are removed. You can restore them from the recycle bin; a rescan then adds them again.",
+      "confirm_one": "Move file",
+      "confirm_other": "Move {{count}} files",
+      "failed_one": "{{count}} file could not be moved (still in use?): {{files}}",
+      "failed_other": "{{count}} files could not be moved (still in use?): {{files}}"
     }
   },
   "library": {
@@ -310,7 +297,15 @@
       "submit_one": "Add folder",
       "submit_other": "Add {{count}} folders",
       "nameRequired": "Enter a display name.",
-      "groupRequired": "Choose good or bad."
+      "groupRequired": "Choose good or bad.",
+      "mediaCount_one": "{{count}} image or video",
+      "mediaCount_other": "{{count}} images or videos",
+      "mediaNone": "No images or videos in this folder (subfolders are not included).",
+      "mediaFew": "Fewer than {{min}} – the folder is only used once it has enough files.",
+      "unreadable": "The folder cannot be read.",
+      "alreadyAdded": "Already in the library as \"{{name}}\" – it is skipped.",
+      "allAdded_one": "This folder is already in the library.",
+      "allAdded_other": "All these folders are already in the library."
     },
     "empty": {
       "eyebrow": "First start",
@@ -488,7 +483,8 @@
     "revisit": "Revisited – this field turned bad",
     "collectibleRevisit": "Already collected – no bonus",
     "dice_one": "{{count}} die",
-    "dice_other": "{{count}} dice"
+    "dice_other": "{{count}} dice",
+    "revisitPenalty": "Revisited – this good field turned bad · release chance −{{penalty}} %"
   },
   "step": {
     "pickEffect": "Pick a negative effect to remove",
@@ -574,7 +570,10 @@
     "bonus": "Performer bonus",
     "bonusDetail": "{{collected}} collected",
     "draftFactor": "Draft",
-    "draftFactorDetail": "Win chance factor from the draw"
+    "draftFactorDetail": "Win chance factor from the draw",
+    "revisitPenalty": "Revisits",
+    "revisitPenaltyDetail_one": "{{count}} good field turned bad",
+    "revisitPenaltyDetail_other": "{{count}} good fields turned bad"
   },
   "outcome": {
     "allowedTitle": "Success allowed",
@@ -738,7 +737,8 @@
       "draftComposition_splash": "Splash fields",
       "draftComposition_bad": "Bad fields",
       "draftComposition_good": "Good fields",
-      "draftComposition_double": "Win ×2 fields"
+      "draftComposition_double": "Win ×2 fields",
+      "revisitChancePenalty": "Release chance lost per revisited good field (%)"
     },
     "option": {
       "actionRetrigger": {

@@ -264,3 +264,33 @@ describe('Redemption (§10.1)', () => {
     });
   });
 });
+
+describe('revisit penalty (§8.5, §14.1)', () => {
+  function revisit(group: 'good' | 'bad') {
+    const { session, context } = readyToRoll();
+    const target = wrapField(session.position + 1);
+    const state = withCard(withGoal(session, wrapField(session.position + 50)), {
+      field: target,
+      kind: 'normal',
+      group,
+      folderId: `${group}-a`,
+      taskCount: 5,
+      discovered: true,
+    });
+    return moveBy(state, context, 1, 'right');
+  }
+
+  it('a revisited good field turns bad and costs release chance', () => {
+    const state = revisit('good');
+    expect(state.stats.revisitConversions).toBe(1);
+    expect(state.stats.revisitPenalties).toBe(1);
+    expect(state.pending.at(-1)).toMatchObject({ kind: 'task', revisit: 'converted', revisitPenalty: 0.5 });
+  });
+
+  it('a revisited bad field costs nothing extra', () => {
+    const state = revisit('bad');
+    expect(state.stats.revisitConversions).toBe(1);
+    expect(state.stats.revisitPenalties).toBe(0);
+    expect(state.pending.at(-1)).not.toHaveProperty('revisitPenalty');
+  });
+});

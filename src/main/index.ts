@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { app, BrowserWindow, dialog, globalShortcut } from 'electron';
+import { app, BrowserWindow, dialog, globalShortcut, shell } from 'electron';
 import type { LibraryIndex } from '@shared/content';
 import { DEFAULT_PROGRESSION } from '@shared/session/defaults';
 import type { SessionRecord } from '@shared/session/history';
@@ -117,6 +117,7 @@ async function startApp(): Promise<void> {
     onChanged: (snapshot) => {
       broadcast('library:changed', snapshot);
     },
+    trash: (path) => shell.trashItem(path),
   });
 
   const actionArt = createActionArtStore(userData);
@@ -215,13 +216,18 @@ async function startApp(): Promise<void> {
       const result = window
         ? await dialog.showOpenDialog(window, options)
         : await dialog.showOpenDialog(options);
-      return result.canceled ? [] : result.filePaths;
+      return result.canceled ? [] : library.inspectFolders(result.filePaths);
     },
     'library:addFolders': (inputs) => library.addFolders(inputs),
     'library:updateFolder': ({ id, patch }) => library.updateFolder(id, patch),
     'library:removeFolder': ({ id }) => library.removeFolder(id),
     'library:rescan': () => library.rescan(),
     'library:listMedia': ({ folderId, offset, limit }) => library.listMedia(folderId, offset, limit),
+    'library:trashMedia': async ({ folderId, hashes }) => {
+      const result = await library.trashMedia(folderId, hashes);
+      if (result.orphanedHashes.length > 0) await masks.bulk(result.orphanedHashes, 'clear');
+      return { trashed: result.trashed, failed: result.failed };
+    },
     'session:getSnapshot': () => sessions.snapshot(),
     'session:spin': () => sessions.spin(),
     'session:dispatch': (event) => sessions.dispatch(event),

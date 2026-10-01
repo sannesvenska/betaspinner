@@ -3,7 +3,8 @@ import { classNames } from './classNames';
 import { KeyHint } from './KeyHint';
 
 type ButtonVariant = 'primary' | 'outline' | 'text';
-type ButtonSize = 'console' | 'primary';
+/** compact = dense toolbars (mask editor) */
+type ButtonSize = 'compact' | 'console' | 'primary';
 
 interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
   variant?: ButtonVariant;
@@ -19,6 +20,7 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
+  compact: 'h-10 px-3 text-button',
   console: 'h-13 px-5 text-button',
   primary: 'h-18 px-10 text-button-lg',
 };

@@ -9,6 +9,8 @@ import { computeReleaseChance } from './releaseChance';
 
 const MAX_EVENTS = 4000;
 const DIE_MAX = 6;
+/** Score malus for landing on a discovered good field (worth a few fields of distance) */
+const REVISIT_AVOIDANCE = 5;
 const DIRECTIONS: readonly Direction[] = ['left', 'right'];
 const sign = (direction: Direction) => (direction === 'right' ? 1 : -1);
 
@@ -40,9 +42,14 @@ function botEvent(state: SessionState, context: EngineContext, targetChance: num
         const target = wrapField(state.position + sign(direction) * steps);
         const card = state.cards[target - 1];
         const distance = shortDistance(target, state.goalField);
+        // Revisiting a good field costs release chance (§8.5) – avoided when there is a choice
+        const costly =
+          card?.discovered === true && card.kind === 'normal' && card.group === 'good'
+            ? REVISIT_AVOIDANCE
+            : 0;
         const score = exploring
-          ? (card?.discovered ? 0 : 10) + (target === state.goalField ? -100 : 0) + distance / 100
-          : (target === state.goalField ? 1000 : 0) - distance;
+          ? (card?.discovered ? 0 : 10) + (target === state.goalField ? -100 : 0) + distance / 100 - costly
+          : (target === state.goalField ? 1000 : 0) - distance - costly;
         return { direction, score };
       },
     );

@@ -92,6 +92,7 @@ export const emptyStats = (): SessionStats => ({
   detourConversions: 0,
   detours: 0,
   revisitConversions: 0,
+  revisitPenalties: 0,
   goalDrifts: 0,
   forcedReversals: 0,
   strokeTiers: Array<number>(STROKE_TIER_SLOTS).fill(0),

@@ -7,9 +7,9 @@ import { DRAFT_FIELD_TYPES, type DraftFieldType, type DraftState } from '@shared
 export const PROGRESSION_SCHEMA_VERSION = 1;
 /**
  * v2 = gameplay v2 (older sessions cannot be resumed), v3 = rules snapshot (AP10), v4 = draft (§6.0),
- * v5 = beta mode (§6.7).
+ * v5 = beta mode (§6.7), v6 = revisit penalty (§8.5).
  */
-export const SESSION_SCHEMA_VERSION = 5;
+export const SESSION_SCHEMA_VERSION = 6;
 export const HISTORY_SCHEMA_VERSION = 1;
 
 /** Marker for a session of an older schema: discarded without scoring on load (§8.3 v2). */
@@ -42,6 +42,17 @@ export const SESSION_MIGRATIONS: Readonly<Record<number, (data: unknown) => unkn
         ...rules,
       },
       draft,
+    };
+  },
+  // v6: running sessions keep their rules – no revisit penalty for them
+  5: (data) => {
+    if (!isRecord(data) || data.legacyDiscarded === true) return data;
+    const rules = isRecord(data.rules) ? data.rules : {};
+    const stats = isRecord(data.stats) ? data.stats : {};
+    return {
+      ...data,
+      rules: { revisitChancePenalty: 0, ...rules },
+      stats: { revisitPenalties: 0, ...stats },
     };
   },
 };

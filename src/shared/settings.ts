@@ -8,6 +8,22 @@ export interface AppSettings {
   sound: { enabled: boolean; volume: number };
   /** Global pause hotkey as Electron accelerator (game-design §19), e.g. `CommandOrControl+Shift+Space`. */
   pauseHotkey: string;
+  /** Mask editor choices kept between images and app starts (game-design §12.3). */
+  maskEditor: MaskEditorSettings;
+}
+
+export const MASK_DRAW_TOOLS = ['rect', 'ellipse', 'polygon', 'lasso'] as const;
+export type MaskDrawTool = (typeof MASK_DRAW_TOOLS)[number];
+export const MASK_PREVIEW_LEVELS = 5;
+
+export interface MaskEditorSettings {
+  /** Last drawing tool (select is never remembered) */
+  tool: MaskDrawTool;
+  /** Start value of "invert" for images without a saved mask */
+  inverted: boolean;
+  previewSplatter: boolean;
+  /** Pixelate preview level 0..5 */
+  previewLevel: number;
 }
 
 export const LANGUAGE_PACKS = ['en-nsfw'] as const;
@@ -22,6 +38,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   reducedMotion: false,
   sound: { enabled: false, volume: 0.6 },
   pauseHotkey: 'CommandOrControl+Shift+Space',
+  maskEditor: { tool: 'rect', inverted: false, previewSplatter: false, previewLevel: 0 },
 };
 
 const MODIFIERS = ['CommandOrControl', 'Control', 'Alt', 'Shift', 'Super'] as const;
