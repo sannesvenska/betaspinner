@@ -876,5 +876,97 @@
     "continue": "Continue to the wheel",
     "beta": "Beta mode",
     "bodyBeta": "Turn over {{picks}} of {{total}} hidden fields. They decide a start pixelate, splatter on the cards, bad cards and maybe a doubled win chance."
+  },
+  "help": {
+    "title": "Help",
+    "nav": "Help topics",
+    "topic": {
+      "basics": "How to play",
+      "draft": "Draft & start wheel",
+      "moving": "Moving",
+      "cards": "Cards",
+      "board": "The board changes",
+      "chance": "Release chance",
+      "effects": "Effects",
+      "actions": "Action cards",
+      "progression": "Penalties & rewards",
+      "controls": "Controls"
+    },
+    "basics": {
+      "intro": "Every session is a walk around a ring of 100 hidden cards. Each card you land on shows an image and gives you a task. Your aim: reach the goal field with a release chance as high as possible – then the final wheel decides.",
+      "step1": "1 · Draw: turn over some hidden fields. They shape the coming session.",
+      "step2": "2 · Spin the start wheel: its number places the goal and is your first task.",
+      "step3": "3 · Roll, pick a direction, land, do the task. Every new card raises your release chance.",
+      "step4": "4 · Land on the goal: the release chance is fixed and the final wheel spins.",
+      "step5": "5 · White = success allowed, red = denied. The result changes your progression.",
+      "tip": "Explore longer for a higher chance, or head for the goal early – it is always your decision."
+    },
+    "draft": {
+      "intro": "Before the start wheel you turn over {{picks}} of {{total}} hidden fields. Only the fields you pick count:",
+      "off": "The draft is switched off – the session starts with the start wheel.",
+      "type": {
+        "bad": "turns part of the good cards bad.",
+        "good": "turns part of the bad cards good.",
+        "pixelate": "starts the session pixelated – more fields, stronger pixelation.",
+        "splash": "{{splash}} % of the cards start splattered.",
+        "double": "multiplies your release chance by {{factor}} (Bad Luck cannot remove it)."
+      },
+      "wheel": "The start wheel then picks a number. Red fields on it are penalty fields: landing there locks the game for {{minutes}} minutes."
+    },
+    "moving": {
+      "roll": "Roll the dice, then choose left or right. The direction buttons show where you would land and whether the move is a detour.",
+      "direction": "Some cards block a direction for a few rounds (U Turn); the blocked side is marked on the ring.",
+      "tiers": "Stroke tiers: on normal cards you may multiply the task (up to ×{{max}}). The next roll then uses as many dice – higher tiers mean bigger jumps.",
+      "reversal": "Forced reversal: in about {{percent}} % of the rolls you may only move back the way you came.",
+      "preview": "Hover a discovered field on the ring (or use ←/→ while the ring has focus) to see its image again."
+    },
+    "cards": {
+      "normal": "Normal cards: good (light) or bad (hatched) – a task with an image from the session categories.",
+      "action": "Action cards trigger something special. On the ring a circle marks a good one, a diamond a bad one.",
+      "performer": "Performer cards (blue, star) are hidden among the others. Collecting them unlocks bonus tiers once per session.",
+      "performerVisible": "Performer cards (blue, star) are visible on the ring from the start – plan your way to collect them. Collecting them unlocks bonus tiers once per session.",
+      "tierConvert": "{{collected}} collected: {{count}} bad cards turn good.",
+      "tierChance": "{{collected}} collected: +{{percent}} % release chance.",
+      "relief": "The first visit to a performer card also lowers pixelate by {{count}} level.",
+      "goal": "The goal field (flag) ends the round trip and starts the final wheel."
+    },
+    "board": {
+      "detour": "Detour: a move that takes you farther from the goal turns {{count}} hidden bad card(s) good.",
+      "revisit": "Revisit: landing on a field you already discovered turns it into a bad card with a new image.",
+      "revisitPenalty": "Revisit: landing on a field you already discovered turns it into a bad card with a new image. If it was good, your release chance drops by {{penalty}} %.",
+      "drift": "Goal drift: jumping over the goal moves it to a hidden field a few fields away – chase it into fresh territory."
+    },
+    "chance": {
+      "intro": "Every discovered card adds {{rate}} % release chance. The console shows the current value live; it always stays between {{min}} and {{max}} %.",
+      "plus": "More: discover new cards, collect performer tiers, Hail Mary and the draft factor multiply it.",
+      "minus": "Less: each revisited good field costs {{penalty}} %.",
+      "wheel": "On the goal the final wheel spins. Press Hold Position and hold for up to {{cap}} seconds – the wheel stops exactly when the countdown ends.",
+      "denied": "Denied is neutral: no penalty fields are added, nothing else changes."
+    },
+    "effects": {
+      "intro": "Effects stay active for a number of rounds or until something removes them. Active effects are listed in the console."
+    },
+    "actions": {
+      "intro": "Action cards in play. Each one triggers once; afterwards the field becomes a normal card.",
+      "good": "Good action cards",
+      "bad": "Bad action cards",
+      "introAlways": "Action cards in play. They trigger again every time you land on them."
+    },
+    "progression": {
+      "loss": "Losing (End Early, Mistress Says No, abandoning a session) adds penalty fields to the start wheel – {{step}} more with each loss in a row.",
+      "decay": "Penalty fields fade: {{count}} disappear every full hour.",
+      "success": "Success allowed and done: remove {{fields}} penalty fields, raise the good chance by {{percent}} % or block a bad action card for the next session.",
+      "partial": "Interrupted or no result: {{fields}} penalty fields are removed.",
+      "denied": "Denied changes nothing – no penalty, no reward."
+    },
+    "controls": {
+      "space": "Roll, confirm a task, continue",
+      "arrows": "Choose the direction",
+      "numbers": "Choose a stroke tier, a number or an option",
+      "gallery": "Open the gallery of discovered images",
+      "endEarly": "Hold to end the session early (counts as a loss)",
+      "pause": "Pause instantly – the screen turns neutral",
+      "escape": "Back to the start screen (outside a session)"
+    }
   }
 }

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { AppSettings } from '@shared/settings';
 
-export type Screen = 'home' | 'admin';
+export type Screen = 'home' | 'admin' | 'help';
 export type AdminSection =
   | 'folders'
   | 'mediaLibrary'

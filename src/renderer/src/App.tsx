@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { GameFlow } from './features/game/GameFlow';
 import { PauseScreen } from './features/game/PauseScreen';
 import { AdminScreen } from './features/admin/AdminScreen';
+import { HelpScreen } from './features/help/HelpScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { configureSound, setSoundMuted } from './sound/sound';
 import { useActionCardsStore } from './stores/actionCardsStore';
@@ -98,6 +99,7 @@ export function App() {
   const session = sessionSnapshot?.session ?? null;
   let content;
   if (screen === 'admin') content = <AdminScreen />;
+  else if (screen === 'help') content = <HelpScreen />;
   else if (!hasLoadedSession)
     content = <div className="p-12 font-label text-label text-ink-muted">{t('app.loading')}</div>;
   else if (session) content = <GameFlow session={session} />;

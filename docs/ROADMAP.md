@@ -251,6 +251,7 @@ Implements game-design **Revision 3** (all rules marked **[v2]**, decision log �
 | 11d.4 | Revisit penalty: a revisited good field costs 0.5 % release chance; console, task bar and final wheel show it; session schema v6 | ✅     |
 | 11d.5 | Final wheel: accelerate → cruise → short random hard brake instead of a long readable deceleration                               | ✅     |
 | 11d.6 | Dev component showcase removed (was AP12.5)                                                                                      | ✅     |
+| 11d.7 | Help screen for players (mechanics, effects, action cards, controls) with values from the active config                          | ✅     |
 
 ## AP12 – Stats, backup, polish, release · M · ⬜
 

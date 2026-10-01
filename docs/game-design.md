@@ -335,6 +335,10 @@ Layout (see design-system.md for sizes): **left console** (ring, stats, active e
   - **Performer collection** – performer name + progress towards the next bonus tier ("2 / 5", tier markers at 3 / 4 / 5); hidden without performer.
 - **Direction buttons** additionally show a **detour badge** on a side whose move would be a detour (§8.4), e.g. "Detour · +1 good", and the forced-reversal state (§8.7).
 
+### 7.1.1 Help Screen
+
+"Help" on the start screen opens a player guide with topics: how to play, draft & start wheel, moving, cards, board changes, release chance, effects, action cards, penalties & rewards, controls. Numbers (chance per card, revisit penalty, tiers, lockout, rewards) and the action card list come from the active configuration – incl. beta mode and custom card names – so the guide always matches the rules in play. Esc returns to the start screen.
+
 ### 7.2 Controls
 
 **[RULE]** Every control is reachable by keyboard; key hints are printed on the buttons.

@@ -44,6 +44,7 @@ function useNow(active: boolean): number {
 /** Start screen with the start wheel (mockup B·03). */
 export function StartScreen() {
   const { t } = useTranslation();
+  const navigate = useUiStore((state) => state.navigate);
   const openAdmin = useUiStore((state) => state.openAdmin);
   const answerResume = useUiStore((state) => state.answerResume);
   const scale = useAnimationScale();
@@ -147,6 +148,14 @@ export function StartScreen() {
       <header className="absolute top-8 right-12 left-12 flex items-center justify-between">
         <div className="font-display text-brand font-semibold uppercase tracking-brand">{t('app.title')}</div>
         <nav className="flex gap-2">
+          <Button
+            variant="text"
+            onClick={() => {
+              navigate('help');
+            }}
+          >
+            {t('help.title')}
+          </Button>
           <Button
             variant="text"
             onClick={() => {
