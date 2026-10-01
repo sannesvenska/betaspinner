@@ -8,7 +8,7 @@ const DEFAULT_WINDOW_HEIGHT = 900;
 /** Matches the `bg` design token so no white flash appears before the first paint. */
 const WINDOW_BACKGROUND = '#0C0B0A';
 /** Neutral title shown in the taskbar, never changed by the renderer (privacy). */
-export const NEUTRAL_WINDOW_TITLE = 'Chance Runner';
+export const NEUTRAL_WINDOW_TITLE = 'Betaspinner';
 
 interface CreateMainWindowOptions {
   fullscreen: boolean;

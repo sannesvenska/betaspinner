@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "Chance Runner",
+    "title": "Betaspinner",
     "loading": "Loading…",
     "loadError": "Could not load settings: {{error}}"
   },
@@ -310,7 +310,7 @@
     "empty": {
       "eyebrow": "First start",
       "title": "Add your folders",
-      "body": "Chance Runner plays with images from folders on this computer. Nothing leaves your machine.",
+      "body": "Betaspinner plays with images from folders on this computer. Nothing leaves your machine.",
       "step1": "Pick one or more folders – each folder is one category.",
       "step2": "Mark each folder as good or bad content, or as a performer gallery.",
       "step3": "The library is scanned; you need at least one good and one bad content folder to play."

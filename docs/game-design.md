@@ -1,6 +1,6 @@
-# Chance Runner – Game Design Document
+# Betaspinner – Game Design Document
 
-> **Purpose of this document:** Single source of truth for implementing Chance Runner with Claude Code.
+> **Purpose of this document:** Single source of truth for implementing Betaspinner with Claude Code.
 > Sections marked **[RULE]** are binding implementation rules. Values marked `default` are configurable in the admin area.
 > All user-facing text is referenced via i18n keys; names used here (e.g. action names) are **internal IDs**, not display labels.
 > Visual rules live in [design-system.md](design-system.md); work packages in [ROADMAP.md](ROADMAP.md).
@@ -11,7 +11,7 @@
 
 ## 1. Overview
 
-Chance Runner is a local Windows 11 Electron application that runs a 100-field, chance-based board game centered on displaying images. The app uses local image folders grouped into categories, a card generation system with weighted categories and action cards, stackable effects, a penalty/progression system across sessions, and persistent session state. All text labels are managed via a translation system so that wording sets can be swapped without code changes.
+Betaspinner is a local Windows 11 Electron application that runs a 100-field, chance-based board game centered on displaying images. The app uses local image folders grouped into categories, a card generation system with weighted categories and action cards, stackable effects, a penalty/progression system across sessions, and persistent session state. All text labels are managed via a translation system so that wording sets can be swapped without code changes.
 
 The app works fully offline. No network calls are made.
 
@@ -572,7 +572,7 @@ All actions are identified by ID; labels and descriptions come from i18n keys `a
 
 - **Built-ins:** one definition per type (21 incl. `redemption`) ships as default and can be edited, disabled or duplicated; built-ins cannot be deleted (reset to default instead).
 - **Variants:** the user can create more cards of the same type with their own name, params, weight and image (e.g. "Squeeze – hard" with count 15–30).
-- **Images [RULE]:** assigned in the admin by picking any supported media file. The file is **copied** into `userData/action-art/` and addressed by its content hash via `cr-media://` (the protocol serves index files and the action-art store only). One image per definition; the same file may not be assigned to two definitions (uniqueness check by hash).
+- **Images [RULE]:** assigned in the admin by picking any supported media file. The file is **copied** into `userData/action-art/` and addressed by its content hash via `bs-media://` (the protocol serves index files and the action-art store only). One image per definition; the same file may not be assigned to two definitions (uniqueness check by hash).
 - Stats and history record the definition id **and** type.
 
 ---
@@ -836,9 +836,9 @@ History screen: table of past sessions (sortable), plus summary (sessions, win r
 
 ## 19. Privacy & Safety
 
-- **Pause / Neutral Screen:** button plus global hotkey (`default Ctrl+Shift+Space`, configurable, displayed in Windows notation). Instantly replaces the entire window with a neutral screen ("Chance Runner · Paused", no images, no game data), stops all media playback and sounds, and freezes running countdowns. Unpausing requires a click or the hotkey again.
+- **Pause / Neutral Screen:** button plus global hotkey (`default Ctrl+Shift+Space`, configurable, displayed in Windows notation). Instantly replaces the entire window with a neutral screen ("Betaspinner · Paused", no images, no game data), stops all media playback and sounds, and freezes running countdowns. Unpausing requires a click or the hotkey again.
 - Optional: hotkey also minimizes the window.
-- Window title and taskbar name stay neutral ("Chance Runner").
+- Window title and taskbar name stay neutral ("Betaspinner").
 - No thumbnails are written to the OS cache; thumbnails are generated in memory only.
 - Optional admin PIN.
 
@@ -979,7 +979,7 @@ interface ImageMask {
 
 ## 21. Storage Layout
 
-All files live in `app.getPath('userData')` (e.g. `%APPDATA%/ChanceRunner/`):
+All files live in `app.getPath('userData')` (e.g. `%APPDATA%/Betaspinner/`):
 
 | File                   | Contents                                                           |
 | ---------------------- | ------------------------------------------------------------------ |
@@ -998,7 +998,7 @@ All files live in `app.getPath('userData')` (e.g. `%APPDATA%/ChanceRunner/`):
 ## 22. Technical Notes
 
 - **Electron security:** `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`; the renderer talks to the main process only through a typed preload API (`window.api.*`).
-- **Local image loading:** register a custom protocol (e.g. `cr-media://<hash>`) via `protocol.handle` that serves only files from registered folders. Do not use `file://` in the renderer.
+- **Local image loading:** register a custom protocol (e.g. `bs-media://<hash>`) via `protocol.handle` that serves only files from registered folders. Do not use `file://` in the renderer.
 - **Canvas effects:** see §12.4; heavy work (hashing, thumbnail generation) runs in the main process or a worker, never blocking the UI.
 - **RNG:** one seeded PRNG for all game randomness; its state is saved in the session so reloads continue deterministically.
 - **Animations:** Framer Motion for dice, card movement, card flips and wheels. Wheels use a precomputed target angle with an easing curve so the result is decided before the animation.
@@ -1068,7 +1068,7 @@ See [ROADMAP.md](ROADMAP.md) for work packages, order and milestones.
 - **Revisit markers:** task steps carry `revisit: 'converted'` (field turned bad) or `'collectible'` (collected card, plain task) so the UI can explain it.
 - **Notice order:** drift and detour notices are queued **before** the landed card's steps; their title is always the notice text.
 - **Release chance rounding:** `floor(x + 1e-9)`, so floating point noise (0.4 × 35 = 14.000000000000002) never costs a percent.
-- **Action images:** `cr-media://` serves library media first, then images assigned to a card from `userData/action-art/`; replaced or cleared images are deleted from the store when no card uses them.
+- **Action images:** `bs-media://` serves library media first, then images assigned to a card from `userData/action-art/`; replaced or cleared images are deleted from the store when no card uses them.
 - **Config:** `config.json` v3; missing built-in cards are added on load (e.g. `redemption` after an update); an image assigned to two cards stays on the first one only.
 - **Session file:** schema v2; a v1 file migrates to a marker and is discarded unscored, the start screen shows a notice once.
 - **Balancing:** `balancingBot.ts` simulates a player; with 0.5 % per card and 1 conversion per detour the bot averages 81 rounds and 41 % (details in ROADMAP AP9).

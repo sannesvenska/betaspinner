@@ -1,4 +1,4 @@
-# Chance Runner – Roadmap
+# Betaspinner – Roadmap
 
 > Work packages (AP) for implementing [game-design.md](game-design.md) with the [design-system.md](design-system.md).
 > Size: **S** ≈ < 1 day · **M** ≈ 1–3 days · **L** ≈ 3+ days (rough, focused work).
@@ -24,13 +24,13 @@ Order note: win flow (AP6) comes **before** actions (AP7) so a complete session 
 
 ## AP0 – Design finalization · M · ✅
 
-| #   | Task                                                                                                                                                                                                     | Status |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| 0.1 | Q&A with product owner, decisions recorded (game-design §24)                                                                                                                                             | ✅     |
-| 0.2 | Concept moved to `docs/game-design.md` and updated (ring, keyboard, sound, media formats, rules)                                                                                                         | ✅     |
-| 0.3 | Design system v0.3 (`docs/design-system.md`): tokens, accessibility fixes, layout grid, ring spec, components, motion, sound, screen inventory                                                           | ✅     |
-| 0.4 | Update core mockup: main screen with console chips, neutral direction buttons, hatched bad segments, action marker shapes, goal icon, ring-center preview (`Chance Runner Game Screen v0.3.html`, local) | ✅     |
-| 0.5 | Decided: remaining screens (design-system §9) are designed **in code** in the dev showcase route (AP1.9) instead of static mockups                                                                       | ✅     |
+| #   | Task                                                                                                                                                                                       | Status |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| 0.1 | Q&A with product owner, decisions recorded (game-design §24)                                                                                                                               | ✅     |
+| 0.2 | Concept moved to `docs/game-design.md` and updated (ring, keyboard, sound, media formats, rules)                                                                                           | ✅     |
+| 0.3 | Design system v0.3 (`docs/design-system.md`): tokens, accessibility fixes, layout grid, ring spec, components, motion, sound, screen inventory                                             | ✅     |
+| 0.4 | Update core mockup: main screen with console chips, neutral direction buttons, hatched bad segments, action marker shapes, goal icon, ring-center preview (`Game Screen v0.3.html`, local) | ✅     |
+| 0.5 | Decided: remaining screens (design-system §9) are designed **in code** in the dev showcase route (AP1.9) instead of static mockups                                                         | ✅     |
 
 **Result:** M0.
 
@@ -58,7 +58,7 @@ Order note: win flow (AP6) comes **before** actions (AP7) so a complete session 
 | 2.1 | `config.json` v2 `{ settings, folders }` with v1 migration; tolerant folder normalization; config service (read-only when the file is from a newer version)                                                                                        | ✅     |
 | 2.2 | Scanner in a worker thread (`?nodeWorker`): non-recursive, jpg/jpeg/png/webp/gif/webm/mp4, header parsing (dimensions, animated GIF/WebP/APNG), SHA-1 full (images) / partial (videos), cache by `path + size + mtime`, unreadable images rejected | ✅     |
 | 2.3 | `image-index.json` (schema bump = cache rebuild), startup scan, single-flight rescan, progress events                                                                                                                                              | ✅     |
-| 2.4 | `cr-media://media/<hash>` protocol: index-only lookup, path containment check, Range/206 for video, `no-store`                                                                                                                                     | ✅     |
+| 2.4 | `bs-media://media/<hash>` protocol: index-only lookup, path containment check, Range/206 for video, `no-store`                                                                                                                                     | ✅     |
 | 2.5 | `Media` component: image / looping muted video & GIF, `contain`, broken-media state                                                                                                                                                                | ✅     |
 | 2.6 | Library screen (folder list by group/role, status, rename, group/role, enable, remove, paged preview grid), first-run empty state, folder setup dialog, missing-folder / too-few-files / skipped-files states                                      | ✅     |
 
@@ -156,7 +156,7 @@ Implements game-design **Revision 3** (all rules marked **[v2]**, decision log �
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
 | 9.1  | Design-system update: session briefing, release-chance stat with breakdown tooltip, undiscovered counter, performer progress (tier markers), collectible marker (star), detour badge, forced-reversal state, stroke tier buttons, 1–3 dice | ✅     |
 | 9.2  | Data model + migration: `config.json` v3 (role `action` → disabled `content`, role `performer`, `allowedActions` dropped), `ActionCardDefinition` store with 21 built-ins, session `schemaVersion`; old sessions discarded unscored (§8.3) | ✅     |
-| 9.3  | Action-art store: copy picked file into `userData/action-art/`, hash, uniqueness check, `cr-media://` serves the store (§10.4)                                                                                                             | ✅     |
+| 9.3  | Action-art store: copy picked file into `userData/action-art/`, hash, uniqueness check, `bs-media://` serves the store (§10.4)                                                                                                             | ✅     |
 | 9.4  | Generator: initial task = N (§6.1), category count ranges (§6.2), performer selection (§6.2.1), action pool (§6.4), collectibles in composition + placement (§6.3/6.5), action images from definitions, collectible image bag (§6.6)       | ✅     |
 | 9.5  | Engine – release chance: pure `getReleaseChance` (discovered × rate + tier bonus, × multiplier, clamp), win check without roll, hold cap 60 s (§14)                                                                                        | ✅     |
 | 9.6  | Engine – board changes: detour conversion + cap (§8.4), revisit conversion (§8.5), collectibles (collect, revisit task 10–25, bonus tiers, §9.4), new resolver `redemption` (§10.1)                                                        | ✅     |

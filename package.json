@@ -1,8 +1,9 @@
 {
-  "name": "chance-runner",
-  "productName": "Chance Runner",
+  "name": "betaspinner",
+  "productName": "Betaspinner",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Local chance-based image board game",
   "main": "./out/main/index.js",
   "packageManager": "pnpm@10.16.0",

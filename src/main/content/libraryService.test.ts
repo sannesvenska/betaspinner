@@ -93,7 +93,7 @@ describe('libraryService', () => {
   });
 
   it('inspects picked folders: media count like the scan and already added paths', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'cr-inspect-'));
+    const root = await mkdtemp(join(tmpdir(), 'bs-inspect-'));
     try {
       await Promise.all(
         ['a.png', 'b.webm', 'c.gif', 'notes.txt', '.hidden.png'].map((name) =>

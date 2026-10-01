@@ -19,7 +19,7 @@ interface MediaProps {
 }
 
 /**
- * Renders any supported media from `cr-media://` with `object-fit: contain` (never cropped).
+ * Renders any supported media from `bs-media://` with `object-fit: contain` (never cropped).
  * GIF/WebM/MP4 autoplay, loop and stay muted (game-design §5.3).
  */
 export function Media({ hash, kind, alt, className, variant = 'stage', paused = false }: MediaProps) {

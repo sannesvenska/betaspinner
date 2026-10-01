@@ -1,4 +1,4 @@
-# Chance Runner – Design System "Darkroom" v0.3
+# Betaspinner – Design System "Darkroom" v0.3
 
 > Visual source of truth for the renderer. Game rules: [game-design.md](game-design.md).
 > v0.3 = v0.2 mockups (local, not versioned) + accessibility fixes + Q&A decisions of 2026-09-29.
@@ -78,7 +78,7 @@ Fluid sizing: display sizes use `clamp()` against viewport height so 1280×720 s
 
 ```
 ┌──────────── console ────────────┬──────────────── stage ────────────────┐
-│ CHANCE RUNNER                   │                                        │
+│ BETASPINNER                   │                                        │
 │         ┌──── ring ────┐        │                                        │
 │         │  FIELD 37    │        │            media (contain)             │
 │         │ ← 53 · 47 →  │        │                                        │
@@ -134,7 +134,7 @@ Ring center: phase-dependent – `FIELD n` + distances `← 53 · 47 →`, or `R
 
 **Hover / focus on a discovered segment:** the **ring center** temporarily shows a 200×200 preview (media thumbnail with current effects, `contain` on `stage`), `FIELD n · ▼ BAD` label, action icon if any, and the distance from the current field (`← 4 FROM HERE`). Leaving the segment restores the phase content. No floating tooltip – it would cover the ring. Segments are focusable in a roving tab-index group (`←`/`→` moves focus when the ring has focus). Disabled while a phase needs `←`/`→` for direction choice unless the ring itself has focus.
 
-Reference mockup: `Chance Runner Game Screen v0.3.html` (local mockup folder) – screens 01–03 + ring legend.
+Reference mockup: `Game Screen v0.3.html` (local mockup folder) – screens 01–03 + ring legend.
 
 ---
 

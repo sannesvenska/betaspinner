@@ -11,7 +11,7 @@ const EMPTY_INDEX: LibraryIndex = { entries: [], folders: {} };
 let root: string;
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'cr-scan-'));
+  root = await mkdtemp(join(tmpdir(), 'bs-scan-'));
   await mkdir(join(root, 'good'));
   await writeFile(join(root, 'good', 'a.png'), pngHeader(100, 50));
   await writeFile(join(root, 'good', 'b.gif'), gifFile(10, 10, 2));

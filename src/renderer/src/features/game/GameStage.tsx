@@ -30,7 +30,7 @@ export function GameStage({ card, mediaKinds, dimmed, paused, effects }: GameSta
       )}
     >
       {hash && kind ? (
-        <div key={hash} className="h-full w-full animate-[cr-fade-in_240ms_ease-out]">
+        <div key={hash} className="h-full w-full animate-[bs-fade-in_240ms_ease-out]">
           <EffectMedia hash={hash} kind={kind} paused={paused} {...effects} />
         </div>
       ) : card?.kind === 'action' && card.action ? (

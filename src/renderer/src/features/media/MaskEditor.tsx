@@ -249,7 +249,7 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
     if (entry?.kind !== 'video' || entry.width) return;
     const video = document.createElement('video');
     video.preload = 'metadata';
-    video.src = `cr-media://media/${entry.hash}`;
+    video.src = `bs-media://media/${entry.hash}`;
     video.onloadedmetadata = () => {
       if (video.videoWidth > 0) setVideoAspect(video.videoWidth / video.videoHeight);
     };
@@ -691,7 +691,7 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
                 {inverted && (
                   <>
                     <defs>
-                      <mask id="cr-mask-outside">
+                      <mask id="bs-mask-outside">
                         <rect x={0} y={0} width={1} height={1} fill="white" />
                         {regions.map((region) => (
                           <RegionShape key={region.id} region={region} className="fill-black" />
@@ -703,7 +703,7 @@ export function MaskEditor({ entries, startIndex, onClose, onSaved }: MaskEditor
                       y={0}
                       width={1}
                       height={1}
-                      mask="url(#cr-mask-outside)"
+                      mask="url(#bs-mask-outside)"
                       className="fill-masked/20"
                     />
                   </>

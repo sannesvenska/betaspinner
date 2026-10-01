@@ -93,8 +93,8 @@ export interface LibrarySnapshot {
   scanning: boolean;
 }
 
-export const MEDIA_PROTOCOL = 'cr-media';
-/** Standard schemes need a host part: cr-media://media/<hash> */
+export const MEDIA_PROTOCOL = 'bs-media';
+/** Standard schemes need a host part: bs-media://media/<hash> */
 export const mediaUrl = (hash: string): string => `${MEDIA_PROTOCOL}://media/${hash}`;
 
 /** Folder is usable for sessions (game-design §5.2 `minImages`). */

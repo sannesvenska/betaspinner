@@ -548,13 +548,13 @@ export function TaskBar({
       key={revealKey}
       className={classNames(
         'flex items-center gap-8 border-t bg-overlay px-12 backdrop-blur-overlay',
-        isBadAction ? 'animate-[cr-flash_600ms_ease-out] border-bad' : 'border-line',
+        isBadAction ? 'animate-[bs-flash_600ms_ease-out] border-bad' : 'border-line',
       )}
     >
       <div
         className={classNames(
           'flex min-w-0 flex-1 flex-col gap-1.5',
-          isActionReveal && 'origin-left animate-[cr-banner_320ms_ease-out]',
+          isActionReveal && 'origin-left animate-[bs-banner_320ms_ease-out]',
         )}
       >
         {content}

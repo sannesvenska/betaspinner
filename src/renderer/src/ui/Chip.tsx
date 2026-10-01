@@ -25,7 +25,7 @@ export function Chip({ group, icon, name, meta, description }: ChipProps) {
           tabIndex={0}
           aria-describedby={describedById}
           className={classNames(
-            'flex h-10 animate-[cr-chip-in_200ms_ease-out] items-center gap-2.5 rounded-panel border-l-3 bg-surface px-3 font-display text-chip font-semibold uppercase tracking-chip',
+            'flex h-10 animate-[bs-chip-in_200ms_ease-out] items-center gap-2.5 rounded-panel border-l-3 bg-surface px-3 font-display text-chip font-semibold uppercase tracking-chip',
             group === 'good' ? 'border-good text-good' : 'border-bad text-ink',
           )}
         >

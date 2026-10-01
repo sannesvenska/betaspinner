@@ -21,5 +21,5 @@ async function bootstrap(): Promise<void> {
 bootstrap().catch((error: unknown) => {
   // Last resort: i18n may not be ready, so no translated text here
   console.error('[renderer] bootstrap failed', error);
-  document.body.textContent = 'Chance Runner failed to start.';
+  document.body.textContent = 'Betaspinner failed to start.';
 });

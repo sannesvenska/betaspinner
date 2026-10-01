@@ -31,7 +31,7 @@ const makeStore = (overrides: Partial<JsonStoreOptions<Sample>> = {}) =>
   });
 
 beforeEach(async () => {
-  directory = await mkdtemp(join(tmpdir(), 'cr-store-'));
+  directory = await mkdtemp(join(tmpdir(), 'bs-store-'));
 });
 
 afterEach(async () => {

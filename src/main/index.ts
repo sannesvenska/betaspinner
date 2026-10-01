@@ -71,7 +71,7 @@ function registerPauseHotkey(accelerator: string): void {
 }
 
 // Dev/test only: isolate app data (config, index) from the real profile
-const userDataOverride = process.env.CHANCE_RUNNER_USER_DATA;
+const userDataOverride = process.env.BETASPINNER_USER_DATA;
 if (isDev && userDataOverride) app.setPath('userData', userDataOverride);
 
 if (!app.requestSingleInstanceLock()) {

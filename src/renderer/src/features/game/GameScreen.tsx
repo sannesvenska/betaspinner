@@ -351,7 +351,7 @@ export function GameScreen({ session }: GameScreenProps) {
       <div className="font-label text-label uppercase tracking-label text-ink-muted">{t('game.rolled')}</div>
       <div
         key={diceFace ?? session.lastRoll}
-        className="font-display text-display-xl font-bold text-good animate-[cr-land_160ms_ease-out]"
+        className="font-display text-display-xl font-bold text-good animate-[bs-land_160ms_ease-out]"
       >
         {diceFace ?? session.lastRoll}
       </div>

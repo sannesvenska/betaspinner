@@ -170,7 +170,7 @@ export function Ring({
                 stroke={stroke}
                 strokeWidth={stroke === 'none' ? 0 : 2}
                 fillOpacity={hiddenCollectible && !isCurrent ? HIDDEN_COLLECTIBLE_OPACITY : undefined}
-                className={isGoal && goalPulse ? 'animate-[cr-pulse_800ms_ease-in-out_infinite]' : undefined}
+                className={isGoal && goalPulse ? 'animate-[bs-pulse_800ms_ease-in-out_infinite]' : undefined}
                 onPointerEnter={
                   previewable
                     ? () => {

@@ -34,7 +34,7 @@ const textResponse = (status: number, message: string): Response =>
   new Response(message, { status, headers: { 'Content-Type': 'text/plain' } });
 
 /**
- * Serves `cr-media://media/<hash>` – only files that are in the index of a registered folder.
+ * Serves `bs-media://media/<hash>` – only files that are in the index of a registered folder.
  * No directory listing, no arbitrary paths (game-design §22).
  */
 export function handleMediaProtocol(resolve: (hash: string) => ResolvedMedia | undefined): void {

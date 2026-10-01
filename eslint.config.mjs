@@ -5,7 +5,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['out/**', 'dist/**', 'node_modules/**', 'ChanceRunner App-Konzept und Game Screen Design/**'] },
+  { ignores: ['out/**', 'dist/**', 'node_modules/**', 'design-mockups/**'] },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   {

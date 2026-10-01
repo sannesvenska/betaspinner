@@ -89,7 +89,7 @@ export function DraftBoard({ draft }: { draft: DraftState | null }) {
                 )}
               >
                 {revealed ? (
-                  <div className="h-full w-full animate-[cr-fade-in_240ms_ease-out]">
+                  <div className="h-full w-full animate-[bs-fade-in_240ms_ease-out]">
                     <FieldFace type={type} art={art} />
                   </div>
                 ) : back ? (
