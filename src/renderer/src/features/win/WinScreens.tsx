@@ -263,6 +263,14 @@ export function FinalWheelScreen({ session }: { session: SessionState }) {
               tone="muted"
             />
           )}
+          {check.draftMultiplier > 1 && (
+            <Stat
+              label={t('win.draftFactor')}
+              value={`×${check.draftMultiplier}`}
+              detail={t('win.draftFactorDetail')}
+              tone="good"
+            />
+          )}
           {check.multiplier > 1 && (
             <Stat
               label={t('win.multiplier')}

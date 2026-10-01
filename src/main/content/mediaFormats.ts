@@ -23,3 +23,8 @@ export const mediaFormatOf = (filePath: string): MediaFormat | undefined =>
 export const MEDIA_EXTENSIONS: readonly string[] = Object.keys(MEDIA_FORMATS).map((extension) =>
   extension.slice(1),
 );
+
+/** Still and animated images only (draft art has no video). */
+export const IMAGE_EXTENSIONS: readonly string[] = Object.entries(MEDIA_FORMATS)
+  .filter(([, format]) => !format.isVideo)
+  .map(([extension]) => extension.slice(1));

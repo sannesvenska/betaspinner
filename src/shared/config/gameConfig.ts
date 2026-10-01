@@ -1,3 +1,4 @@
+import { DEFAULT_DRAFT_CONFIG, type DraftConfig } from '../draft';
 import { DEFAULT_PENALTY_RULES, DEFAULT_SESSION_RULES } from '../session/defaults';
 import type { CollectibleTier, PenaltyRules, Range, SessionRules } from '../session/types';
 
@@ -21,12 +22,15 @@ export interface GameConfig {
   rules: SessionRules;
   penalties: PenaltyRules;
   visualEffects: VisualEffectsConfig;
+  /** game-design §6.0 session draft */
+  draft: DraftConfig;
 }
 
 export const DEFAULT_GAME_CONFIG: GameConfig = {
   rules: DEFAULT_SESSION_RULES,
   penalties: DEFAULT_PENALTY_RULES,
   visualEffects: DEFAULT_VISUAL_EFFECTS,
+  draft: DEFAULT_DRAFT_CONFIG,
 };
 
 export type FieldKind =
@@ -113,6 +117,23 @@ export const PERFORMER_RULE_FIELDS: readonly FieldSpec[] = [
   range('collectibleRevisitTaskRange', 'performer', 1, 200),
 ];
 
+/** game-design §6.0 session draft. */
+export const DRAFT_FIELDS: readonly FieldSpec[] = [
+  { key: 'enabled', kind: 'boolean', group: 'draft' },
+  int('fieldCount', 'draft', 2, 24),
+  int('picks', 'draft', 1, 24),
+  int('composition.bad', 'draftFields', 0, 24),
+  int('composition.good', 'draftFields', 0, 24),
+  int('composition.pixelate', 'draftFields', 0, 24),
+  int('composition.double', 'draftFields', 0, 24),
+  { key: 'goodShift', kind: 'percent', group: 'draftEffects', min: 0, max: 1, step: 0.01 },
+  { key: 'badShift', kind: 'percent', group: 'draftEffects', min: 0, max: 1, step: 0.01 },
+  int('pixelateLevels.one', 'draftEffects', 0, PIXELATE_LEVELS),
+  int('pixelateLevels.two', 'draftEffects', 0, PIXELATE_LEVELS),
+  int('pixelateLevels.three', 'draftEffects', 0, PIXELATE_LEVELS),
+  float('winMultiplier', 'draftEffects', 1, 5, 0.5),
+];
+
 /** game-design §13 / §14.3. */
 export const PENALTY_RULE_FIELDS: readonly FieldSpec[] = [
   int('lockoutMinutes', 'penalties', 0, 1440),
@@ -141,7 +162,9 @@ export type FieldError =
   | 'minAboveMax'
   | 'notAscending'
   | 'tooManySpecial'
-  | 'driftMax';
+  | 'driftMax'
+  | 'compositionSum'
+  | 'picksAboveFields';
 export type FieldErrors = Record<string, FieldError>;
 
 // --- generic access to (nested) keys ---
@@ -275,6 +298,15 @@ export function validateSessionRules(rules: SessionRules): FieldErrors {
 export const validatePenaltyRules = (penalties: PenaltyRules): FieldErrors =>
   validateFields(penalties, PENALTY_RULE_FIELDS);
 
+export function validateDraft(draft: DraftConfig): FieldErrors {
+  const errors = validateFields(draft, DRAFT_FIELDS);
+  const sum = Object.values(draft.composition).reduce((total, count) => total + count, 0);
+  if (!errors.fieldCount && sum !== draft.fieldCount) errors.fieldCount = 'compositionSum';
+  if (!errors.picks && !errors.fieldCount && draft.picks > draft.fieldCount)
+    errors.picks = 'picksAboveFields';
+  return errors;
+}
+
 export function validateVisualEffects(effects: VisualEffectsConfig): FieldErrors {
   const errors: FieldErrors = {};
   const spec: FieldSpec = {
@@ -387,6 +419,14 @@ export function normalizeSessionRules(value: unknown): SessionRules {
 export const normalizePenaltyRules = (value: unknown): PenaltyRules =>
   normalizeSection(value, DEFAULT_PENALTY_RULES, PENALTY_RULE_FIELDS);
 
+/** The field count always equals the composition; picks never exceed it. */
+export function normalizeDraft(value: unknown): DraftConfig {
+  const draft = normalizeSection(value, DEFAULT_DRAFT_CONFIG, DRAFT_FIELDS);
+  const sum = Object.values(draft.composition).reduce((total, count) => total + count, 0);
+  if (sum < 2) return DEFAULT_DRAFT_CONFIG;
+  return { ...draft, fieldCount: sum, picks: Math.min(draft.picks, sum) };
+}
+
 export function normalizeVisualEffects(value: unknown): VisualEffectsConfig {
   const fractions =
     typeof value === 'object' && value !== null ? (value as Section).pixelBlockFractions : undefined;
@@ -406,7 +446,8 @@ export function validateGameSection(
   update:
     | { section: 'rules'; value: SessionRules }
     | { section: 'penalties'; value: PenaltyRules }
-    | { section: 'visualEffects'; value: VisualEffectsConfig },
+    | { section: 'visualEffects'; value: VisualEffectsConfig }
+    | { section: 'draft'; value: DraftConfig },
 ): FieldErrors {
   switch (update.section) {
     case 'rules':
@@ -415,6 +456,8 @@ export function validateGameSection(
       return validatePenaltyRules(update.value);
     case 'visualEffects':
       return validateVisualEffects(update.value);
+    case 'draft':
+      return validateDraft(update.value);
   }
 }
 

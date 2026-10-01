@@ -3,6 +3,15 @@ import { actionGroup, type ActionId } from '@shared/actions';
 import type { FolderConfig, MediaEntry } from '@shared/content';
 import type { SessionMediaKinds, SessionSnapshot, SessionView, SpinResult } from '@shared/ipc';
 import type { GameConfig } from '@shared/config/gameConfig';
+import {
+  createDraft,
+  DRAFT_FIELD_TYPES,
+  draftOutcome,
+  isDraftComplete,
+  pickDraftField,
+  type DraftConfig,
+  type DraftState,
+} from '@shared/draft';
 import { DEFAULT_PROGRESSION } from '@shared/session/defaults';
 import type { EngineContext } from '@shared/session/engine/context';
 import { reduce, type EngineEvent } from '@shared/session/engine/reduce';
@@ -22,7 +31,13 @@ const MAX_SEED = 2 ** 31 - 1;
 export class SessionServiceError extends Error {
   constructor(
     readonly code:
-      'session_active' | 'locked_out' | 'no_session' | 'not_finished' | 'rejected' | 'reroll_unavailable',
+      | 'session_active'
+      | 'locked_out'
+      | 'no_session'
+      | 'not_finished'
+      | 'rejected'
+      | 'reroll_unavailable'
+      | 'draft_incomplete',
   ) {
     super(code);
     this.name = 'SessionServiceError';
@@ -53,6 +68,9 @@ export interface SessionService {
   close: () => Promise<SessionSnapshot>;
   /** §13.3 lazy decay – call on start and periodically. */
   tickDecay: () => Promise<void>;
+  /** §6.0: deals a draft if none is pending (and none is needed for a running session). */
+  dealDraft: () => Promise<SessionSnapshot>;
+  pickDraft: (index: number) => Promise<SessionSnapshot>;
   /** §6.2 `allowReroll`: once per session on the briefing – a fresh board without the current categories. */
   reroll: () => Promise<SessionView>;
   /** Admin (§16): penalty fields, good chance, loss streak, lockout and blocks back to defaults. */
@@ -120,6 +138,14 @@ export async function createSessionService(options: SessionServiceOptions): Prom
       throw new SessionServiceError('locked_out');
     }
 
+    // §6.0: the draft must be complete first; its result stays pending until a session starts
+    const draftConfig = options.game().draft;
+    const pending = progression.pendingDraft;
+    if (draftConfig.enabled && (!pending || !isDraftComplete(pending)))
+      throw new SessionServiceError('draft_incomplete');
+    const draft =
+      draftConfig.enabled && pending ? draftOutcome(pending, draftConfig, progression.goodChance) : null;
+
     const wheel = spinStartWheel(createRng(randomSeed()), options.game().rules, progression.penaltyFields);
     if (wheel.penalty) {
       const lockoutUntil = new Date(
@@ -140,6 +166,7 @@ export async function createSessionService(options: SessionServiceOptions): Prom
         folders: options.folders(),
         media: options.media(),
         progression,
+        draft,
       });
       // Session first: a crash in between must not burn a session index without a session
       await saveSession(generated);
@@ -148,6 +175,7 @@ export async function createSessionService(options: SessionServiceOptions): Prom
         sessionCounter: generated.sessionIndex,
         categoryUsage,
         blockedActionsNextSession: [],
+        pendingDraft: null,
       });
       discardedLegacySession = false;
       return { wheel, session: generated, mediaKinds: mediaKindsFor(generated), lockoutUntil: null };
@@ -230,6 +258,7 @@ export async function createSessionService(options: SessionServiceOptions): Prom
       folders: options.folders(),
       media: options.media(),
       progression: { ...progression, sessionCounter: current.sessionIndex - 1 },
+      draft: current.draft,
     });
     // The initial task was already done – continue on the new start card
     const started = reduce(generated, { type: 'confirm' }, context());
@@ -238,6 +267,33 @@ export async function createSessionService(options: SessionServiceOptions): Prom
     await saveSession(next);
     await saveProgression({ ...progression, categoryUsage });
     return { session: next, mediaKinds: mediaKindsFor(next) };
+  }
+
+  /** A pending draft is re-dealt only while untouched, e.g. after the admin changed the composition. */
+  function draftMatches(draft: DraftState, config: DraftConfig): boolean {
+    if (draft.picked.length > 0) return true;
+    return (
+      draft.picks === Math.min(config.picks, draft.board.length) &&
+      DRAFT_FIELD_TYPES.every(
+        (type) => draft.board.filter((entry) => entry === type).length === config.composition[type],
+      )
+    );
+  }
+
+  async function dealDraft(): Promise<SessionSnapshot> {
+    const config = options.game().draft;
+    const pending = progression.pendingDraft;
+    if (!config.enabled || isActive(session) || (pending && draftMatches(pending, config))) return snapshot();
+    await saveProgression({ ...progression, pendingDraft: createDraft(createRng(randomSeed()), config) });
+    return snapshot();
+  }
+
+  async function pickDraft(index: number): Promise<SessionSnapshot> {
+    const pending = progression.pendingDraft;
+    const next = pending ? pickDraftField(pending, index) : null;
+    if (!next) throw new SessionServiceError('rejected');
+    await saveProgression({ ...progression, pendingDraft: next });
+    return snapshot();
   }
 
   async function resetProgression(): Promise<SessionSnapshot> {
@@ -279,5 +335,16 @@ export async function createSessionService(options: SessionServiceOptions): Prom
     return { session: next, mediaKinds: mediaKindsFor(next) };
   }
 
-  return { snapshot, spin, dispatch, close, tickDecay, reroll, resetProgression, devPlaceAction };
+  return {
+    snapshot,
+    spin,
+    dispatch,
+    close,
+    tickDecay,
+    dealDraft,
+    pickDraft,
+    reroll,
+    resetProgression,
+    devPlaceAction,
+  };
 }

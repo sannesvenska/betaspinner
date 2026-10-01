@@ -46,6 +46,7 @@ describe('win flow (§14)', () => {
       base: 35 * 0.4,
       bonus: 0,
       multiplier: 1,
+      draftMultiplier: 1,
       finalChance: 14,
     });
     const multiplied = applyEffect([], { type: 'success_multiplier', value: 2 }, 0);
@@ -87,6 +88,17 @@ describe('win flow (§14)', () => {
     expect(ended.endReason).toBe(state.finalWheel?.result === 'denied' ? 'denied' : 'interrupted');
   });
 
+  it('stacks the draft factor with Hail Mary (§6.0)', () => {
+    const rules = { chancePerDiscovered: 0.5, winChanceBounds: [1, 95] as const, collectibleTiers: [] };
+    const { state } = reachGoal();
+    const cards = state.cards.map((card, index) => ({ ...card, discovered: index < 20 }));
+    const hailMary = applyEffect([], { type: 'success_multiplier', value: 1.5 }, 0);
+    expect(
+      computeReleaseChance({ cards, effects: hailMary, reachedTiers: [], draftMultiplier: 2 }, rules)
+        .finalChance,
+    ).toBe(30); // 20 × 0.5 = 10 → × 1.5 × 2
+  });
+
   it('caps the Hold Position countdown (§14.2 v2)', () => {
     const { state, context } = reachGoal();
     const many = {
@@ -105,7 +117,15 @@ describe('win flow (§14)', () => {
         {
           ...state,
           phase: 'final_wheel',
-          winCheck: { discovered: 30, rate: 1, base: 30, bonus: 0, multiplier: 1, finalChance: 30 },
+          winCheck: {
+            discovered: 30,
+            rate: 1,
+            base: 30,
+            bonus: 0,
+            multiplier: 1,
+            draftMultiplier: 1,
+            finalChance: 30,
+          },
         },
         context,
         {

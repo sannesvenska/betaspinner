@@ -18,7 +18,8 @@ import { DEFAULT_GAME_CONFIG, hasErrors, validateGameSection } from '@shared/con
 import { simulateSessions } from '@shared/session/simulateSessions';
 import { createActionCardService } from './config/actionCardService';
 import { createConfigService } from './config/configService';
-import { createActionArtStore } from './content/actionArtStore';
+import { createDraftArtService } from './config/draftArtService';
+import { cardImages, createActionArtStore } from './content/actionArtStore';
 import {
   createMaskService,
   EMPTY_MASK_FILE,
@@ -28,7 +29,7 @@ import {
 } from './masks/maskService';
 import { EMPTY_INDEX, INDEX_MIGRATIONS, INDEX_SCHEMA_VERSION, normalizeIndex } from './content/libraryIndex';
 import { createLibraryService } from './content/libraryService';
-import { MEDIA_EXTENSIONS } from './content/mediaFormats';
+import { IMAGE_EXTENSIONS, MEDIA_EXTENSIONS } from './content/mediaFormats';
 import { handleMediaProtocol, registerMediaScheme } from './content/mediaProtocol';
 import { runScanInWorker } from './content/runScanInWorker';
 import { registerIpcHandlers } from './ipc/registerIpcHandlers';
@@ -115,8 +116,18 @@ async function startApp(): Promise<void> {
 
   const actionArt = createActionArtStore(userData);
   const actionCards = createActionCardService(config, actionArt);
-  // Library media first; action card images are served from the app-owned action-art store
-  handleMediaProtocol((hash) => library.resolveMedia(hash) ?? actionArt.resolve(hash, actionCards.list()));
+  const draftArtStore = createActionArtStore(userData, 'draft-art');
+  const draftArt = createDraftArtService(config, draftArtStore);
+  // Library media first; action card and draft images come from the app-owned stores
+  handleMediaProtocol(
+    (hash) =>
+      library.resolveMedia(hash) ??
+      actionArt.resolve(hash, cardImages(actionCards.list())) ??
+      draftArtStore.resolve(
+        hash,
+        Object.values(draftArt.get()).map((entry) => entry?.image ?? null),
+      ),
+  );
 
   const sessions = await createSessionService({
     progressionStore: createJsonStore<Progression>({
@@ -211,6 +222,23 @@ async function startApp(): Promise<void> {
     'session:dispatch': (event) => sessions.dispatch(event),
     'session:close': () => sessions.close(),
     'session:reroll': () => sessions.reroll(),
+    'draft:deal': () => sessions.dealDraft(),
+    'draft:pick': ({ index }) => sessions.pickDraft(index),
+    'draftArt:get': () => draftArt.get(),
+    'draftArt:pickImage': async ({ slot }, event) => {
+      const window = BrowserWindow.fromWebContents(event.sender);
+      const options: Electron.OpenDialogOptions = {
+        properties: ['openFile'],
+        filters: [{ name: 'Images', extensions: [...IMAGE_EXTENSIONS] }],
+      };
+      const result = window
+        ? await dialog.showOpenDialog(window, options)
+        : await dialog.showOpenDialog(options);
+      const [path] = result.filePaths;
+      return result.canceled || !path ? draftArt.get() : draftArt.assign(slot, path);
+    },
+    'draftArt:setCrop': ({ slot, crop }) => draftArt.setCrop(slot, crop),
+    'draftArt:clear': ({ slot }) => draftArt.clear(slot),
     'progression:reset': () => sessions.resetProgression(),
     'config:getGame': () => config.get().game,
     'config:updateGame': async (update) => {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ACTION_CARD_FIELDS,
   ACTION_PARAM_BOUNDS,
+  DRAFT_FIELDS,
   FOLDER_FIELDS,
   PENALTY_RULE_FIELDS,
   PERFORMER_RULE_FIELDS,
@@ -19,6 +20,7 @@ describe('admin labels', () => {
       ...PENALTY_RULE_FIELDS,
       ...FOLDER_FIELDS,
       ...ACTION_CARD_FIELDS,
+      ...DRAFT_FIELDS,
     ];
     const admin = enNsfw.admin;
     for (const spec of specs) {

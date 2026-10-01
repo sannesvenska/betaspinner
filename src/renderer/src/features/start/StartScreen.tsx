@@ -12,6 +12,8 @@ import { Button } from '@renderer/ui/Button';
 import { KeyHint } from '@renderer/ui/KeyHint';
 import { SettingsDialog } from '@renderer/features/settings/SettingsDialog';
 import { playCue } from '@renderer/sound/sound';
+import { DraftBoard, DraftSummary } from '@renderer/features/draft/DraftBoard';
+import { draftOutcome, isDraftComplete } from '@shared/draft';
 import { StartWheel, type StartWheelHandle } from './StartWheel';
 
 const RESULT_PAUSE_MS = 1200;
@@ -69,8 +71,23 @@ export function StartScreen() {
   const ready =
     eligible.some((folder) => folder.group === 'good') && eligible.some((folder) => folder.group === 'bad');
 
+  // §6.0: the draft comes before the wheel
+  const draftConfig = useGameConfigStore((state) => state.config.draft);
+  const pendingDraft = progression?.pendingDraft ?? null;
+  const draftSeen = useUiStore((state) =>
+    pendingDraft ? state.seenDraftIds.includes(pendingDraft.id) : false,
+  );
+  const markDraftSeen = useUiStore((state) => state.markDraftSeen);
+  // Stays on the board after the last pick until the player has looked at the full reveal
+  const drafting =
+    draftConfig.enabled && ready && (!pendingDraft || !isDraftComplete(pendingDraft) || !draftSeen);
+  const draftResult =
+    draftConfig.enabled && pendingDraft && isDraftComplete(pendingDraft) && progression
+      ? draftOutcome(pendingDraft, draftConfig, progression.goodChance)
+      : null;
+
   const onSpin = async () => {
-    if (spinning || locked || !ready) return;
+    if (spinning || locked || !ready || drafting) return;
     setResult(null);
     setSpinning(true);
     const spun = await spin();
@@ -97,7 +114,8 @@ export function StartScreen() {
         return;
       if (event.key !== ' ' && event.key !== 'Enter') return;
       event.preventDefault();
-      if (spinning) wheelRef.current?.skip();
+      if (drafting && draftResult && pendingDraft) markDraftSeen(pendingDraft.id);
+      else if (spinning) wheelRef.current?.skip();
       else void onSpin();
     };
     window.addEventListener('keydown', onKeyDown);
@@ -161,8 +179,28 @@ export function StartScreen() {
         <div className="font-label text-label uppercase tracking-label text-ink-muted">
           {t('start.eyebrow', { number: String((progression?.sessionCounter ?? 0) + 1).padStart(3, '0') })}
         </div>
-        <h1 className="font-display text-display font-bold uppercase">{t('start.title')}</h1>
-        <p className="max-w-md text-body text-ink-2">{t('start.body')}</p>
+        <h1 className="font-display text-display font-bold uppercase">
+          {drafting ? t('draft.title') : t('start.title')}
+        </h1>
+        <p className="max-w-md text-body text-ink-2">
+          {drafting
+            ? t('draft.body', { picks: draftConfig.picks, total: draftConfig.fieldCount })
+            : t('start.body')}
+        </p>
+        {draftResult && <DraftSummary outcome={draftResult} />}
+        {drafting && draftResult && pendingDraft && (
+          <div>
+            <Button
+              variant="primary"
+              keyHint="Space"
+              onClick={() => {
+                markDraftSeen(pendingDraft.id);
+              }}
+            >
+              {t('draft.continue')}
+            </Button>
+          </div>
+        )}
         {locked && (
           <p className="max-w-md text-body text-bad">
             {t('start.lockedBody')} {formatRemaining(lockedMs)}.
@@ -190,12 +228,16 @@ export function StartScreen() {
       </section>
 
       <div className="flex h-[min(80vh,900px)] items-center justify-center">
-        <StartWheel
-          ref={wheelRef}
-          penaltyFields={progression?.penaltyFields ?? []}
-          highlight={result?.wheel.value ?? null}
-          hub={hub}
-        />
+        {drafting ? (
+          <DraftBoard draft={pendingDraft} />
+        ) : (
+          <StartWheel
+            ref={wheelRef}
+            penaltyFields={progression?.penaltyFields ?? []}
+            highlight={result?.wheel.value ?? null}
+            hub={hub}
+          />
+        )}
       </div>
 
       <aside className="flex flex-col gap-8">

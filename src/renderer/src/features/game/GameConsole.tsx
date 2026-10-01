@@ -102,6 +102,9 @@ export function GameConsole({
         })}
       </span>
       {releaseChance.bonus > 0 && <span>{t('console.chance.bonus', { bonus: releaseChance.bonus })}</span>}
+      {releaseChance.draftMultiplier > 1 && (
+        <span>{t('console.chance.draft', { multiplier: releaseChance.draftMultiplier })}</span>
+      )}
       {releaseChance.multiplier > 1 && (
         <span>{t('console.chance.multiplier', { multiplier: releaseChance.multiplier.toFixed(1) })}</span>
       )}

@@ -4,9 +4,17 @@ import type { ActionArtImage } from '@shared/content';
 import type { ActionCardPatch } from '@shared/ipc';
 import { DEFAULT_ACTION_CARDS } from '@shared/session/defaults';
 import type { ActionCardDefinition } from '@shared/session/types';
-import type { ActionArtStore } from '../content/actionArtStore';
+import { cardImages, type ActionArtStore } from '../content/actionArtStore';
 import { normalizeActionCards } from './actionCardsConfig';
 import type { ConfigService } from './configService';
+
+/** The four fields kept in config.json (dimensions are only needed while importing). */
+export const storedImage = ({ hash, fileName, mimeType, kind }: ActionArtImage): ActionArtImage => ({
+  hash,
+  fileName,
+  mimeType,
+  kind,
+});
 
 export class ActionCardError extends Error {
   constructor(readonly code: 'not_found' | 'built_in' | 'image_in_use' | 'invalid_card') {
@@ -51,7 +59,8 @@ export function createActionCardService(config: ConfigService, art: ActionArtSto
     const cards = await save((current) =>
       current.map((card) => (card.id === id ? { ...card, image } : card)),
     );
-    if (previous && previous.fileName !== image?.fileName) await art.removeIfUnused(previous, cards);
+    if (previous && previous.fileName !== image?.fileName)
+      await art.removeIfUnused(previous, cardImages(cards));
     return cards;
   }
 
@@ -72,7 +81,7 @@ export function createActionCardService(config: ConfigService, art: ActionArtSto
       const card = find(id);
       if (card.builtIn) throw new ActionCardError('built_in');
       const cards = await save((current) => current.filter((entry) => entry.id !== id));
-      if (card.image) await art.removeIfUnused(card.image, cards);
+      if (card.image) await art.removeIfUnused(card.image, cardImages(cards));
       return cards;
     },
     reset: (id) => {
@@ -85,10 +94,10 @@ export function createActionCardService(config: ConfigService, art: ActionArtSto
     },
     assignImage: async (id, sourcePath) => {
       find(id);
-      const image = await art.importFile(sourcePath);
+      const image = storedImage(await art.importFile(sourcePath));
       const owner = list().find((card) => card.image?.hash === image.hash);
       if (owner && owner.id !== id) {
-        await art.removeIfUnused(image, list());
+        await art.removeIfUnused(image, cardImages(list()));
         throw new ActionCardError('image_in_use');
       }
       return replaceImage(id, image);

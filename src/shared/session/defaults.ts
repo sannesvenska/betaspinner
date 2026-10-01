@@ -69,6 +69,7 @@ export const DEFAULT_PROGRESSION: Progression = {
   imageRecency: {},
   sessionCounter: 0,
   lastAppliedSessionId: null,
+  pendingDraft: null,
 };
 
 const builtIn = (

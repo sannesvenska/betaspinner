@@ -8,6 +8,7 @@ export type AdminSection =
   | 'actionCards'
   | 'rules'
   | 'performers'
+  | 'draft'
   | 'visualEffects'
   | 'penalties'
   | 'controls';
@@ -25,6 +26,8 @@ interface UiState {
   revealedSessionIds: string[];
   /** The resume question is asked once per app start. */
   resumeAnswered: boolean;
+  /** Drafts whose full reveal was acknowledged ("continue to the wheel") – UI-only step (§6.0). */
+  seenDraftIds: string[];
   navigate: (screen: Screen) => void;
   /** Opens the admin on a section (game-design §16). */
   openAdmin: (section: AdminSection) => void;
@@ -34,6 +37,7 @@ interface UiState {
   togglePause: () => void;
   markRevealed: (sessionId: string) => void;
   answerResume: () => void;
+  markDraftSeen: (draftId: string) => void;
 }
 
 export const useUiStore = create<UiState>()((set) => ({
@@ -43,6 +47,7 @@ export const useUiStore = create<UiState>()((set) => ({
   paused: false,
   revealedSessionIds: [],
   resumeAnswered: false,
+  seenDraftIds: [],
   navigate: (screen) => {
     set({ screen });
   },
@@ -71,6 +76,9 @@ export const useUiStore = create<UiState>()((set) => ({
   },
   answerResume: () => {
     set({ resumeAnswered: true });
+  },
+  markDraftSeen: (draftId) => {
+    set((state) => ({ seenDraftIds: [...state.seenDraftIds, draftId] }));
   },
 }));
 

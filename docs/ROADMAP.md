@@ -216,6 +216,18 @@ Implements game-design **Revision 3** (all rules marked **[v2]**, decision log �
 
 **Result:** M6 – masks.
 
+## AP11b – Session draft & mask additions · M · ✅
+
+| #     | Task                                                                                                                                                                      | Status |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 11b.1 | Masks: "no regions" = no visual effects; inverted masks (effects outside the regions) in model, pipeline and editor                                                       | ✅     |
+| 11b.2 | Add folders: the picker starts next to the most recently added folder                                                                                                     | ✅     |
+| 11b.3 | Draft model (`src/shared/draft.ts`): shuffled board, picks, outcome (good share, start pixelate 1/3/5, win factor); config with field schema and validation               | ✅     |
+| 11b.4 | Main: pending draft in progression (survives restarts and lockouts), spin only after a complete draft, outcome applied by the generator, reroll keeps it; draft art store | ✅     |
+| 11b.5 | Start screen: hidden fields → reveal all → summary → wheel; briefing, console and final wheel show the draft; admin section with square crop editor                       | ✅     |
+
+**Verified:** 190 tests; e2e in the running app: draft image assigned and cropped, 6 picks, full reveal + summary, session started with the drawn good share, start pixelate and win factor; inverted mask preview. Found and fixed: the first good-share formula applied the shifts one after another (average 30 % instead of the agreed 40 %).
+
 ## AP12 – Stats, backup, polish, release · M · ⬜
 
 1. Session stats collection + History screen (sortable table, summary).

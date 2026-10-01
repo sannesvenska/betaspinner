@@ -16,6 +16,9 @@ interface SessionStoreState {
   close: () => Promise<void>;
   /** §6.2 `allowReroll` on the briefing */
   reroll: () => Promise<void>;
+  /** §6.0 session draft */
+  dealDraft: () => Promise<void>;
+  pickDraft: (index: number) => Promise<void>;
   dismissError: () => void;
   /** Receives progression pushed by main (hourly decay); returns the unsubscribe function. */
   subscribe: () => () => void;
@@ -85,6 +88,18 @@ export const useSessionStore = create<SessionStoreState>()((set, get) => ({
     );
     // Category usage changed in main
     if (result.ok) void get().load();
+  },
+  dealDraft: async () => {
+    const result = await window.api.invoke('draft:deal', undefined);
+    set(result.ok ? { snapshot: result.data, error: null } : { error: result.error });
+  },
+  pickDraft: async (index) => {
+    if (get().busy) return;
+    set({ busy: true });
+    const result = await window.api.invoke('draft:pick', { index });
+    set(
+      result.ok ? { busy: false, snapshot: result.data, error: null } : { busy: false, error: result.error },
+    );
   },
   close: async () => {
     const result = await window.api.invoke('session:close', undefined);

@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { ActionCardsPanel } from '@renderer/features/library/ActionCardsPanel';
+import { DraftAdminSection } from '@renderer/features/draft/DraftAdminSection';
 import { FoldersSection } from '@renderer/features/library/FoldersSection';
 import { MediaLibrarySection } from '@renderer/features/media/MediaLibrarySection';
 import { SettingsForm } from '@renderer/features/settings/SettingsForm';
@@ -22,6 +23,7 @@ const SECTIONS: readonly AdminSection[] = [
   'actionCards',
   'rules',
   'performers',
+  'draft',
   'visualEffects',
   'penalties',
   'controls',
@@ -65,6 +67,9 @@ export function AdminScreen() {
       break;
     case 'performers':
       content = <PerformersSection />;
+      break;
+    case 'draft':
+      content = <DraftAdminSection />;
       break;
     case 'visualEffects':
       content = <VisualEffectsSection />;

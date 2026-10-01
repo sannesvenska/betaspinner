@@ -24,10 +24,16 @@ function memoryStore<T>(initial: T): JsonStore<T> & { current: () => T; writes: 
   };
 }
 
+/** Most tests are about the session itself; the draft has its own tests below. */
+const WITHOUT_DRAFT: GameConfig = {
+  ...DEFAULT_GAME_CONFIG,
+  draft: { ...DEFAULT_GAME_CONFIG.draft, enabled: false },
+};
+
 async function setup(
   progression: Progression = DEFAULT_PROGRESSION,
   storedSession: StoredSession = null,
-  game: GameConfig = DEFAULT_GAME_CONFIG,
+  game: GameConfig = WITHOUT_DRAFT,
 ) {
   const fixture = standardInput();
   const progressionStore = memoryStore(progression);
@@ -181,7 +187,7 @@ describe('sessionService idempotency and decay', () => {
 
 describe('sessionService admin features (AP10)', () => {
   it('snapshots the configured rules into a new session', async () => {
-    const game = { ...DEFAULT_GAME_CONFIG, rules: { ...DEFAULT_GAME_CONFIG.rules, holdSecondsCap: 30 } };
+    const game = { ...WITHOUT_DRAFT, rules: { ...DEFAULT_GAME_CONFIG.rules, holdSecondsCap: 30 } };
     const { service } = await setup(DEFAULT_PROGRESSION, null, game);
     const { session } = await service.spin();
     expect(session?.rules.holdSecondsCap).toBe(30);
@@ -194,7 +200,7 @@ describe('sessionService admin features (AP10)', () => {
       allowReroll: true,
       categoriesPerSession: { good: [1, 1], bad: [1, 1] } as const,
     };
-    const { service } = await setup(DEFAULT_PROGRESSION, null, { ...DEFAULT_GAME_CONFIG, rules });
+    const { service } = await setup(DEFAULT_PROGRESSION, null, { ...WITHOUT_DRAFT, rules });
     const { session } = await service.spin();
     await service.dispatch({ type: 'confirm' }); // initial task → briefing
     const { session: rerolled } = await service.reroll();
@@ -231,5 +237,46 @@ describe('sessionService admin features (AP10)', () => {
       sessionCounter: 9,
       imageRecency: { abc: 8 },
     });
+  });
+});
+
+describe('sessionService draft (§6.0)', () => {
+  async function completeDraft(service: Awaited<ReturnType<typeof setup>>['service']) {
+    await service.dealDraft();
+    for (let index = 0; index < 6; index++) await service.pickDraft(index);
+  }
+
+  it('requires a complete draft before the wheel and applies its result', async () => {
+    const { service, progressionStore } = await setup(DEFAULT_PROGRESSION, null, DEFAULT_GAME_CONFIG);
+    await expect(service.spin()).rejects.toMatchObject({ code: 'draft_incomplete' });
+    const dealt = await service.dealDraft();
+    expect(dealt.progression.pendingDraft?.board).toHaveLength(12);
+    // Dealing again keeps the same board (no re-roll by reopening the start screen)
+    expect((await service.dealDraft()).progression.pendingDraft?.id).toBe(dealt.progression.pendingDraft?.id);
+    await completeDraft(service);
+    await expect(service.pickDraft(7)).rejects.toMatchObject({ code: 'rejected' });
+    const { session } = await service.spin();
+    expect(session?.draft?.counts).toBeDefined();
+    const counts = session?.draft?.counts;
+    expect((counts?.bad ?? 0) + (counts?.good ?? 0) + (counts?.pixelate ?? 0) + (counts?.double ?? 0)).toBe(
+      6,
+    );
+    expect(session?.draftMultiplier).toBe(2 ** (counts?.double ?? 0));
+    const pixelate = session?.effects.find((effect) => effect.type === 'pixelate')?.value ?? 0;
+    expect(pixelate).toBe(session?.draft?.pixelLevel);
+    expect(progressionStore.current().pendingDraft).toBeNull();
+  });
+
+  it('keeps the draft through a penalty lockout', async () => {
+    const allPenalty = {
+      ...DEFAULT_PROGRESSION,
+      penaltyFields: Array.from({ length: 100 }, (_, i) => i + 1),
+    };
+    const { service, progressionStore } = await setup(allPenalty, null, DEFAULT_GAME_CONFIG);
+    await completeDraft(service);
+    const before = progressionStore.current().pendingDraft;
+    const result = await service.spin();
+    expect(result.wheel.penalty).toBe(true);
+    expect(progressionStore.current().pendingDraft).toEqual(before);
   });
 });

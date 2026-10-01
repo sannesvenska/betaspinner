@@ -12,6 +12,8 @@ import type { EngineEvent } from './session/engine/reduce';
 import type { GenerationErrorCode } from './session/generateSession';
 import type { WheelResult } from './session/goalAndStart';
 import type { GameConfig } from './config/gameConfig';
+import type { DraftArtSlot, DraftCrop } from './draft';
+import type { ActionArtImage } from './content';
 import type { ImageMask, MaskRegion, MaskStatus } from './masks';
 import type { SimulationResult } from './session/simulateSessions';
 import type { ActionCardDefinition, Progression, SessionState } from './session/types';
@@ -77,6 +79,9 @@ export interface MaskedMediaEntry extends MediaEntry {
   regionCount: number;
 }
 
+/** Draft images per slot (image in the action-art store + square crop). */
+export type DraftArtView = Record<DraftArtSlot, { image: ActionArtImage; crop: DraftCrop } | null>;
+
 export type GameConfigSection = keyof GameConfig;
 export type GameConfigUpdate = {
   [S in GameConfigSection]: { section: S; value: GameConfig[S] };
@@ -115,6 +120,14 @@ export interface IpcInvokeContract {
   /** Runs one engine event; the new state is saved before it is returned. */
   'session:dispatch': { request: EngineEvent; response: SessionView };
   'session:close': { request: undefined; response: SessionSnapshot };
+  /** §6.0 session draft: deal (if none pending) and turn over one field. */
+  'draft:deal': { request: undefined; response: SessionSnapshot };
+  'draft:pick': { request: { index: number }; response: SessionSnapshot };
+  /** Draft card images (square crops) – admin */
+  'draftArt:get': { request: undefined; response: DraftArtView };
+  'draftArt:pickImage': { request: { slot: DraftArtSlot }; response: DraftArtView };
+  'draftArt:setCrop': { request: { slot: DraftArtSlot; crop: DraftCrop }; response: DraftArtView };
+  'draftArt:clear': { request: { slot: DraftArtSlot }; response: DraftArtView };
   /** §6.2 `allowReroll`: new board without the current categories, once, on the briefing. */
   'session:reroll': { request: undefined; response: SessionView };
   'progression:reset': { request: undefined; response: SessionSnapshot };
@@ -183,6 +196,12 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'session:spin',
   'session:dispatch',
   'session:close',
+  'draft:deal',
+  'draft:pick',
+  'draftArt:get',
+  'draftArt:pickImage',
+  'draftArt:setCrop',
+  'draftArt:clear',
   'session:reroll',
   'progression:reset',
   'config:getGame',

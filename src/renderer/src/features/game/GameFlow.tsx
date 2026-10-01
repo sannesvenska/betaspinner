@@ -14,6 +14,7 @@ import { Button } from '@renderer/ui/Button';
 import { Dialog } from '@renderer/ui/Dialog';
 import { DIALOG_AUTOFOCUS } from '@renderer/ui/dialogAutofocus';
 import { Icon } from '@renderer/ui/icons/Icon';
+import { DraftSummary } from '@renderer/features/draft/DraftBoard';
 import { GameScreen } from './GameScreen';
 import { NO_EFFECTS } from '@renderer/effects/cardEffects';
 import { GameStage } from './GameStage';
@@ -175,6 +176,14 @@ function SessionBriefing({ session }: { session: SessionState }) {
           ))}
         </BriefingColumn>
       </div>
+      {session.draft && (
+        <div className="flex flex-col gap-2">
+          <div className="font-label text-label uppercase tracking-label text-ink-muted">
+            {t('briefing.draft')}
+          </div>
+          <DraftSummary outcome={session.draft} />
+        </div>
+      )}
       <div className="flex items-center gap-4">
         <Button variant="primary" size="primary" keyHint="Space" onClick={start}>
           {t('briefing.start')}

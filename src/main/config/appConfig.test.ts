@@ -4,7 +4,13 @@ import { DEFAULT_GAME_CONFIG } from '@shared/config/gameConfig';
 import { DEFAULT_ACTION_CARDS } from '@shared/session/defaults';
 import { DEFAULT_SETTINGS } from '@shared/settings';
 import { migrate } from '../storage/jsonStore';
-import { CONFIG_MIGRATIONS, CONFIG_SCHEMA_VERSION, normalizeConfig, normalizeFolder } from './appConfig';
+import {
+  CONFIG_MIGRATIONS,
+  CONFIG_SCHEMA_VERSION,
+  EMPTY_DRAFT_ART,
+  normalizeConfig,
+  normalizeFolder,
+} from './appConfig';
 
 describe('config migration', () => {
   it('moves v1 root settings into settings and adds an empty folder list', () => {
@@ -16,6 +22,7 @@ describe('config migration', () => {
       folders: [],
       actionCards: DEFAULT_ACTION_CARDS,
       game: DEFAULT_GAME_CONFIG,
+      draftArt: EMPTY_DRAFT_ART,
     });
   });
 

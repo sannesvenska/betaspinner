@@ -2,10 +2,11 @@ import { DEFAULT_PROGRESSION, DEFAULT_SESSION_RULES, GOOD_CHANCE_BOUNDS } from '
 import { TRACK_LENGTH } from '@shared/session/track';
 import type { SessionRecord } from '@shared/session/history';
 import type { Progression, SessionState } from '@shared/session/types';
+import { DRAFT_FIELD_TYPES, type DraftFieldType, type DraftState } from '@shared/draft';
 
 export const PROGRESSION_SCHEMA_VERSION = 1;
-/** v2 = game-design Revision 3 (gameplay v2; older sessions cannot be resumed), v3 = rules snapshot (AP10). */
-export const SESSION_SCHEMA_VERSION = 3;
+/** v2 = gameplay v2 (older sessions cannot be resumed), v3 = rules snapshot (AP10), v4 = draft (§6.0). */
+export const SESSION_SCHEMA_VERSION = 4;
 export const HISTORY_SCHEMA_VERSION = 1;
 
 /** Marker for a session of an older schema: discarded without scoring on load (§8.3 v2). */
@@ -21,6 +22,9 @@ export const SESSION_MIGRATIONS: Readonly<Record<number, (data: unknown) => unkn
     isRecord(data) && data.legacyDiscarded !== true
       ? { rules: DEFAULT_SESSION_RULES, rerolled: false, ...data }
       : data,
+  // v4: sessions started before the draft existed
+  3: (data) =>
+    isRecord(data) && data.legacyDiscarded !== true ? { draft: null, draftMultiplier: 1, ...data } : data,
 };
 
 export const isLegacySessionMarker = (value: StoredSession): value is LegacySessionMarker =>
@@ -81,7 +85,32 @@ export function normalizeProgression(data: unknown): Progression {
     imageRecency: numberRecord(data.imageRecency),
     sessionCounter: Math.max(0, Math.round(numberOr(data.sessionCounter, 0))),
     lastAppliedSessionId: stringOrNull(data.lastAppliedSessionId),
+    pendingDraft: normalizeDraftState(data.pendingDraft),
   };
+}
+
+/** A broken or foreign pending draft is dropped – a fresh one is dealt. */
+function normalizeDraftState(value: unknown): DraftState | null {
+  if (
+    !isRecord(value) ||
+    typeof value.id !== 'string' ||
+    !Array.isArray(value.board) ||
+    !Array.isArray(value.picked)
+  )
+    return null;
+  const board = value.board.filter((type): type is DraftFieldType =>
+    (DRAFT_FIELD_TYPES as readonly unknown[]).includes(type),
+  );
+  if (board.length !== value.board.length || board.length === 0) return null;
+  const picked = [
+    ...new Set(
+      value.picked.filter(
+        (index): index is number => Number.isInteger(index) && index >= 0 && index < board.length,
+      ),
+    ),
+  ];
+  const picks = Math.min(board.length, Math.max(1, Math.round(numberOr(value.picks, picked.length || 1))));
+  return { id: value.id, board, picked: picked.slice(0, picks), picks };
 }
 
 /**

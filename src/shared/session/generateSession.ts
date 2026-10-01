@@ -1,4 +1,5 @@
 import type { FolderConfig, MediaEntry } from '../content';
+import type { DraftOutcome } from '../draft';
 import type { Group } from '../game';
 import { assignActionSlots } from './assignActionSlots';
 import { placeStart } from './goalAndStart';
@@ -36,6 +37,8 @@ export interface GenerateSessionInput {
   now: string;
   /** Start wheel result = Goal Field and initial task count (game-design §6.1) */
   goalValue: number;
+  /** Session draft result (§6.0): good share of the normal cards, start pixelate, win factor */
+  draft?: DraftOutcome | null;
   rules: SessionRules;
   actionCards: readonly ActionCardDefinition[];
   folders: readonly FolderConfig[];
@@ -183,7 +186,10 @@ export function generateSession(input: GenerateSessionInput): GenerateSessionRes
   const normalFields = ALL_FIELDS.filter(
     (field) => field !== goalField && !actionByField.has(field) && !collectibleFields.has(field),
   );
-  const goodNormalCount = Math.round(normalFields.length * progression.goodChance);
+  // §6.0: the draft sets the normal good share; action cards stay linked to the progression good chance
+  const goodNormalCount = Math.round(
+    normalFields.length * (input.draft?.goodShare ?? progression.goodChance),
+  );
   const shuffledNormal = shuffle(rng, normalFields);
   const normalGroup = new Map<number, Group>(
     shuffledNormal.map((field, index) => [field, index < goodNormalCount ? 'good' : 'bad']),
@@ -237,6 +243,7 @@ export function generateSession(input: GenerateSessionInput): GenerateSessionRes
   };
   const cards: Card[] = ALL_FIELDS.map((field) => buildCard(rng, field, context));
 
+  const startPixelate = input.draft?.pixelLevel ?? 0;
   const categoryUsage: Progression['categoryUsage'] = { ...progression.categoryUsage };
   const usedFolders = [
     ...categories.good,
@@ -264,11 +271,17 @@ export function generateSession(input: GenerateSessionInput): GenerateSessionRes
       initialTaskCount: input.goalValue,
       rules,
       rerolled: false,
+      draft: input.draft ?? null,
+      draftMultiplier: input.draft?.winMultiplier ?? 1,
       categories,
       performerFolderId,
       actionPool: pool.map((card) => card.id),
       cards,
-      effects: [],
+      // §6.0 start pixelate: a normal, removable pixelate effect
+      effects:
+        startPixelate > 0
+          ? [{ id: 'pixelate', type: 'pixelate', value: startPixelate, createdRound: 0 }]
+          : [],
       round: 0,
       phase: 'initial_task',
       pending: [],
@@ -287,7 +300,7 @@ export function generateSession(input: GenerateSessionInput): GenerateSessionRes
       winCheck: null,
       finalWheel: null,
       reward: null,
-      stats: emptyStats(),
+      stats: { ...emptyStats(), maxPixelLevel: startPixelate },
     },
     categoryUsage,
   };

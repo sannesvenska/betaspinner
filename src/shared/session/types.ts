@@ -1,5 +1,6 @@
 import type { ActionId } from '../actions';
 import type { ActionArtImage } from '../content';
+import type { DraftOutcome, DraftState } from '../draft';
 import type { Group } from '../game';
 
 /** Inclusive integer or float range. */
@@ -122,6 +123,8 @@ export interface Progression {
   sessionCounter: number;
   /** Written together with the outcome, so closing a session twice never applies it twice. */
   lastAppliedSessionId: string | null;
+  /** Session draft in progress (§6.0) – kept until a session actually starts */
+  pendingDraft: DraftState | null;
 }
 
 export type CardKind = 'normal' | 'action' | 'goal' | 'collectible';
@@ -248,7 +251,10 @@ export interface ReleaseChance {
   base: number;
   /** Collectible tier bonus in percent */
   bonus: number;
+  /** Hail Mary success multiplier */
   multiplier: number;
+  /** Draft "double the win chance" factor (§6.0), stacks with Hail Mary */
+  draftMultiplier: number;
   finalChance: number;
 }
 
@@ -300,6 +306,10 @@ export interface SessionState {
   rules: SessionRules;
   /** The category selection was rerolled once on the briefing (`allowReroll`). */
   rerolled: boolean;
+  /** Result of the session draft (§6.0); null = no draft */
+  draft: DraftOutcome | null;
+  /** Release chance factor from the draft (1 = none); Bad Luck never removes it */
+  draftMultiplier: number;
   categories: Record<Group, string[]>;
   /** Performer folder of this session (§6.2.1); null = no collectibles */
   performerFolderId: string | null;

@@ -292,7 +292,7 @@ export function TaskBar({
                 <Button
                   key={value}
                   variant={value === tier ? 'primary' : 'outline'}
-                  size="primary"
+                  size="console"
                   keyHint={String(value)}
                   aria-pressed={value === tier}
                   className="px-5"

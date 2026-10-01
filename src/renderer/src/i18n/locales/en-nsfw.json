@@ -34,7 +34,8 @@
       "base": "{{discovered}} discovered × {{rate}} % = {{base}} %",
       "bonus": "+{{bonus}} % performer bonus",
       "multiplier": "× {{multiplier}} Hail Mary",
-      "cap": "Always between {{min}} and {{max}} %"
+      "cap": "Always between {{min}} and {{max}} %",
+      "draft": "× {{multiplier}} draft"
     }
   },
   "countdown": {
@@ -400,7 +401,8 @@
     "actions": "Action cards",
     "start": "Start",
     "reroll": "Reroll board",
-    "rerolled": "Board rerolled – no further reroll this session."
+    "rerolled": "Board rerolled – no further reroll this session.",
+    "draft": "Your draw"
   },
   "resume": {
     "title": "Resume session?",
@@ -561,7 +563,9 @@
     "areaAllowed": "Allowed",
     "areaDenied": "Denied",
     "bonus": "Performer bonus",
-    "bonusDetail": "{{collected}} collected"
+    "bonusDetail": "{{collected}} collected",
+    "draftFactor": "Draft",
+    "draftFactorDetail": "Win chance factor from the draw"
   },
   "outcome": {
     "allowedTitle": "Success allowed",
@@ -619,14 +623,16 @@
       "visualEffects": "Visual effects",
       "penalties": "Penalties & progression",
       "controls": "Sound & controls",
-      "mediaLibrary": "Media library"
+      "mediaLibrary": "Media library",
+      "draft": "Session draft"
     },
     "intro": {
       "rules": "How a session is built and played. Changes apply to the next session – a running session keeps its rules.",
       "performers": "Performer galleries place collectible cards on the board. Collecting them unlocks the bonus tiers once per session.",
       "penalties": "Penalty fields on the start wheel, what losses and outcomes change, and the good chance between sessions.",
       "visualEffects": "Pixelate block size per level, as share of the short image side. Levels must grow.",
-      "controls": "Sound cues, animations, window and the global pause hotkey."
+      "controls": "Sound cues, animations, window and the global pause hotkey.",
+      "draft": "Before the start wheel the player turns over some hidden fields. Their mix decides the good share of the normal cards, a start pixelate level and an extra win factor for the coming session."
     },
     "group": {
       "setup": "Start wheel",
@@ -642,7 +648,11 @@
       "pixelate": "Pixelate levels",
       "params": "Parameters",
       "folder": "Selection",
-      "card": "Frequency"
+      "card": "Frequency",
+      "draft": "Draft",
+      "draftFields": "Fields per type",
+      "draftEffects": "Effects",
+      "draftArt": "Card images"
     },
     "field": {
       "wheelRange": "Wheel range",
@@ -691,7 +701,20 @@
       "unmaskedEffectBehavior": "Effects without a mask",
       "weight": "Weight",
       "minPerSession": "Min. per session",
-      "maxPerSession": "Max. per session"
+      "maxPerSession": "Max. per session",
+      "enabled": "Draft before every session",
+      "fieldCount": "Hidden fields",
+      "picks": "Fields to turn over",
+      "composition_bad": "Bad fields",
+      "composition_good": "Good fields",
+      "composition_pixelate": "Pixelate fields",
+      "composition_double": "Win ×2 fields",
+      "goodShift": "Each good field: bad → good",
+      "badShift": "Each bad field: good → bad",
+      "pixelateLevels_one": "Pixelate with 1 field",
+      "pixelateLevels_two": "Pixelate with 2 fields",
+      "pixelateLevels_three": "Pixelate with 3+ fields",
+      "winMultiplier": "Win factor per ×2 field"
     },
     "option": {
       "actionRetrigger": {
@@ -718,7 +741,9 @@
       "notAscending": "Must be higher than the previous one",
       "tooManySpecial": "Action cards + collectibles (max.) must not exceed 45",
       "driftMax": "Must be at least the max. drift distance",
-      "invalid": "Some values are invalid – nothing was saved."
+      "invalid": "Some values are invalid – nothing was saved.",
+      "compositionSum": "Must equal the sum of the fields per type",
+      "picksAboveFields": "Cannot be more than the hidden fields"
     },
     "min": "Min",
     "max": "Max",
@@ -783,5 +808,41 @@
       "safetyZone": "Safety zone (fields)",
       "shieldEnabled": "Shield when nothing to remove"
     }
+  },
+  "draft": {
+    "title": "Draw your session",
+    "body": "Turn over {{picks}} of {{total}} hidden fields. They decide the good and bad cards, a start pixelate and maybe a doubled win chance.",
+    "remaining": "{{count}} of {{total}} left to turn over",
+    "done": "Your draw – all fields revealed",
+    "boardLabel": "Draft fields",
+    "hidden": "Hidden field {{number}}",
+    "type": {
+      "bad": "Bad cards",
+      "good": "Good cards",
+      "pixelate": "Pixelate",
+      "double": "Win ×2"
+    },
+    "slot": {
+      "back": "Card back",
+      "bad": "Bad cards",
+      "good": "Good cards",
+      "pixelate": "Pixelate",
+      "double": "Win ×2"
+    },
+    "summary": {
+      "goodShare": "Good cards",
+      "pixelate": "Start pixelate",
+      "winChance": "Win chance",
+      "level": "Level {{level}}"
+    },
+    "admin": {
+      "artIntro": "One square image per card type and one for the hidden back. Images are copied into the app; choose the square part with \"Crop\".",
+      "noImage": "No image",
+      "crop": "Crop",
+      "cropTitle": "Crop · {{slot}}",
+      "cropHint": "Drag the square to move it, drag its corner to resize.",
+      "unsupported": "Only images can be used (no videos)."
+    },
+    "continue": "Continue to the wheel"
   }
 }

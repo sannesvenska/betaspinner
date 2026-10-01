@@ -25,9 +25,9 @@ function setup() {
   const art: ActionArtStore = {
     directory: 'art',
     // The file name encodes which "file" was picked: C:/pics/<letter>.png
-    importFile: (path) => Promise.resolve(imageFor(path.slice(-5, -4))),
-    removeIfUnused: (image, cards) => {
-      if (!cards.some((card) => card.image?.fileName === image.fileName)) removed.push(image.fileName);
+    importFile: (path) => Promise.resolve({ ...imageFor(path.slice(-5, -4)), width: 10, height: 10 }),
+    removeIfUnused: (image, used) => {
+      if (!used.some((entry) => entry?.fileName === image.fileName)) removed.push(image.fileName);
       return Promise.resolve();
     },
     resolve: () => undefined,

@@ -134,6 +134,22 @@ Pipeline order:
 5. Placement on the track (§6.5)
 6. Image assignment (§6.6)
 
+### 6.0 Session Draft (Revision 4, 2026-10-01)
+
+**[RULE]** Before the start wheel the player turns over `picks` (`default 6`) of `fieldCount` (`default 12`) hidden fields. The board is shuffled with the session RNG and stored in progression (`pendingDraft`): it survives app restarts and penalty lockouts and is cleared only when a session actually starts. A reroll on the briefing keeps the draft result.
+
+| Field type    | Default count | Effect (all configurable)                                                                                      |
+| ------------- | ------------- | -------------------------------------------------------------------------------------------------------------- |
+| Bad cards     | 6             | Each turns `badShift` (`1/6`) of the good normal cards bad                                                     |
+| Good cards    | 2             | Each turns `goodShift` (`1/3`) of the bad normal cards good                                                    |
+| Pixelate      | 3             | Start pixelate level: 1 field → 1, 2 fields → 3, 3 fields → 5 (max level); a normal, removable pixelate effect |
+| Win chance ×2 | 1             | Release chance factor `winMultiplier` (`×2`) per field; stacks with Hail Mary, Bad Luck never removes it       |
+
+- **Good share of the normal cards** (both shifts on the base split at once): `share = base × (1 − bad × badShift) + (1 − base) × min(1, good × goodShift)`, base = progression good chance. 6 × bad → no good normal cards; 2 × good (base 0.4) → 0.8; the average draw (3 bad, 1 good) keeps the base. Action cards stay linked to the progression good chance; performers, actions and conversions are unaffected.
+- **Flow:** each picked field turns over at once; after the last pick all fields are revealed (unpicked ones faded) with a summary (good cards %, start pixelate, win factor). "Continue to the wheel" then shows the start wheel. The summary also appears in the briefing, the console breakdown and the final wheel.
+- **Images:** one square image per field type plus the card back, picked in the admin, copied into `userData/draft-art/` and cropped to a square (`crop` normalized to the image). Without an image a neutral icon is shown.
+- **Admin ("Session draft"):** on/off, field count, picks, fields per type (must add up to the field count), shifts, pixelate levels, win factor.
+
 ### 6.1 Goal Field and Start Position
 
 - The start wheel yields a value N from `wheel.range` (`default [1, 100]`). N is the Goal Field number.
